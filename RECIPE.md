@@ -135,7 +135,19 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   closes at once. Closing a space's last tab closes the space (herdr asks).
 - **New**: `+ >_` starts a shell in that pane. `+ ⠿` opens a "new window" tab
   with the picker; a pick opens there: on the left a herdr tab, on the right
-  a terminal or view of the right pane. Esc puts back what was shown.
+  a terminal or view of the right pane. Esc puts back what was shown. Its
+  rows: a shell, the installed agents, herdr's files, changes and agents, the
+  person's own list, herdr settings, then "configure windows…" (copies a
+  prompt for the person's agent and shows a toast with the file's path; the
+  picker stays open). The search starts empty each time it shows.
+- **The person's own list**: `orbit-windows.json` in herdr-app's home,
+  `{ "windows": [ { "title", "about"?, "icon"?, "mod" + "props"? | "command"
+  + "args"? } ] }`, read each time the picker shows. A mod opens in the
+  picker's pane; a command runs once the picker's tab has gone (a dialog it
+  opens stays on top). `"$folder"` in props or args becomes the pane's
+  folder. A missing file is an empty list; a broken one shows its error above
+  the rows; an entry without a title, or without a mod or command, is skipped
+  and named.
 - **The right pane**: a terminal there is a herdr tab of its own, shown as a
   terminal block; the left keeps its own tab shown. The split toggle shows the
   right pane (its tabs, or the picker when it has none) or puts it away
@@ -212,7 +224,9 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
     `backgrounds/`.
   - `orbit-add`: the picker, in a pane (`props.side`), in the panel
     (`props.panel`) or as a dialog. Agents from `knownAgents` (installed
-    ones; kept in shared `"orbit.add.known"` per machine).
+    ones; kept in shared `"orbit.add.known"` per machine). `windows.js` reads
+    `orbit-windows.json` and makes the Configure prompt.
+  - `defaults/orbit-windows.json`: `{ "windows": [] }`.
   - `orbit-dialogs`, opened with `props.dialog`: `menu` (derived from
     herdr-app's `menu` mod; icons from herdr's shipped `workspace-chrome`),
     `confirm`, `switcher`, `new-tab`.
@@ -248,7 +262,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - **Programs**: `git status --porcelain=v2 --branch` and `git rev-parse` in
   each space's folder (on its machine), `hc machine ls --json`,
   `df -B1 --output=used,avail,size,target <home>`; files read: `/proc/stat`,
-  `/proc/loadavg`, `/proc/meminfo`, `layouts/orbit.json`.
+  `/proc/loadavg`, `/proc/meminfo`, `layouts/orbit.json`,
+  `orbit-windows.json` (the picker's list: its entries run what they name).
 - **Art**: `scripts/space.py` renders the background (procedural, seeded),
   `scripts/blur.py` its blurred copy, `scripts/glyphs.py` the 8 symbols in
   `mods/orbit-tabs/glyphs/`. The status bar's icons, the fillets and the ⠿
@@ -300,6 +315,10 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   per press.
 - The menus' icons come from herdr's shipped `workspace-chrome` mod; another
   herdr version may move them.
+- **`orbit-windows.json` is the person's own**: copy `defaults/orbit-windows.json`
+  into herdr-app's home only when there's none, and never replace it (on an
+  update too). Its entries run what they name (a mod, a herdr-app command):
+  tell the person, and add entries only when they ask.
 - **Updating**: copies don't update themselves, and the add flow never
   overwrites (it would make `orbit-2`). To update, remove `layouts/orbit.json`,
   `layouts/orbit.svg`, `mods/orbit`, every `mods/orbit-*` (an older copy may
@@ -339,3 +358,6 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   back to the space before.
 - The panel's `+ ⠿` adds "agents" as a third view tab; middle-clicking a view's
   tab removes it.
+- An entry added to `orbit-windows.json` shows in the picker the next time it
+  opens, and opens in that pane; "configure windows…" copies the prompt and
+  shows the toast.

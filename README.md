@@ -27,8 +27,13 @@ pick the **orbit** layout in herdr-app's settings (or `ctrl-shift-l`).
 Check a name isn't taken first: the layout is `orbit`, the mods are `orbit` and
 `orbit-*`, the theme is `orbit`.
 
-`./install.sh` does the same copy and the keys merge, keeps a list of what it
-copied, moves aside anything of yours under the same name, and
+The picker's own list is `orbit-windows.json` in herdr-app's home (see the
+picker below). Without the file the list is empty; to start one, copy
+`defaults/orbit-windows.json` there.
+
+`./install.sh` does the same copy and the keys merge, creates
+`orbit-windows.json` from `defaults/` when it's missing (never overwriting
+it), keeps a list of what it copied, moves aside anything of yours under the same name, and
 `./install.sh --remove` takes it away again. It is a convenience: nothing
 needs it.
 
@@ -46,11 +51,12 @@ copy (`orbit-2`, ...). To update, either:
   (it removes `layouts/orbit.json`, `layouts/orbit.svg`, `mods/orbit` and
   `mods/orbit-*` and `themes/orbit.json` first, then copies the new ones and
   replaces the `layout:orbit` section of `keys.json`; your other files and
-  keys stay as they are); or
+  keys and `orbit-windows.json` stay as they are); or
 - run `./install.sh` from a fresh clone: it replaces what it installed before
   and moves anything else under the same names to a backup folder.
 
-Your clicks (sizes, what's shown) stay in `layouts/.state/`.
+Your clicks (sizes, what's shown) stay in `layouts/.state/`, and your
+`orbit-windows.json` is never replaced.
 
 ## What you see
 
@@ -82,8 +88,20 @@ Your clicks (sizes, what's shown) stay in `layouts/.state/`.
     close the pane).
   - `+ >_` opens a new terminal in that pane; `+ ⠿` a "new window" tab with
     the picker (`orbit-add`): a shell, the coding agents installed here,
-    herdr's files, changes and agents, herdr's settings. Type to filter, ↑/↓,
-    Enter, Esc puts back what was shown.
+    herdr's files, changes and agents, your own list, herdr's settings, and
+    "configure windows…". Type to filter, ↑/↓, Enter, Esc puts back what was
+    shown.
+  - Your own list is `orbit-windows.json` in herdr-app's home. Each entry is
+    a `title`, an optional `about` and `icon` (an .svg under that folder),
+    then either a `mod` (a folder in `mods/`) with optional `props`, opened in
+    the pane, or a `command` (any herdr-app command) with optional `args`.
+    `$folder` in props or args becomes the pane's folder:
+    `{ "windows": [ { "title": "Notes", "mod": "my-notes", "props": { "folder": "$folder" } } ] }`.
+    The picker reads the file each time it shows; a broken file shows its
+    error there, and the rest of the picker still works.
+  - "configure windows…" copies a prompt for your own agent to the clipboard
+    (the file, the format, where installed mods and their props are) and
+    shows a toast with the file's path.
 - **Side panel** (its tab row is `orbit-tabs` too): herdr's files and changes to start
   with, framed as the panes are, with a tab each. `+ ⠿` picks another view
   for it; tabs rename, move and close like the panes' (right-click: Rename,
@@ -131,7 +149,10 @@ sidebar, `ctrl-shift-l` the layout).
   its repo's colour; `orbit-sidebar-footer` and `orbit-dialogs` (the menu) run it to offer
   the worktree items.
 - `orbit-add` asks herdr-app which coding agents are installed
-  (`knownAgents`).
+  (`knownAgents`), and reads `orbit-windows.json` from herdr-app's home each
+  time it shows: what that file lists opens or runs when you pick it (a mod,
+  or a herdr-app command with its args). "configure windows…" writes a prompt
+  to the clipboard.
 - `orbit-status` reads `/proc/stat`, `/proc/loadavg` and `/proc/meminfo`, and
   runs `df` on your home folder every 30 s.
 - `orbit` reads and writes `layouts/orbit.json` in herdr-app's home: it puts
@@ -155,6 +176,8 @@ sidebar, `ctrl-shift-l` the layout).
   that use them: the copies are the same file.
 - `themes/orbit.json`
 - `keys.json`: the keys, to merge into herdr-app's
+- `defaults/orbit-windows.json`: an empty list for the picker, to copy into
+  herdr-app's home when you have none
 - `scripts/space.py` and `scripts/blur.py` make the background and its blurred
   copy; `scripts/glyphs.py` the symbols. Only needed to change them.
 

@@ -106,4 +106,13 @@ for rel in "${gone[@]}"; do
 done
 
 keys
+
+# orbit-windows.json: what the "new window" picker lists besides a terminal,
+# the agents and herdr's own views (mods/orbit-add/windows.js). It's the
+# person's file: made from defaults/ only when missing, never overwritten, and
+# not in the manifest, so --remove leaves it.
+if [[ ! -e $home/orbit-windows.json ]]; then
+  cp "$repo/defaults/orbit-windows.json" "$home/orbit-windows.json"
+  echo "created $home/orbit-windows.json (the picker's list: edit it, or use its \"configure windows…\" row)"
+fi
 echo "done: switch to the orbit layout in herdr-app's settings (or ctrl-shift-l)"

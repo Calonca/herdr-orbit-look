@@ -165,7 +165,11 @@ export function dragKit(host, color, drop, double = null) {
           cx.stop_propagation();
           const n = e?.click_count ?? 1;
           host.drag = ok && n < 2 ? { from: i, over: i } : null;
-          if (n === 2 && double) double(i, cx);
+          // The first press shows the tab, and the row can move under the
+          // pointer before the second: it's the first one's tab that's meant.
+          const first = host.pressed && Date.now() - host.pressed.at < 600 ? host.pressed.i : i;
+          host.pressed = n < 2 ? { i, at: Date.now() } : null;
+          if (n === 2 && double) double(first, cx);
         })
         .on_mouse_move((_e, cx) => {
           const g = host.drag, over = ok ? i : g?.from;
@@ -210,6 +214,7 @@ export function editKit(host, save) {
       };
       host.edit = { key, input, value, cancel: (cx) => finish(cx, false), keep: (cx) => finish(cx, true) };
       input.on("submit", (_e, cx) => finish(cx, true));
+      input.on("change", (_e, cx) => cx.notify()); // the field grows with the name
       // herdr moves its focus on its own (the click that showed the tab, a
       // pane.focus): while the field is open it takes the keys back. A press
       // anywhere else ends it (keeping the name), as Enter does.
@@ -217,9 +222,10 @@ export function editKit(host, save) {
       input.focus();
       cx.notify();
     },
-    // The field, as wide as the name with room to type.
+    // The field, as wide as the name being typed, with room for more.
     field(t, label) {
-      const w = Math.max(70, Math.min(220, 7.2 * String(label ?? "").length + 28));
+      const now = host.edit?.input?.value?.() ?? label ?? "";
+      const w = Math.max(70, Math.min(260, 7.4 * Math.max(String(label ?? "").length, String(now).length) + 32));
       return div().id("orbit-rename").flex_none()
         .on_key_down((e, cx) => { if (e.key === "escape") { cx.stop_propagation(); host.edit?.cancel(cx); } })
         .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
