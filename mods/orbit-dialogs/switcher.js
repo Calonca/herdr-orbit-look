@@ -5,8 +5,7 @@
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, shared, run, theme, props, closeOverlay } from "herdr";
-import { look } from "./look.js";
-import { identity, glyph, glyphPath, spaceKey, statusColor } from "./identity.js";
+import { look, spaceLook, glyphPath, statusColor } from "./look.js";
 
 export class Switcher {
   init(_props, cx) {
@@ -35,15 +34,15 @@ export class Switcher {
     this.at = Math.min(this.at, rows.length - 1);
     const row = (s, i) => {
       const on = i === this.at;
-      const key = spaceKey(s);
+      const { color, glyph } = spaceLook(s);
       const fill = statusColor(s.status);
       return h_flex().id(`sw-${s.id}`).h(42).px(18).gap(14).items_center().flex_none()
         .when(on, (el) => el.bg(t.selected))
         .hover((el) => el.bg(t.hover))
         .on_click(() => this.go(s))
         .child(div().size(16).flex_none().relative()
-          .when(Boolean(fill), (el) => el.child(svg(glyphPath(glyph(key), true)).absolute().size(16).text_color(fill)))
-          .child(svg(glyphPath(glyph(key), false)).absolute().size(16).text_color(identity(key))))
+          .when(Boolean(fill), (el) => el.child(svg(glyphPath(glyph, true)).absolute().size(16).text_color(fill)))
+          .child(svg(glyphPath(glyph, false)).absolute().size(16).text_color(color)))
         .child(div().max_w(260).truncate().text_size(16).text_color(t.foreground).when(on, (el) => el.font_semibold()).child(s.name))
         .child(div().flex_1().truncate().text_size(14).text_color(t.muted).child(s.machine ?? "local"))
         .when(Boolean(s.status) && s.status !== "idle", (el) => el.child(div().text_size(13).text_color(t.muted).child(s.status)));

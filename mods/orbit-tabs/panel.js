@@ -12,8 +12,7 @@
 import { div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { props, run, theme, layout, openOverlay, spaces } from "herdr";
-import { identity, spaceKey } from "./identity.js";
-import { look, PANEL_MIN, glass, find, ask, keysIn } from "./look.js";
+import { look, PANEL_MIN, glass, find, ask, keysIn, spaceLook } from "./look.js";
 import { rowKit, muted, rowGlass, remember, dragKit, editKit, inColumn } from "./rowframe.js";
 import { tabMenuItems, menuHeight } from "./tabmenu.js";
 
@@ -58,7 +57,7 @@ export class PanelRow {
     // focus, as the outline: look.js), else the border's.
     const active = spaces().find((s) => s.active);
     const focused = keysIn() === "panel";
-    const ident = active ? identity(spaceKey(active)) : t.accent;
+    const ident = active ? spaceLook(active).color : t.accent;
     const line = focused ? ident : t.border;
     const show = (child) => { ask("focus", { side: "panel" }); run("layout.select", { stack: id, child }); };
 
@@ -136,7 +135,7 @@ export class PanelRow {
     // focused() says nothing about a mod): see pane.js.
     const take = () => { if (keysIn() !== "panel") ask("focus", { side: "panel" }); };
     // The row's glass below the tab line (rowframe.js rowGlass).
-    const under = rowGlass(this, L, layout(), "panel-tabs", glass(t));
+    const under = rowGlass(this, L, "panel-tabs", glass(t));
     return drag.root(h_flex().id(`orbit-panel-tabs-${id}`).size_full().min_w(0).items_start().overflow_x_hidden().relative())
       .on_size_change((size, cx) => {
         if (size.width !== this.own?.width || size.height !== this.own?.height) { this.own = size; cx.notify(); }

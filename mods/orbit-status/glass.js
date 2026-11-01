@@ -19,7 +19,7 @@
 
 import { div, image } from "gpui-kit";
 import { settings } from "herdr";
-import { BACKGROUND } from "./look.js";
+import { look } from "./look.js";
 
 export function zoom() {
   return settings()?.zoom || 1;
@@ -43,9 +43,10 @@ export function backdrop({ x, y, w, h, radius = 0, corners = "", fill }) {
   const z = zoom();
   const px = (v) => v / z;
   const base = div().absolute().left(0).top(0).w(px(w)).h(px(h));
-  const picture = BACKGROUND;
+  // The background's blurred copy; a picture without one gets the plain fill.
+  const picture = look().background;
   const view = viewport();
-  if (!view || !(w > 0) || !(h > 0) || !Number.isFinite(x) || !Number.isFinite(y)) {
+  if (!picture?.blur || !view || !(w > 0) || !(h > 0) || !Number.isFinite(x) || !Number.isFinite(y)) {
     return base.bg(fill).rounded(px(radius));
   }
   const at = cover(picture, view);
@@ -93,57 +94,4 @@ export function orbitPlace(L, where, own) {
   if (where === "sidebar-bottom") return { x: 0, y: view.height - keys - status - own.height };
   if (where === "status") return { x: 0, y: view.height - keys - own.height };
   return null;
-}
-
-// Where block `id` of the shown layout sits in the window, in window pixels
-// ({ x, y, width, height }), worked out from the layout as herdr-app lays it
-// out: each row/column's padding and gap, its shown children's px sizes and
-// weights (shares of what px siblings leave), min/max, every length zoomed
-// and rounded to whole pixels. null without a viewport or that block. Rows
-// and columns with a divider (a pane's middle) aren't walked into: the tab
-// rows (`<pane>-tabs`) are found without.
-export function blockPlace(L, id) {
-  const view = viewport();
-  if (!view || !L) return null;
-  const z = zoom();
-  const r = (v) => Math.round((v || 0) * z);
-  const walk = (node, box) => {
-    if (node.id === id) return box;
-    const kids = (node.children ?? []).filter((c) => !c.hidden);
-    if (!kids.length || (node.type !== "row" && node.type !== "column")) return null;
-    const pad = Array.isArray(node.padding) ? node.padding : [node.padding ?? 0, node.padding ?? 0];
-    const inner = { x: box.x + r(pad[1]), y: box.y + r(pad[0]), width: box.width - 2 * r(pad[1]), height: box.height - 2 * r(pad[0]) };
-    const across = node.type === "row";
-    const main = across ? inner.width : inner.height;
-    const between = r(node.gap) + r(node.divider?.width);
-    const clamp = (c, v) => Math.min(c.max != null ? r(c.max) : Infinity, Math.max(c.min != null ? r(c.min) : 0, v));
-    // The px ones first; the weights share the rest, a weighted one held at
-    // its min (or max) taking that out of the share for the others.
-    const size = new Map();
-    for (const c of kids) if (c.size?.px != null) size.set(c, clamp(c, r(c.size.px)));
-    let free = main - between * (kids.length - 1) - [...size.values()].reduce((a, b) => a + b, 0);
-    let open = kids.filter((c) => !size.has(c));
-    for (let round = 0; round < kids.length && open.length; round++) {
-      const total = open.reduce((a, c) => a + (c.size?.weight ?? 1), 0);
-      const held = open.filter((c) => clamp(c, free * (c.size?.weight ?? 1) / total) !== free * (c.size?.weight ?? 1) / total);
-      if (!held.length) break;
-      for (const c of held) { const v = clamp(c, free * (c.size?.weight ?? 1) / total); size.set(c, v); free -= v; }
-      open = open.filter((c) => !size.has(c));
-    }
-    const total = open.reduce((a, c) => a + (c.size?.weight ?? 1), 0);
-    for (const c of open) size.set(c, free * (c.size?.weight ?? 1) / total);
-    let at = across ? inner.x : inner.y;
-    for (const c of kids) {
-      const s = size.get(c);
-      const childBox = across ? { x: Math.round(at), y: inner.y, width: Math.round(at + s) - Math.round(at), height: inner.height }
-        : { x: inner.x, y: Math.round(at), width: inner.width, height: Math.round(at + s) - Math.round(at) };
-      if (!c.divider || c.id === id) {
-        const found = walk(c, childBox);
-        if (found) return found;
-      }
-      at += s + between;
-    }
-    return null;
-  };
-  return walk(L, { x: 0, y: 0, width: view.width, height: view.height });
 }

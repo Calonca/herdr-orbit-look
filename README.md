@@ -172,8 +172,10 @@ sidebar, `ctrl-shift-l` the layout).
   (`orbit-tabs`), the pane outline (`orbit-edge`), the picker (`orbit-add`),
   the menus and dialogs (`orbit-dialogs`).
 - A mod can only import files from its own folder, so a few small shared
-  files (`look.js`, `glass.js`, `identity.js`, ...) are copied into the mods
-  that use them: the copies are the same file.
+  files (`look.js`, `glass.js`, ...) are copied into the mods that use them:
+  the copies are the same file. What every mod would otherwise work out
+  again (each space's colour and symbol, the look, where the tab rows sit)
+  the `orbit` mod works out once and shares.
 - `themes/orbit.json`
 - `keys.json`: the keys, to merge into herdr-app's
 - `defaults/orbit-windows.json`: an empty list for the picker, to copy into

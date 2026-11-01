@@ -1,6 +1,7 @@
 // Each space's identity: a stable colour and symbol (FNV-1a of its name; a
-// worktree's repo), the same in the tab row and the sidebar. This file is the
-// same in every orbit mod that uses it.
+// worktree's repo), the same in the tab row and the sidebar. Only the orbit
+// mod has this file: it works them out and shares them (publish(), shared
+// "orbit.identity"), and the other mods read them (look.js spaceLook()).
 
 import { theme, shared, setShared, panes, spaces, exec } from "herdr";
 
@@ -51,9 +52,6 @@ export function glyph(name) {
   return (fnv(name) >>> 9) % 8;
 }
 
-export function glyphPath(kind, filled) {
-  return `mods/orbit-tabs/glyphs/${kind}${filled ? "-fill" : ""}.svg`;
-}
 
 // A space's identity comes from its name; a worktree and the
 // main checkout it belongs to share their repo's (the common git dir), so they
@@ -97,8 +95,14 @@ export function lookUpRepos(cx) {
   }
 }
 
-// An agent's state as a colour: blocked red, working yellow, done green.
-export function statusColor(status) {
-  const k = { blocked: "ansi1", working: "ansi3", done: "ansi2" }[status];
-  return k ? theme()[k] : null;
+// Every space's colour and symbol, into shared "orbit.identity"
+// ({ [space id]: { color, glyph } }) when they changed.
+export function publish() {
+  const out = {};
+  for (const space of spaces()) {
+    const key = spaceKey(space);
+    out[space.id] = { color: identity(key), glyph: glyph(key) };
+  }
+  const now = shared("orbit.identity");
+  if (JSON.stringify(now) !== JSON.stringify(out)) setShared("orbit.identity", out);
 }

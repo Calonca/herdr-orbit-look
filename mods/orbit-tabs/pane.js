@@ -13,8 +13,7 @@
 import { div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { panes, spaces, props, run, theme, openOverlay, layout } from "herdr";
-import { identity, glyph, glyphPath, spaceKey, statusColor, lookUpRepos } from "./identity.js";
-import { look, glass, find, ask } from "./look.js";
+import { look, glass, find, ask, spaceLook, glyphPath, statusColor } from "./look.js";
 import { mark, main, WIDGET } from "./labels.js";
 import { state, LEFT_TAB, entries, entryLabel, isSplit } from "./sides.js";
 import { rowKit, muted, rowGlass, track, remember, dragKit, editKit, inColumn } from "./rowframe.js";
@@ -30,7 +29,6 @@ export class PaneRow {
   render(cx) {
     const side = props()?.stack;
     if (side !== "left" && side !== "right") return div();
-    lookUpRepos(cx);
     const t = theme();
     const L = look();
     const RADIUS = Math.min(6, L.radius);
@@ -40,8 +38,7 @@ export class PaneRow {
     const st = state();
     const ps = panes();
     const list = entries(space, side, st, ps);
-    const key = spaceKey(space);
-    const ident = identity(key);
+    const { color: ident, glyph } = spaceLook(space);
     const focused = st.focus === side;
     const line = focused ? ident : t.border;
     const stop = (_e, cx) => cx.stop_propagation();
@@ -61,7 +58,7 @@ export class PaneRow {
     const terminal = list.some((e) => e.kind === "term" || (e.kind === "tab" && ps.some((p) => p.tab === e.tab.id && p.terminal)));
     const lead = side === "left" && terminal
       ? seg(h_flex().flex_shrink_1().min_w(48).overflow_hidden().pl(18).pr(12).gap(9).items_center()
-        .child(svg(glyphPath(glyph(key), false)).size(13).flex_none().text_color(ident))
+        .child(svg(glyphPath(glyph, false)).size(13).flex_none().text_color(ident))
         .child(div().min_w(0).max_w(220).truncate().text_size(14).font_bold().text_color(t.foreground).child(space.name)), { first: true })
         .flex_shrink_1().min_w(48)
       : seg(div().w(12), { first: true });
@@ -164,7 +161,7 @@ export class PaneRow {
     // So each row watches every press in the window and takes those in its
     // own pane's column (rowframe.js inColumn).
     const take = () => { if (state().focus !== side) ask("focus", { side }); };
-    const under = rowGlass(this, L, layout(), `${side}-tabs`, glass(t));
+    const under = rowGlass(this, L, `${side}-tabs`, glass(t));
     return drag.root(track(this, h_flex().id(`orbit-tabs-${side}`).size_full().min_w(0).items_start().overflow_x_hidden()))
       .on_mouse_down_out((e, cx) => { remember(this, e?.bounds, cx); if (inColumn(e)) take(); })
       .on_mouse_down("left", () => take())

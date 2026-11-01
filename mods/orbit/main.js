@@ -7,6 +7,9 @@
 //   hidden when it has none), which pane has the keys, an agent shown from the
 //   agents list or an alert (on the right, its terminal block shows).
 // - The order spaces were last shown in (shared "orbit.recent").
+// - What the other mods draw with, worked out once: each space's colour and
+//   symbol ("orbit.identity"), the look ("orbit.look"), where the tab rows
+//   sit ("orbit.places").
 // - Commands for keys.json (its "layout:orbit" section), on the focused pane:
 //   orbit.tab1..9, .next, .prev   show its tab N, the next, the previous; with
 //                                 no tab N on the left, a prompt to make one
@@ -29,9 +32,9 @@ import { View, div } from "gpui-kit";
 import { spaces, run, shared, setShared, nextCommand, openOverlay, watchFolder, appHome, theme, layout, focused, panes } from "herdr";
 import { state, leftTabs, rightEntries, entries, shownEntry, LEFT_TAB, FRAME } from "./sides.js";
 import { save, show, showRight, close, closeAsked, cancelAsk, newTerminal, newMod, openPending, dropPending, move, toggleSplit, toggleSidePanel, renameEntry, reorderRight } from "./actions.js";
-import { apply, closePanelView, renamePanelView, movePanelView, addPanelView } from "./layout.js";
+import { apply, closePanelView, renamePanelView, movePanelView, addPanelView, share } from "./layout.js";
 import { find } from "./look.js";
-import { identity, spaceKey } from "./identity.js";
+import { identity, spaceKey, lookUpRepos, publish } from "./identity.js";
 
 // This build's version, also in shared "orbit.version" (shared.json in
 // herdr-app's home), so you can see which one you have.
@@ -90,7 +93,14 @@ export default class Orbit extends View {
     run(name, args);
   }
 
+  // What the other mods draw with, worked out here once: the spaces' colours
+  // and symbols, the look, the tab rows' places (identity.js, layout.js).
+  shareAll(cx) {
+    try { lookUpRepos(cx); publish(); share(); } catch (e) { console.log(`orbit: ${e}`); }
+  }
+
   sync(cx) {
+    this.shareAll(cx);
     const L = layout();
     if (!find(L, "left") || !find(L, "right")) return;
     const space = spaces().find((s) => s.active);
@@ -304,8 +314,10 @@ export default class Orbit extends View {
       this.redraw(cx);
     }
     this.surface = surface;
-    // A space switch shows its right pane at once, not at the next tick.
+    // A space switch shows its right pane at once, not at the next tick (and
+    // shares the spaces' colours).
     if (this.sent) this.sync(cx);
+    else this.shareAll(cx);
     const now = active?.id;
     const list = recent();
     if (now && list[0] !== now) setShared(RECENT, [now, ...list.filter((id) => id !== now)]);

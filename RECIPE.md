@@ -236,16 +236,22 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   - `orbit-sidebar-footer`, `orbit-status`, `orbit-edge` (the 6px cap with
     `props.pane`; with no props it draws nothing).
   - Only in `orbit`: `actions.js` (show, new, close, move, split, rename,
-    reorder, the panel toggle) and `layout.js` (the layout writer, the panel's
-    views in shared `"orbit.settings".views`).
+    reorder, the panel toggle), `layout.js` (the layout writer, the panel's
+    views in shared `"orbit.settings".views`, the look and the tab rows'
+    places it shares) and `identity.js` (each space's colour and symbol, the
+    repo lookup: shared `"orbit.git"`). The orbit mod works these out once
+    and shares them: `"orbit.identity"` (`{ [space id]: { color, glyph } }`),
+    `"orbit.look"` (the sizes and the background picture), `"orbit.places"`
+    (the tab rows' place in the window, for their glass before an event
+    gives a row its own).
   - Shared files, copied into the mods that import them (the same file):
-    `look.js` (sizes, glass, the pane with the keys, `ask()`), `sides.js`
+    `look.js` (reads the shared look, a space's colour and symbol, the pane
+    with the keys; `ask()`), `sides.js`
     (what is where, read from shared `"orbit.sides"`: terminals and views on
     the right, the shown one per space, pending pickers, the pane with the
     keys, names and order), `glass.js` (the blurred backdrop), `rowframe.js` (the tab row's segments
     and folder tab, drag to move, the name field), `tabmenu.js` (a tab's menu
-    items), `identity.js` (colours, symbols, the repo lookup: shared
-    `"orbit.git"`), `labels.js` (tab names and icons).
+    items), `labels.js` (tab names and icons).
   - `keys.json`: `{ "layout:orbit": { ... } }`, the keys as `orbit.<command>`.
 - **herdr API**: `spaces`, `panes`, `agents`, `machines`, `updates`,
   `layout`, `focused`, `theme`, `settings`, `shared`, `setShared`, `exec`,
@@ -278,8 +284,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - The `orbit` mod rewrites `layouts/orbit.json` (glass and outline colours):
   edit those there and they come back. It must be in the layout for the
   outline to follow the space.
-- Paths across mods: the layout and every `glass.js` use
-  `mods/orbit/backgrounds/`; `identity.js` uses `mods/orbit-tabs/glyphs/` and
+- Paths across mods: the layout and `look.js` use
+  `mods/orbit/backgrounds/`; `look.js` uses `mods/orbit-tabs/glyphs/` and
   `labels.js` `mods/orbit-tabs/widget.svg`. Renaming a mod on a name clash
   means changing those paths in every copy.
 - herdr-app clips a pane's content inside its frame and has one focus colour

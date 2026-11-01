@@ -9,8 +9,7 @@
 
 import { View, div } from "gpui-kit";
 import { props, theme, spaces } from "herdr";
-import { identity, spaceKey } from "./identity.js";
-import { look, LINE, keysIn, glass } from "./look.js";
+import { look, LINE, keysIn, glass, spaceLook } from "./look.js";
 
 export default class OrbitEdge extends View {
   render() {
@@ -19,7 +18,7 @@ export default class OrbitEdge extends View {
     const pane = props()?.pane;
     if (!pane) return div();
     const active = spaces().find((s) => s.active);
-    const line = keysIn() === pane && active ? identity(spaceKey(active)) : t.border;
+    const line = keysIn() === pane && active ? spaceLook(active).color : t.border;
     return div().id(`orbit-edge-${pane}`).size_full().bg(glass(t)).border_color(line)
       .border_l(LINE).border_r(LINE).border_t(LINE).rounded_t(L.radius);
   }

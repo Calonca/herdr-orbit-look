@@ -18,7 +18,7 @@ import { div, svg } from "gpui-kit";
 import { h_flex, v_flex, InputState, Input } from "gpui-base";
 import { shared } from "herdr";
 import { LINE } from "./look.js";
-import { backdrop, blockPlace, zoom } from "./glass.js";
+import { backdrop, zoom } from "./glass.js";
 
 // The colour below the tab line: on a focused pane, `ring` (the space's)
 // 0.3 of the way from the border grey, then 0.6 of the way to its own grey;
@@ -100,12 +100,12 @@ export function rowKit(t, L, line, low, fillets) {
 //
 // Where: the row's own bounds, as the last pointer move over it or press
 // anywhere reported them, while its size is still that; else worked out from
-// the layout (blockPlace), e.g. before the first.
-export function rowGlass(host, L, tree, blockId, fill) {
+// the layout by the orbit mod (shared "orbit.places"), e.g. before the first.
+export function rowGlass(host, L, blockId, fill) {
   const z = zoom();
   const own = host.own;
   const seen = host.at && own && Math.abs(host.at.width - own.width) < 1 && Math.abs(host.at.height - own.height) < 1 ? host.at : null;
-  const at = seen ?? blockPlace(tree, blockId) ?? null;
+  const at = seen ?? shared("orbit.places")?.[blockId] ?? null;
   const w = own?.width ?? at?.width, h = own?.height ?? at?.height;
   if (!w || !h) return null;
   const band = (L.radius + LINE) * z;
