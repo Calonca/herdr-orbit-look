@@ -2,8 +2,9 @@
 
 A dark, glassy workspace over a generated space picture. Each space gets a
 colour and a symbol of its own, and the pane you're in is outlined in it, with
-its tabs as the bottom of that outline. A sidebar lists your spaces with their
-branches; a status bar shows cpu, ram, disk and what your agents are doing.
+its tabs as the bottom of that outline. Two panes side by side, each with its
+own tabs; a side panel of views; a sidebar of your spaces with their branches;
+a status bar with cpu, ram, disk and what your agents are doing.
 
 ![Orbit](preview.png)
 
@@ -47,10 +48,18 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
     row has a 20px `▾`/`▸` fold in accent at its right.
   - At the foot, an 86px block: "▸ agents" (27px row, 16px) and under it
     "open folder" (16px, `#a9b1d6`).
-- **The pane**, the rest of the width, in an outline 2px wide with corners of
-  radius 4: in the shown space's colour while it has the keys, else the border
-  colour. Its top is a 6px cap with the rounded corners; its sides run down to
-  the tab row.
+- **Two panes**, sharing the rest of the width (each at least 240px), each in
+  an outline 2px wide with corners of radius 4: the one with the keys in the
+  shown space's colour, the other in the border colour. Its top is a 6px cap
+  with the rounded corners; its sides run down to the tab row.
+  - The left pane shows the shown space's own herdr tabs.
+  - The right pane, hidden until it holds something, shows the space's
+    terminals and views put there; each space has its own.
+  - A pending "new window" tab shows the picker in its pane: "what should this
+    window show?" (16px semibold), a search field (36px), rows 32px (13px
+    icon, 14px name, a pill "herdr" for herdr's own views, the description at
+    13px muted on the right; the chosen row in accent), hints "esc close · ⏎
+    open · ↑↓ choose" at 12px.
 - **The tab row**, 52px, the bottom of the pane's outline:
   - A 6px glass band whose bottom edge is the tab line (2px, outline colour),
     then the row, then the row's edge (2px) with rounded bottom corners, in a
@@ -60,16 +69,28 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
     line to that edge (a T).
   - First the space: its symbol (13px, identity colour) and name (14px bold,
     foreground, at most 220px), 18px in.
-  - Then the space's tabs, 26px tall, 12px text, 10px padding: a 6px dot in
+  - Then the pane's tabs, 26px tall, 12px text, 10px padding: a 6px dot in
     the agent's state colour (an agent with no state: a 6px muted ring), the
-    program's 12px icon, the name. Others are `#a9b1d6`, lighter on hover.
+    program's 12px icon (a view: the ⠿ mark), the name. Others are `#a9b1d6`,
+    lighter on hover. The right row has no space name, only its tabs.
+  - After the tabs, `+ >_` and `+ ⠿` (12px, muted, 26px tall).
+  - At the left row's right end, the split toggle: an 18×14 icon of two
+    panes, the right one filled while the right pane shows.
   - The shown tab is a folder tab: no tab line above it, its sides (2px, the
     outline colour) curving out of the tab line with radius 4 and down to its
     own bottom edge, which lies on the row's edge; its label in the identity
     colour (foreground when the pane hasn't the keys).
-- **Side panel**, hidden at first, 368px (280–900), on the right: herdr's
-  files and changes, framed like the pane, with a tab each in a row like the
-  pane's (an 11px ⠿ before each name).
+- **Side panel**, hidden at first, 368px (280–900), on the right: views
+  (herdr's files and changes to start with), framed like the panes, with a
+  tab each in a row like theirs (an 11px ⠿ before each name), then `+ ⠿`.
+- **Dialogs and menus**, on the theme's surface at 95% with a 2px border and
+  radius 4: the close dialog (380×150: "close <name>?", "close" in red,
+  "keep"), the switcher (560 wide: "projects · N", then a 42px row per space
+  with its symbol, name, machine and state), the "make tab N" prompt
+  (420×250: a name field and a command field), and menus (240 wide on the
+  theme's `popover`, 31px rows with a 14px icon, a key hint on the right).
+- **Sidebar foot**: "menu" at the right of "open folder", with an accent dot
+  while an update is ready.
 - **Status bar**, 40px, glass, 13px text, 14px in from each side:
   - Left: the sidebar toggle (an 18px panel icon), "herdr offline" in red
     while the core can't be reached, "N folded" (muted) for settled tabs, and
@@ -102,16 +123,48 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   Fold toggles fold a machine or a repo's worktrees (remembered). Branches
   refresh when a command or an agent's turn ends, when the repo's git folder
   changes, and once a minute while the window is in front.
-- **Tab row**: click a tab to show it; right-click opens herdr's tab menu
-  (Rename, New tab, Close). Tabs too many for the width narrow, then scroll
-  sideways; the shown tab and the space's name stay.
-- **Side panel**: the status bar's right-most button opens and closes it;
-  click its tabs to switch between files and changes.
+- **Tab rows**: click a tab to show it (and give its pane the keys);
+  double-click opens a name field where its label is (Enter or a press
+  elsewhere keeps the name, Esc cancels); drag a tab onto another to move it
+  there (a 2px bar shows where); middle-click closes it; right-click opens a
+  menu: Rename, then for a terminal herdr's pane items (Split right, Split
+  down, Zoom, right-click routing, Close pane). Tabs too many for the width
+  narrow, then scroll sideways; the shown tab and the space's name stay.
+- **Closing** a terminal asks first ("close <name>?"); Enter, "close" or the
+  same close again confirms, Esc or "keep" keeps it. A view or the picker
+  closes at once. Closing a space's last tab closes the space (herdr asks).
+- **New**: `+ >_` starts a shell in that pane. `+ ⠿` opens a "new window" tab
+  with the picker; a pick opens there: on the left a herdr tab, on the right
+  a terminal or view of the right pane. Esc puts back what was shown.
+- **The right pane**: a terminal there is a herdr tab of its own, shown as a
+  terminal block; the left keeps its own tab shown. The split toggle shows the
+  right pane (its tabs, or the picker when it has none) or puts it away
+  without ending anything. An agent shown from herdr's agents list or an
+  alert that lives on the right shows there.
+- **Side panel**: the status bar's right-most button opens it (on what it
+  showed, else its first view) and closes it; `+ ⠿` picks a view (files,
+  changes, agents), which becomes a tab; right-click a view's tab: Rename,
+  Close, Hide the panel; middle-click `+ ⠿` hides the panel. Dragged narrower
+  than 140px it closes and opens again at 280px; between 140 and 280 it
+  springs back to 280px.
+- **Sidebar menu**: Search, Settings, Add machine, New space (and New space
+  on each connected machine), the shown space's Rename space, New worktree
+  and Open worktree (in a git checkout), Remove worktree (in a linked one),
+  Close space, Keybinds. ↑/↓, Enter, Esc.
+- **Keys** (`keys.json`, section `layout:orbit`, on the pane with the keys):
+  `ctrl-1`…`ctrl-9` its tab N (on the left with none: the "make tab N"
+  prompt); `ctrl-pagedown`/`alt-]` next, `ctrl-pageup`/`alt-[`/
+  `ctrl-shift-tab` previous; `ctrl-shift-t` a new terminal; `ctrl-shift-o`
+  and `ctrl-shift-e` a "new window" tab on the right; `ctrl-shift-w` and
+  `ctrl-shift-x` close; `alt-h`/`alt-left` and `alt-l`/`alt-right` the keys
+  to the left or right pane; `alt-shift-h`/`alt-shift-l` move the shown
+  terminal tab across; `ctrl-tab` the space shown before; `ctrl-shift-space`
+  the switcher (preselects the space before; ↑/↓ or Tab, 1-9 or Enter, Esc).
+- **The pane with the keys** follows clicks and herdr's focus; each space
+  remembers its own, and a pane that's put away gives the keys to the left.
 - **Status bar**: the left button toggles the sidebar; hovering cpu, ram or
   disk shows details (load and each core; used, available and swap; the
   filesystem's sizes); `?` opens herdr's shortcuts.
-- Keys: herdr-app's own (`ctrl-shift-t` new tab, `ctrl-shift-w` close,
-  `ctrl-shift-b` sidebar, `ctrl-shift-l` switch layout).
 
 ## Built from
 
@@ -122,41 +175,76 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
     - `sidebar`, a column (400px, 44–560, `resizable: false`): `spaces`
       (`orbit-spaces`), `agents` (herdr's `agents`, hidden), `sidebar-footer`
       (86px, `orbit-sidebar-footer`).
-    - `work`, a row of two frames. Each frame is a column: `<x>-cap` (6px,
+    - `work`, a row of three frames. Each frame is a column: `<x>-cap` (6px,
       `orbit-edge` with `props.pane`), `<x>-mid` (a row, `resizable: false`,
-      `divider` 2px in the outline colour, holding a zero-wide `orbit-nothing`
-      block, the content, another zero-wide block: the divider draws the
+      `divider` 2px in the outline colour, holding a zero-wide `orbit-edge`
+      block with no props (draws nothing), the content, another zero-wide block: the divider draws the
       outline's sides), `<x>-tabs` (52px, the tab row mod).
-      - `left-frame`: content the stack `left` with the block `left-tab`
-        (`{ "tab": "active" }`, pane frame gap 0, radius 0, transparent, no
-        border); tab row `orbit-tabs` with `props.stack: "left"`.
-      - `panel` (hidden, 368px, 280–900): content the stack `panel-body` with
-        `panel-files` (herdr's `files`) and `panel-changes` (herdr's
-        `changes`), each with a `title`; tab row `orbit-panel-tabs` with
+      - `left-frame` (min 240): content the stack `left` with the block
+        `left-tab` (`{ "tab": "active" }`, pane frame gap 0, radius 0,
+        transparent, no border) and `left-pick` (`orbit-add`,
+        `props.side: "left"`); tab row `orbit-tabs` with `props.stack: "left"`.
+      - `right-frame` (hidden, min 240): content the stack `right` with
+        `right-pick` (`orbit-add`, `props.side: "right"`), then what the `orbit`
+        mod writes: a `{ "terminal": "<id>" }` block per terminal put on the
+        right (`rt-<id>`), a mod block per view (`rm-<hash>`, with `title`);
+        tab row `orbit-tabs` with `props.stack: "right"`.
+      - `panel` (hidden, 368px, `min` 24 so a drag can close it, max 900):
+        content the stack `panel-body` with `panel-pick` (`orbit-add`,
+        `props.panel: true`), then a block per view (`panel-v<hash>`, with
+        `title`) written by the `orbit` mod; tab row `orbit-tabs` with
         `props.stack: "panel-body"`.
   - `status` (40px, `orbit-status`), `orbit` (4px, the `orbit` mod).
 - **Mods** (all `place: "none"`):
   - `orbit`: keeps the layout file in step. On start, when `layouts/` changes,
     when the theme or the shown space changes and when the keys move, it
     writes into `layouts/orbit.json` the glass colour (`surface` + `9e`) on
-    `sidebar`, `left` and `panel-body`, and the `left-mid` / `panel-mid`
-    divider colours (the space's identity on the pane with the keys, the
-    border on the other). It holds `backgrounds/`.
+    `sidebar`, `left`, `right` and `panel-body`, the `left-mid` / `right-mid`
+    / `panel-mid` divider colours (the space's identity on the pane with the
+    keys, the border on the others), the right pane's children and the
+    panel's views. Every 250 ms it keeps the panes in step (the shown space's
+    right pane shown or hidden, its pick selected, the pane with the keys). It
+    takes the keys' commands (`nextCommand`) and keeps the recent spaces
+    (shared `"orbit.recent"`). It is the only writer of the layout file,
+    shared `"orbit.sides"` and `"orbit.settings"`: the other mods ask it for a
+    change with `run("orbit.<what> <args as JSON>")` (a mod's command carries
+    only its name), and it runs `actions.js` / `layout.js`. It holds
+    `backgrounds/`.
+  - `orbit-add`: the picker, in a pane (`props.side`), in the panel
+    (`props.panel`) or as a dialog. Agents from `knownAgents` (installed
+    ones; kept in shared `"orbit.add.known"` per machine).
+  - `orbit-dialogs`, opened with `props.dialog`: `menu` (derived from
+    herdr-app's `menu` mod; icons from herdr's shipped `workspace-chrome`),
+    `confirm`, `switcher`, `new-tab`.
   - `orbit-spaces`: a restyled clone of herdr-app's `spaces` mod.
-  - `orbit-sidebar-footer`, `orbit-status`, `orbit-tabs`, `orbit-panel-tabs`,
-    `orbit-edge` (the 6px cap), `orbit-nothing` (draws nothing).
-  - Shared files, the same in each mod that imports them: `look.js` (sizes,
-    glass, which pane has the keys: shared `"orbit.sides".focus`, the layout
-    writer), `glass.js` (the blurred backdrop), `rowframe.js` (the tab row's
-    segments and folder tab), `identity.js` (colours, symbols, the repo
-    lookup: shared `"orbit.git"`), `labels.js` (tab names and icons).
+  - `orbit-tabs`: the panes' rows (`pane.js`, `props.stack` `left` /
+    `right`) and the side panel's (`panel.js`, `props.stack: "panel-body"`).
+  - `orbit-sidebar-footer`, `orbit-status`, `orbit-edge` (the 6px cap with
+    `props.pane`; with no props it draws nothing).
+  - Only in `orbit`: `actions.js` (show, new, close, move, split, rename,
+    reorder, the panel toggle) and `layout.js` (the layout writer, the panel's
+    views in shared `"orbit.settings".views`).
+  - Shared files, copied into the mods that import them (the same file):
+    `look.js` (sizes, glass, the pane with the keys, `ask()`), `sides.js`
+    (what is where, read from shared `"orbit.sides"`: terminals and views on
+    the right, the shown one per space, pending pickers, the pane with the
+    keys, names and order), `glass.js` (the blurred backdrop), `rowframe.js` (the tab row's segments
+    and folder tab, drag to move, the name field), `tabmenu.js` (a tab's menu
+    items), `identity.js` (colours, symbols, the repo lookup: shared
+    `"orbit.git"`), `labels.js` (tab names and icons).
+  - `keys.json`: `{ "layout:orbit": { ... } }`, the keys as `orbit.<command>`.
 - **herdr API**: `spaces`, `panes`, `agents`, `machines`, `updates`,
   `layout`, `focused`, `theme`, `settings`, `shared`, `setShared`, `exec`,
   `hc`, `readTextFile`, `writeTextFile`, `watchFolder`, `appHome`, `home`,
-  `pickFolder`, `openOverlay`, `run`, `window`. Commands: `space.select`,
-  `space.move`, `space.new`, `tab.select`, `layout.toggle`, `layout.select`,
-  `agent.focus`, `app.help`, `app.update`. Shipped mods: `agents`, `files`,
-  `changes`, `menu` (popups with `tab: "space"` and `tab: "tab"`).
+  `pickFolder`, `openOverlay`, `closeOverlay`, `run`, `window`, `nextCommand`,
+  `knownAgents`, `terminals`, `keys`. Commands: `space.select`, `space.move`,
+  `space.new`, `space.rename`, `space.close`, `tab.new`, `tab.select`,
+  `tab.move`, `tab.rename`, `tab.close`, `pane.focus`, `pane.split`,
+  `pane.zoom`, `pane.close`, `terminal.right_click`, `terminal.park`,
+  `layout.toggle`, `layout.show`, `layout.hide`, `layout.select`,
+  `layout.resize`, `agent.focus`, `mod.open`, `app.help`, `app.settings`,
+  `app.update`. Shipped mods: `agents`, `files`, `changes`, `picker`,
+  `machine-add`, `worktree`, `menu` (the space menu: `tab: "space"`).
 - **Programs**: `git status --porcelain=v2 --branch` and `git rev-parse` in
   each space's folder (on its machine), `hc machine ls --json`,
   `df -B1 --output=used,avail,size,target <home>`; files read: `/proc/stat`,
@@ -196,12 +284,30 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - The background picture's size (2560×1600) is written in `look.js`; another
   picture needs its size there and a blurred copy.
 - Corners are radius 4 and the gap 0 in this build; there are no settings.
+- **Merge `keys.json`**: add its `layout:orbit` section to the person's
+  `keys.json`, asking before replacing a key they already use there.
+- A right-pane terminal is a herdr tab of its own: herdr shows it on the left
+  for a moment when it starts, then the left's tab is shown again. herdr
+  rewrites the layout file when a terminal block's terminal ends (it takes the
+  block out); the `orbit` mod's state drops it too.
+- A `layout.select` sent before the window has loaded a new child fails ("no
+  stack right with a child …"): the shown pick is written into the stack's
+  `active` with its children, and selected only once the window has it.
+- herdr can't see the keys in a mod block (the picker, a view), so while one
+  shows in the pane with the keys, a change of herdr's focus is ignored; the
+  rows watch presses instead.
+- Enter in the picker reaches both its search field and its list: one pick
+  per press.
+- The menus' icons come from herdr's shipped `workspace-chrome` mod; another
+  herdr version may move them.
 - **Updating**: copies don't update themselves, and the add flow never
   overwrites (it would make `orbit-2`). To update, remove `layouts/orbit.json`,
-  `layouts/orbit.svg`, `mods/orbit`, every `mods/orbit-*` and
-  `themes/orbit.json`, then copy the new ones in; leave the person's other
-  files alone. This build is version 1 (`VERSION` in `mods/orbit/main.js`,
-  shared `"orbit.version"`).
+  `layouts/orbit.svg`, `mods/orbit`, every `mods/orbit-*` (an older copy may
+  have more of them: `orbit-menu`, `orbit-nothing`, ... all go) and
+  `themes/orbit.json`, then copy the new ones in, and replace the
+  `layout:orbit` section of `keys.json` with the new one; leave the person's
+  other files and keys alone. This build is version 2 (`VERSION` in
+  `mods/orbit/main.js`, shared `"orbit.version"`).
 
 ## Done when
 
@@ -221,3 +327,15 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   it back.
 - cpu, ram and disk update every second (disk every 30 s) and turn yellow and
   red at 70% and 90%.
+- The split toggle opens the right pane on the picker; picking "shell" starts
+  a terminal there, outlined in the space's colour; the toggle puts it away
+  and brings it back with the terminal still running.
+- Middle-clicking a terminal tab asks "close <name>?"; Enter closes only that
+  terminal.
+- Dragging a left tab onto another reorders herdr's tabs; double-click or
+  Rename in its menu renames it.
+- `ctrl-2` shows the pane's second tab; `ctrl-9` with no ninth tab opens the
+  "make tab 9" prompt; `ctrl-shift-space` opens the switcher; `ctrl-tab` goes
+  back to the space before.
+- The panel's `+ ⠿` adds "agents" as a third view tab; middle-clicking a view's
+  tab removes it.

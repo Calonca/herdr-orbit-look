@@ -7,7 +7,7 @@ This is an unofficial layout. It is not affiliated with or endorsed by Herdr.
 It uses only what herdr-app offers to everyone (a layout, mods and a theme)
 and doesn't change the app. Made for herdr-app 0.1.11.
 
-**Version 1** (stage 1: the look). See [Updating](#updating).
+**Version 2** (stage 2: the interface). See [Updating](#updating).
 
 ## Add it
 
@@ -20,14 +20,17 @@ cp -r mods/. ~/.config/herdr-app/mods/
 cp -r themes/. ~/.config/herdr-app/themes/
 ```
 
-Then pick the **orbit** layout in herdr-app's settings (or `ctrl-shift-l`).
+Then merge `keys.json` into herdr-app's `keys.json`: add its `"layout:orbit"`
+section (those keys apply only while the orbit layout shows; see Keys), and
+pick the **orbit** layout in herdr-app's settings (or `ctrl-shift-l`).
 `ctrl-shift-l` switches back to your own layout; deleting the files removes it.
 Check a name isn't taken first: the layout is `orbit`, the mods are `orbit` and
 `orbit-*`, the theme is `orbit`.
 
-`./install.sh` does the same copy, keeps a list of what it copied, moves aside
-anything of yours under the same name, and `./install.sh --remove` takes it
-away again. It is a convenience: nothing needs it.
+`./install.sh` does the same copy and the keys merge, keeps a list of what it
+copied, moves aside anything of yours under the same name, and
+`./install.sh --remove` takes it away again. It is a convenience: nothing
+needs it.
 
 ## Updating
 
@@ -41,8 +44,9 @@ copy (`orbit-2`, ...). To update, either:
 - tell your agent: "replace my orbit layout, the orbit-* mods and
   themes/orbit.json with the latest from github.com/Calonca/herdr-orbit-look"
   (it removes `layouts/orbit.json`, `layouts/orbit.svg`, `mods/orbit` and
-  `mods/orbit-*` and `themes/orbit.json` first, then copies the new ones;
-  your other files stay as they are); or
+  `mods/orbit-*` and `themes/orbit.json` first, then copies the new ones and
+  replaces the `layout:orbit` section of `keys.json`; your other files and
+  keys stay as they are); or
 - run `./install.sh` from a fresh clone: it replaces what it installed before
   and moves anything else under the same names to a backup folder.
 
@@ -63,15 +67,33 @@ Your clicks (sizes, what's shown) stay in `layouts/.state/`.
   worktrees hang from their repo with tree lines and a fold toggle. Click
   switches, right-click opens herdr's space menu, drag reorders. At the foot,
   "▸ agents" folds herdr's agents list in, and "open folder" makes a space.
-- **The pane** (`orbit-tabs`, `orbit-edge`): an outline around the shown tab,
-  in the space's colour, and the tab row as the bottom of that outline: the
-  space's symbol and name, then its tabs, the shown one a folder tab open into
-  the content. Each tab has its program's icon and its agent's state (working
-  yellow, blocked red, done green). Click shows a tab; right-click opens
-  herdr's tab menu.
-- **Side panel** (`orbit-panel-tabs`): herdr's files and changes, framed as
-  the pane is, with a tab each. The status bar's right-most button opens and
-  closes it. Clicking in the panel moves the coloured outline there.
+- **Two panes** (`orbit-tabs`, `orbit-edge`): each framed by an outline, the
+  one with the keys in the space's colour, and its tab row as the bottom of
+  that outline, the shown tab a folder tab open into the content. Each tab has
+  its program's icon and its agent's state (working yellow, blocked red, done
+  green).
+  - The left pane shows the space's own tabs, led by the space's symbol and
+    name. The right pane, beside it, holds terminals and views of its own,
+    per space; the split toggle at the left row's right end shows it or puts
+    it away (nothing closes).
+  - Click shows a tab; double-click renames it; drag moves it; middle-click
+    closes it (a terminal asks first: Enter or the same close again confirms);
+    right-click opens its menu (Rename, then herdr's pane items: split, zoom,
+    close the pane).
+  - `+ >_` opens a new terminal in that pane; `+ ⠿` a "new window" tab with
+    the picker (`orbit-add`): a shell, the coding agents installed here,
+    herdr's files, changes and agents, herdr's settings. Type to filter, ↑/↓,
+    Enter, Esc puts back what was shown.
+- **Side panel** (its tab row is `orbit-tabs` too): herdr's files and changes to start
+  with, framed as the panes are, with a tab each. `+ ⠿` picks another view
+  for it; tabs rename, move and close like the panes' (right-click: Rename,
+  Close, Hide the panel). The status bar's right-most button opens and closes
+  it; dragged narrower than half its smallest width, it closes. Clicking in
+  the panel moves the coloured outline there.
+- **Menus and dialogs** (`orbit-dialogs`): the sidebar's "menu" (search,
+  settings, add machine, new space, the space's rename, worktrees and close,
+  keybinds), a tab's menu, the close dialog, the switcher of recent spaces and
+  the "make tab N" prompt.
 - **Status bar** (`orbit-status`): the sidebar toggle, "herdr offline" while
   the core can't be reached, folded tabs and an update pill on the left; on
   the right cpu (with a 20 s sparkline), ram and disk use (yellow from 70%,
@@ -79,8 +101,26 @@ Your clicks (sizes, what's shown) stay in `layouts/.state/`.
   runs / is done, the clock and the side panel toggle.
 - **Theme** `orbit` (Tokyo Night colours), JetBrains Mono in terminals.
 
-herdr-app's own keys work as usual (`ctrl-shift-t` a new tab, `ctrl-shift-w`
-close it, `ctrl-shift-b` the sidebar).
+## Keys
+
+`keys.json`'s `"layout:orbit"` section, on the pane with the keys:
+
+| Keys | What they do |
+|---|---|
+| `ctrl-1` … `ctrl-9` | its tab N (on the left with no tab N: a prompt to make it, a name and an optional command) |
+| `ctrl-pagedown`, `alt-]` / `ctrl-pageup`, `alt-[`, `ctrl-shift-tab` | its next / previous tab |
+| `ctrl-shift-t` | a new terminal in it |
+| `ctrl-shift-o`, `ctrl-shift-e` | a "new window" tab in the right pane (opens it) |
+| `ctrl-shift-w`, `ctrl-shift-x` | close its shown tab (a terminal asks; again confirms) |
+| `alt-h`, `alt-left` / `alt-l`, `alt-right` | the keys to the left / right pane |
+| `alt-shift-h`, `alt-shift-l` | move the shown terminal tab to the other pane |
+| `ctrl-tab` | back to the space shown before this one |
+| `ctrl-shift-space` | the recent spaces, most recent first (↑/↓ or Tab, 1-9 or Enter, Esc) |
+
+They are commands of the `orbit` mod (`orbit.<name>`); its header lists the
+rest (`orbit.split`, `orbit.side-panel`, `orbit.add`, `orbit.window`).
+herdr-app's own keys work as usual for everything else (`ctrl-shift-b` the
+sidebar, `ctrl-shift-l` the layout).
 
 ## What the mods run and read
 
@@ -88,22 +128,33 @@ close it, `ctrl-shift-b` the sidebar).
   (on that space's machine), runs `hc machine ls`, and watches local repos'
   git folders for changes.
 - `orbit-tabs` runs `git rev-parse` in each space's folder, so a worktree gets
-  its repo's colour.
+  its repo's colour; `orbit-sidebar-footer` and `orbit-dialogs` (the menu) run it to offer
+  the worktree items.
+- `orbit-add` asks herdr-app which coding agents are installed
+  (`knownAgents`).
 - `orbit-status` reads `/proc/stat`, `/proc/loadavg` and `/proc/meminfo`, and
   runs `df` on your home folder every 30 s.
 - `orbit` reads and writes `layouts/orbit.json` in herdr-app's home: it puts
-  the shown theme's glass colours and the space's outline colour there.
+  the shown theme's glass colours, the space's outline colour, the right
+  pane's terminals and views and the side panel's views there.
 - None of them uses the network.
 
 ## Files
 
 - `layouts/orbit.json`, `layouts/orbit.svg` (its preview in settings)
-- `mods/orbit/`: the layout's own block (keeps the layout's colours in step),
-  with the background pictures
-- `mods/orbit-*/`: the sidebar, the status bar, the tab rows and the pane
-  outline. Shared code is copied into each mod that uses it (`look.js`,
-  `glass.js`, `identity.js`, ...): the copies are the same file.
+- `mods/orbit/`: the layout's own block, with the background pictures. It
+  is the only one that changes the layout file and the panes' state: it keeps
+  them in step, takes the keys' commands, and makes the changes the other
+  mods ask for (a tab shown, closed, renamed, moved, a new one).
+- `mods/orbit-*/`: what you see: the sidebar (`orbit-spaces`,
+  `orbit-sidebar-footer`), the status bar (`orbit-status`), the tab rows
+  (`orbit-tabs`), the pane outline (`orbit-edge`), the picker (`orbit-add`),
+  the menus and dialogs (`orbit-dialogs`).
+- A mod can only import files from its own folder, so a few small shared
+  files (`look.js`, `glass.js`, `identity.js`, ...) are copied into the mods
+  that use them: the copies are the same file.
 - `themes/orbit.json`
+- `keys.json`: the keys, to merge into herdr-app's
 - `scripts/space.py` and `scripts/blur.py` make the background and its blurred
   copy; `scripts/glyphs.py` the symbols. Only needed to change them.
 
@@ -121,11 +172,15 @@ close it, `ctrl-shift-b` the sidebar).
 
 Apache-2.0 (see `LICENSE`), the same as Herdr.
 
-Two parts are derived from herdr-app's own files (Apache-2.0) and changed:
+Parts derived from herdr-app's own files (Apache-2.0) and changed:
 
 - `mods/orbit-spaces/` from herdr-app's `spaces` mod: restyled rows, identity
   symbols and colours, worktrees under their repo, the glass background (its
   `main.js` says so too, and its `mod.json` records `cloned_from`);
 - `layouts/orbit.json` from herdr-app's `main` layout: rebuilt into the
-  sidebar, one framed pane with its tab row, the side panel and the status
-  bar, with its own theme, fonts and background.
+  sidebar, two framed panes with their tab rows, the side panel and the
+  status bar, with its own theme, fonts and background;
+- `mods/orbit-dialogs/menu.js` from herdr-app's `menu` mod, and the pane
+  items in each `tabmenu.js` from that menu's pane items: other items, Rename
+  opening a tab's name field (the file says so too). Its icons are herdr-app's
+  own, from its shipped `workspace-chrome` mod.

@@ -166,7 +166,7 @@ export default class OrbitStatus extends View {
     const now = new Date();
     right.push(div().pl(6).child(text(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`)));
     const panelOpen = find(L, "panel")?.hidden === false;
-    right.push(ghost("panel", [icon(panelOpen ? "panel-open" : "panel")], () => run("layout.toggle", { id: "panel" }), "side panel: files and changes"));
+    right.push(ghost("panel", [icon(panelOpen ? "panel-open" : "panel")], () => run("orbit.side-panel"), "the side panel"));
 
     const Lk = look();
     // The glass, with the blurred background under its fill (glass.js): the

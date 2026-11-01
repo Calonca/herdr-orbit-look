@@ -107,7 +107,7 @@
                         "px": 0
                       },
                       "content": {
-                        "mod": "orbit-nothing"
+                        "mod": "orbit-edge"
                       }
                     },
                     {
@@ -131,6 +131,16 @@
                               "background": "#00000000"
                             }
                           }
+                        },
+                        {
+                          "id": "left-pick",
+                          "type": "block",
+                          "content": {
+                            "mod": "orbit-add",
+                            "props": {
+                              "side": "left"
+                            }
+                          }
                         }
                       ]
                     },
@@ -141,7 +151,7 @@
                         "px": 0
                       },
                       "content": {
-                        "mod": "orbit-nothing"
+                        "mod": "orbit-edge"
                       }
                     }
                   ]
@@ -162,13 +172,102 @@
               ]
             },
             {
+              "id": "right-frame",
+              "type": "column",
+              "hidden": true,
+              "size": {
+                "weight": 1
+              },
+              "min": 240,
+              "children": [
+                {
+                  "id": "right-cap",
+                  "type": "block",
+                  "size": {
+                    "px": 6
+                  },
+                  "content": {
+                    "mod": "orbit-edge",
+                    "props": {
+                      "pane": "right"
+                    }
+                  }
+                },
+                {
+                  "id": "right-mid",
+                  "type": "row",
+                  "resizable": false,
+                  "divider": {
+                    "width": 2,
+                    "color": "#414868"
+                  },
+                  "children": [
+                    {
+                      "id": "right-s1",
+                      "type": "block",
+                      "size": {
+                        "px": 0
+                      },
+                      "content": {
+                        "mod": "orbit-edge"
+                      }
+                    },
+                    {
+                      "id": "right",
+                      "type": "stack",
+                      "active": "right-pick",
+                      "size": {
+                        "weight": 1
+                      },
+                      "background": "#1616229e",
+                      "children": [
+                        {
+                          "id": "right-pick",
+                          "type": "block",
+                          "content": {
+                            "mod": "orbit-add",
+                            "props": {
+                              "side": "right"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "right-s2",
+                      "type": "block",
+                      "size": {
+                        "px": 0
+                      },
+                      "content": {
+                        "mod": "orbit-edge"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "right-tabs",
+                  "type": "block",
+                  "size": {
+                    "px": 52
+                  },
+                  "content": {
+                    "mod": "orbit-tabs",
+                    "props": {
+                      "stack": "right"
+                    }
+                  }
+                }
+              ]
+            },
+            {
               "id": "panel",
               "type": "column",
               "hidden": true,
               "size": {
                 "px": 368
               },
-              "min": 280,
+              "min": 24,
               "max": 900,
               "children": [
                 {
@@ -200,32 +299,26 @@
                         "px": 0
                       },
                       "content": {
-                        "mod": "orbit-nothing"
+                        "mod": "orbit-edge"
                       }
                     },
                     {
                       "id": "panel-body",
                       "type": "stack",
-                      "active": "panel-files",
+                      "active": "panel-pick",
                       "size": {
                         "weight": 1
                       },
                       "background": "#1616229e",
                       "children": [
                         {
-                          "id": "panel-files",
+                          "id": "panel-pick",
                           "type": "block",
-                          "title": "files",
                           "content": {
-                            "mod": "files"
-                          }
-                        },
-                        {
-                          "id": "panel-changes",
-                          "type": "block",
-                          "title": "changes",
-                          "content": {
-                            "mod": "changes"
+                            "mod": "orbit-add",
+                            "props": {
+                              "panel": true
+                            }
                           }
                         }
                       ]
@@ -237,7 +330,7 @@
                         "px": 0
                       },
                       "content": {
-                        "mod": "orbit-nothing"
+                        "mod": "orbit-edge"
                       }
                     }
                   ]
@@ -249,7 +342,7 @@
                     "px": 52
                   },
                   "content": {
-                    "mod": "orbit-panel-tabs",
+                    "mod": "orbit-tabs",
                     "props": {
                       "stack": "panel-body"
                     }

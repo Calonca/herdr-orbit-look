@@ -1,0 +1,31 @@
+{
+  "layout:orbit": {
+    "ctrl-tab": "orbit.recent",
+    "ctrl-shift-space": "orbit.switcher",
+    "ctrl-1": "orbit.tab1",
+    "ctrl-2": "orbit.tab2",
+    "ctrl-3": "orbit.tab3",
+    "ctrl-4": "orbit.tab4",
+    "ctrl-5": "orbit.tab5",
+    "ctrl-6": "orbit.tab6",
+    "ctrl-7": "orbit.tab7",
+    "ctrl-8": "orbit.tab8",
+    "ctrl-9": "orbit.tab9",
+    "ctrl-pagedown": "orbit.next",
+    "ctrl-pageup": "orbit.prev",
+    "ctrl-shift-tab": "orbit.prev",
+    "alt-]": "orbit.next",
+    "alt-[": "orbit.prev",
+    "ctrl-shift-t": "orbit.new",
+    "ctrl-shift-o": "orbit.right",
+    "ctrl-shift-e": "orbit.right",
+    "ctrl-shift-w": "orbit.close",
+    "ctrl-shift-x": "orbit.close",
+    "alt-h": "orbit.left-pane",
+    "alt-left": "orbit.left-pane",
+    "alt-l": "orbit.right-pane",
+    "alt-right": "orbit.right-pane",
+    "alt-shift-h": "orbit.move",
+    "alt-shift-l": "orbit.move"
+  }
+}

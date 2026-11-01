@@ -15,7 +15,8 @@
 //   ╰┈┈┈┈┈┈┈┈┈┈┴──────────┴┈┈┈┈┈┈┈┈┈┈╯
 
 import { div, svg } from "gpui-kit";
-import { h_flex, v_flex } from "gpui-base";
+import { h_flex, v_flex, InputState, Input } from "gpui-base";
+import { shared } from "herdr";
 import { LINE } from "./look.js";
 import { backdrop, blockPlace, zoom } from "./glass.js";
 
@@ -138,4 +139,105 @@ export function track(host, el) {
 export function inColumn(e) {
   const b = e?.bounds, p = e?.position;
   return Boolean(b && p && p.x >= b.x && p.x <= b.x + b.width && p.y < b.y);
+}
+
+// Drag to reorder a row's tabs (orbit-tabs: the panes' and the side panel's). A press on a
+// tab picks it up; moving over another tab shows where it would land, as a
+// bar on that tab's far side (after it moving right, before it moving left);
+// releasing there calls `drop(from, to, cx)` with the two tabs' places in the
+// row. A press and release on the same tab stays a click (GPUI's click needs
+// both on one element), and a double-click picks nothing up. Mods hear no
+// release outside their own elements, so leaving the row puts the tab back.
+//   const drag = dragKit(host, colour, (from, to, cx) => …);
+// A double-click calls `double(i, cx)` instead (the rename, editKit below).
+//   drag.tab(tabEl, i, draggable)   each tab;   drag.root(rowEl)
+export function dragKit(host, color, drop, double = null) {
+  const set = (v, cx) => {
+    host.drag = v;
+    cx.notify();
+  };
+  return {
+    tab(el, i, ok = true) {
+      const g = host.drag;
+      const at = g && ok && g.over === i && g.from !== i ? (g.from < i ? "after" : "before") : null;
+      return el.relative()
+        .on_mouse_down("left", (e, cx) => {
+          cx.stop_propagation();
+          const n = e?.click_count ?? 1;
+          host.drag = ok && n < 2 ? { from: i, over: i } : null;
+          if (n === 2 && double) double(i, cx);
+        })
+        .on_mouse_move((_e, cx) => {
+          const g = host.drag, over = ok ? i : g?.from;
+          if (g && g.over !== over) set({ ...g, over }, cx);
+        })
+        .on_mouse_up("left", (_e, cx) => {
+          const g = host.drag;
+          if (g) set(null, cx);
+          if (g && ok && g.from !== i) drop(g.from, i, cx);
+        })
+        .when(Boolean(at), (el) => el.child(div().absolute().top(5).bottom(5).w(2).rounded(1).bg(color)
+          .when(at === "after", (m) => m.right(0)).when(at === "before", (m) => m.left(0))));
+    },
+    root(el) {
+      return el.on_hover((h, cx) => { if (!h && host.drag) set(null, cx); })
+        .on_mouse_up("left", (_e, cx) => { if (host.drag) set(null, cx); });
+    },
+  };
+}
+
+// Renaming a tab where its label is: a name field in its place, the name
+// chosen. Enter (or a press anywhere else) keeps the new name, Esc the old one;
+// an empty or unchanged name changes nothing. `save(key, name, cx)` stores it.
+// Started by a double-click (dragKit's `double`) or the tab's menu's Rename
+// (the menu asks through shared "orbit.rename" { row, key, n }, which the
+// row takes up on its next render: `edit.asked(row, labelOf)`).
+//   const edit = editKit(host, save);   host.acx: an AsyncContext (init's)
+//   edit.on(key) ? edit.field(t, label) : label
+export function editKit(host, save) {
+  const kit = {
+    on: (key) => host.edit?.key === key,
+    begin(cx, key, value) {
+      const input = InputState.new({ value });
+      if (value) input.set_selected_range({ start: 0, end: value.length });
+      const finish = (cx, keep) => {
+        const e = host.edit;
+        if (!e || e.input !== input) return;
+        host.edit = null;
+        const name = input.value().trim();
+        if (keep && name && name !== value) save(key, name, cx);
+        cx.notify();
+      };
+      host.edit = { key, input, value, cancel: (cx) => finish(cx, false), keep: (cx) => finish(cx, true) };
+      input.on("submit", (_e, cx) => finish(cx, true));
+      // herdr moves its focus on its own (the click that showed the tab, a
+      // pane.focus): while the field is open it takes the keys back. A press
+      // anywhere else ends it (keeping the name), as Enter does.
+      input.on("blur", () => { if (host.edit?.input === input) input.focus(); });
+      input.focus();
+      cx.notify();
+    },
+    // The field, as wide as the name with room to type.
+    field(t, label) {
+      const w = Math.max(70, Math.min(220, 7.2 * String(label ?? "").length + 28));
+      return div().id("orbit-rename").flex_none()
+        .on_key_down((e, cx) => { if (e.key === "escape") { cx.stop_propagation(); host.edit?.cancel(cx); } })
+        .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+        .on_mouse_down_out((_e, cx) => host.edit?.keep(cx))
+        .child(Input.new(host.edit.input).w(w).h(20).px(4).rounded(4).border(1).border_color(t.border)
+          .bg(t.background ?? t.chrome).text_size(12).text_color(t.foreground));
+    },
+    // The menu's Rename for this row: once per ask, after the menu has gone
+    // (closing it gives the keys back to where they were).
+    asked(row, labelOf) {
+      const ask = shared("orbit.rename");
+      if (!ask || ask.row !== row || ask.n === host.renameSeen || !host.acx || Date.now() - ask.n > 5000) return;
+      host.renameSeen = ask.n;
+      host.acx.timer.after(150, (cx) => {
+        const value = labelOf(ask.key);
+        if (value !== null && value !== undefined) kit.begin(cx, ask.key, value);
+      });
+    },
+  };
+  return kit;
 }
