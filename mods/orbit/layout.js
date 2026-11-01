@@ -21,7 +21,7 @@ export const KEY = "orbit.settings";
 
 // The look settings (orbit-dialogs' settings dialog changes them), saved in
 // shared "orbit.settings" with the side panel's views. null: the density's.
-export const DEFAULTS = { density: "comfortable", rounding: 4, gap: 0, tabs: "bottom", background: null, views: null };
+export const DEFAULTS = { density: "comfortable", rounding: null, gap: null, tabs: "bottom", background: null, views: null };
 
 // The densities. The mods were drawn at comfortable; `scale` is relative to it.
 export const DENSITIES = {

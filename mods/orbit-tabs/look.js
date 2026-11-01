@@ -24,7 +24,7 @@ export const GENERATED = { image: "mods/orbit/backgrounds/space.png", blur: "mod
 
 // Until the orbit mod has shared its own: the comfortable density, corners 4,
 // no gap, the tabs at the bottom, the generated background.
-const START = { radius: 4, gap: 0, header: 46, status: 40, footer: 86, scale: 1, small: 4, top: false, background: GENERATED };
+const START = { radius: 16, gap: 14, header: 46, status: 40, footer: 86, scale: 1, small: 4, top: false, background: GENERATED };
 
 // The side panel's smallest width, and how narrow the layout lets a drag take
 // it (past half the smallest, it closes: orbit-tabs' panel row).
