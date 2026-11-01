@@ -7,6 +7,8 @@ This is an unofficial layout. It is not affiliated with or endorsed by Herdr.
 It uses only what herdr-app offers to everyone (a layout, mods and a theme)
 and doesn't change the app. Made for herdr-app 0.1.11.
 
+**Version 1** (stage 1: the look). See [Updating](#updating).
+
 ## Add it
 
 Copy the three folders into herdr-app's home (`~/.config/herdr-app`, or
@@ -26,6 +28,25 @@ Check a name isn't taken first: the layout is `orbit`, the mods are `orbit` and
 `./install.sh` does the same copy, keeps a list of what it copied, moves aside
 anything of yours under the same name, and `./install.sh --remove` takes it
 away again. It is a convenience: nothing needs it.
+
+## Updating
+
+Installed copies don't update by themselves. To see which version you have:
+`"orbit.version"` in `shared.json` in herdr-app's home (the `orbit` mod writes
+it), or `VERSION` at the top of `mods/orbit/main.js`.
+
+Herdr's add flow never overwrites: adding this repo again would make a second
+copy (`orbit-2`, ...). To update, either:
+
+- tell your agent: "replace my orbit layout, the orbit-* mods and
+  themes/orbit.json with the latest from github.com/Calonca/herdr-orbit-look"
+  (it removes `layouts/orbit.json`, `layouts/orbit.svg`, `mods/orbit` and
+  `mods/orbit-*` and `themes/orbit.json` first, then copies the new ones;
+  your other files stay as they are); or
+- run `./install.sh` from a fresh clone: it replaces what it installed before
+  and moves anything else under the same names to a backup folder.
+
+Your clicks (sizes, what's shown) stay in `layouts/.state/`.
 
 ## What you see
 

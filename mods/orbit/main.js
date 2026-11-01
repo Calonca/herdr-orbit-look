@@ -10,12 +10,17 @@
 //   { "id": "orbit", "type": "block", "size": { "px": 4 }, "content": { "mod": "orbit" } }
 
 import { View, div } from "gpui-kit";
-import { spaces, theme, layout, focused, watchFolder, appHome } from "herdr";
+import { spaces, theme, layout, focused, watchFolder, appHome, shared, setShared } from "herdr";
 import { apply, keysIn, setKeysIn, find } from "./look.js";
 import { identity, spaceKey } from "./identity.js";
 
+// This build's version, also in shared "orbit.version" (shared.json in
+// herdr-app's home), so you can see which one you have.
+export const VERSION = 1;
+
 export default class Orbit extends View {
   init(_props, cx) {
+    if (shared("orbit.version") !== VERSION) setShared("orbit.version", VERSION);
     this.focus = null; // the outline colour last written
     // The layout is written at start and again whenever its file is replaced
     // (a fresh copy); apply() writes only what differs. The loop uses cx each
