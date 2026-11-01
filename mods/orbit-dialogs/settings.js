@@ -1,7 +1,7 @@
-// The orbit layout's own settings, for what herdr-app's settings don't have
-// (the theme and the UI font are herdr-app's: "herdr settings…" opens them):
-// density, corners, gap, the tab rows on top or at the bottom, and the
-// background picture. Each change is asked of the orbit mod (look.js ask),
+// The orbit layout's own settings: the theme (orbit's or one of its six
+// variants, herdr-app's app.theme; any other is in herdr-app's settings, as
+// the UI font: "herdr settings…" opens them), density, corners, gap, the tab
+// rows on top or at the bottom, and the background picture. Each change is asked of the orbit mod (look.js ask),
 // which saves it in shared "orbit.settings" and writes it into the layout at
 // once. Esc closes. Props: { dialog: "settings" }.
 //
@@ -17,6 +17,10 @@ import { theme, props, closeOverlay, exec, home, appHome, run, readTextFile, wat
 import { look, ask } from "./look.js";
 
 const PRESETS = ["compact", "default", "comfortable"];
+// orbit's themes (themes/), known by their accent.
+const THEMES = [["orbit", "#7aa2f7"], ["catppuccin mocha", "#89b4fa", "orbit-catppuccin-mocha"], ["everforest", "#a7c080", "orbit-everforest"],
+  ["gruvbox dark", "#83a598", "orbit-gruvbox-dark"], ["kanagawa", "#7e9cd8", "orbit-kanagawa"], ["nord", "#88c0d0", "orbit-nord"],
+  ["rosé pine", "#c4a7e7", "orbit-rose-pine"]];
 const CORNERS = ["auto", 0, 4, 8, 12];
 const GAPS = ["auto", "none", 4, 8, 12, 16];
 const LABEL = 104;
@@ -156,7 +160,13 @@ export class Settings {
       .border(2).border_color(t.border).rounded(L.radius).text_color(t.foreground).overflow_hidden()
       .on_key_down((e) => { if (e.key === "escape") this.close(); })
       .child(v_flex().id("settings-body").flex_1().min_h(0).px(24).pt(22).pb(10).gap(10).overflow_y_scrollbar()
-        .child(line("theme, font", [toggle("theme", "herdr settings…", false, () => { this.close(); run("app.settings", { section: "look" }); })]))
+        .child(line("theme", THEMES.map(([name, accent, file]) => toggle(`theme-${accent}`, name, t.accent.slice(0, 7).toLowerCase() === accent,
+          (cx) => {
+            run("app.theme", { name: file ?? name });
+            // A new theme takes the keys from the dialog: Esc closes it again.
+            cx.timer.after(300, () => this.handle.focus());
+          }))))
+        .child(line("font, others", [toggle("theme", "herdr settings…", false, () => { this.close(); run("app.settings", { section: "look" }); })]))
         .child(line("density", choices("density", PRESETS, L.density)))
         .child(line("corners", choices("rounding", CORNERS, L.rounding ?? null)))
         .child(line("gap", choices("gap", GAPS, L.gapSet ?? null)))

@@ -37,7 +37,7 @@ import { apply, closePanelView, renamePanelView, movePanelView, addPanelView, sh
 import { find } from "./look.js";
 import { identity, spaceKey, lookUpRepos, publish } from "./identity.js";
 
-export const openSettings = () => openOverlay({ mod: "orbit-dialogs", kind: "dialog", frame: "none", width: 640, height: 400, props: { dialog: "settings" } });
+export const openSettings = () => openOverlay({ mod: "orbit-dialogs", kind: "dialog", frame: "none", width: 700, height: 470, props: { dialog: "settings" } });
 
 // This build's version, also in shared "orbit.version" (shared.json in
 // herdr-app's home), so you can see which one you have.
