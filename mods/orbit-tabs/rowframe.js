@@ -8,7 +8,8 @@
 // down the row, and an edge closes the row with rounded corners: below the
 // tab line all of it muted (`muted()`). The shown tab has no tab line: its
 // sides come down from the line, curving out of it, to its own edge, bright,
-// which lies on the row's edge in place of the muted one.
+// which lies on the row's edge in place of the muted one. With the tabs on
+// top, upside down.
 //
 //   ├──────────╯          ╰──────────┤
 //   ┊   demo   │ ● claude │ shell    ┊
@@ -18,7 +19,7 @@ import { div, svg } from "gpui-kit";
 import { h_flex, v_flex, InputState, Input } from "gpui-base";
 import { shared } from "herdr";
 import { LINE } from "./look.js";
-import { backdrop, zoom } from "./glass.js";
+import { backdrop, zoom, viewport } from "./glass.js";
 
 // The colour below the tab line: on a focused pane, `ring` (the space's)
 // 0.3 of the way from the border grey, then 0.6 of the way to its own grey;
@@ -35,30 +36,34 @@ export function muted(border, ring, focused) {
 // t: theme(); L: look(); line: the outline's colour; low: the muted one
 // (muted()); fillets: the folder of the mod's fillet-{t,b}{l,r}.svg.
 export function rowKit(t, L, line, low, fillets) {
+  const top = L.top;
   const R = L.radius; // the outline's corners
   const TAB = Math.min(6, L.radius); // the shown tab's
   const band = R + LINE;
   const glass = t.surface.slice(0, 7) + "9e";
 
-  // The band of a segment: glass, the tab line at its bottom; at the row's
+  // The band of a segment: glass, the tab line at its far edge; at the row's
   // ends the outline's sides, bright, meeting it.
   const bandOf = (first, last) => {
-    let b = div().w_full().h(band).flex_none().bg(glass).border_color(line).border_b(LINE);
+    let b = div().w_full().h(band).flex_none().bg(glass).border_color(line);
+    b = top ? b.border_t(LINE) : b.border_b(LINE);
     if (first) b = b.border_l(LINE);
     if (last) b = b.border_r(LINE);
     return b;
   };
   // Below the band: the row's edge, muted; at the ends its sides and corners.
   const lowerOf = (el, first, last) => {
-    let b = el.flex_1().min_h(0).border_color(low).border_b(LINE);
-    if (first) b = b.border_l(LINE).rounded_bl(R);
-    if (last) b = b.border_r(LINE).rounded_br(R);
+    let b = el.flex_1().min_h(0).border_color(low);
+    b = top ? b.border_t(LINE) : b.border_b(LINE);
+    if (first) b = top ? b.border_l(LINE).rounded_tl(R) : b.border_l(LINE).rounded_bl(R);
+    if (last) b = top ? b.border_r(LINE).rounded_tr(R) : b.border_r(LINE).rounded_br(R);
     return b;
   };
 
   // A segment: `lower` under the band (its height the row's less the band).
+  const stack = (bandEl, lower) => (top ? v_flex().child(lower).child(bandEl) : v_flex().child(bandEl).child(lower));
   const seg = (lower, { first = false, last = false } = {}) =>
-    v_flex().child(bandOf(first, last)).child(lowerOf(lower, first, last)).h_full().flex_none();
+    stack(bandOf(first, last), lowerOf(lower, first, last)).h_full().flex_none();
 
   // The shown tab: open into the content, its sides and rounded edge in the
   // line's colour, glass inside. `inner` is its label. Beside it, the line
@@ -67,25 +72,31 @@ export function rowKit(t, L, line, low, fillets) {
   // inside it glass, a fillet's shape).
   const shownSeg = (inner) => {
     const curve = (left) => {
-      const corner = left ? "tr" : "tl";
-      let c = div().absolute().w(TAB + LINE).h(TAB + LINE).border_color(line).top(band - LINE).border_t(LINE);
-      c = left ? c.left(-TAB).border_r(LINE).rounded_tr(TAB) : c.right(-TAB).border_l(LINE).rounded_tl(TAB);
-      const wedge = svg(`${fillets}/fillet-${corner}.svg`).absolute().size(TAB).text_color(glass).top(0)
-        .when(left, (el) => el.right(0)).when(!left, (el) => el.left(0));
+      const corner = top ? (left ? "br" : "bl") : (left ? "tr" : "tl");
+      let c = div().absolute().w(TAB + LINE).h(TAB + LINE).border_color(line);
+      c = left ? c.left(-TAB).border_r(LINE) : c.right(-TAB).border_l(LINE);
+      c = top ? c.bottom(band - LINE).border_b(LINE) : c.top(band - LINE).border_t(LINE);
+      c = corner === "tr" ? c.rounded_tr(TAB) : corner === "tl" ? c.rounded_tl(TAB)
+        : corner === "br" ? c.rounded_br(TAB) : c.rounded_bl(TAB);
+      const wedge = svg(`${fillets}/fillet-${corner}.svg`).absolute().size(TAB).text_color(glass)
+        .when(corner.endsWith("r"), (el) => el.right(0)).when(corner.endsWith("l"), (el) => el.left(0))
+        .when(corner.startsWith("t"), (el) => el.top(0)).when(corner.startsWith("b"), (el) => el.bottom(0));
       return c.child(wedge);
     };
     // Beside the tab, glass down to where the line starts curving; under
     // that, the row's muted edge.
-    const beside = () => v_flex().h_full().w(TAB).flex_none()
-      .child(div().w_full().h(band - LINE).flex_none().bg(glass))
-      .child(lowerOf(div().w_full(), false, false));
+    const beside = () => {
+      const glassPart = div().w_full().h(band - LINE).flex_none().bg(glass);
+      const rest = lowerOf(div().w_full(), false, false);
+      return v_flex().h_full().w(TAB).flex_none().children(top ? [rest, glassPart] : [glassPart, rest]);
+    };
     // Its own edge lies on the row's edge, bright; inside, the row's glass.
-    const body = h_flex().flex_1().min_h(0).items_center().border_color(line).border_l(LINE).border_r(LINE)
-      .border_b(LINE).rounded_b(TAB);
+    let body = h_flex().flex_1().min_h(0).items_center().border_color(line).border_l(LINE).border_r(LINE);
+    body = top ? body.border_t(LINE).rounded_t(TAB) : body.border_b(LINE).rounded_b(TAB);
     const open = div().w_full().h(band).flex_none().bg(glass);
     // The curves first: the tab's side is drawn over their upright edge.
     const col = v_flex().relative().h_full().flex_none().child(curve(true)).child(curve(false))
-      .child(open).child(body.child(inner));
+      .children(top ? [body.child(inner), open] : [open, body.child(inner)]);
     return h_flex().h_full().flex_none().child(beside()).child(col).child(beside());
   };
 
@@ -109,8 +120,10 @@ export function rowGlass(host, L, blockId, fill) {
   const w = own?.width ?? at?.width, h = own?.height ?? at?.height;
   if (!w || !h) return null;
   const band = (L.radius + LINE) * z;
-  return backdrop({ x: at?.x, y: at == null ? undefined : at.y + band, w, h: h - band,
-    radius: L.radius * z, corners: "bl br", fill }).top(band / z);
+  const top = L.top;
+  const el = backdrop({ x: at?.x, y: at == null ? undefined : top ? at.y : at.y + band, w, h: h - band,
+    radius: L.radius * z, corners: top ? "tl tr" : "bl br", fill });
+  return top ? el : el.top(band / z);
 }
 
 // The row's bounds as an event gave them.
@@ -132,13 +145,19 @@ export function track(host, el) {
     .on_mouse_move((e, cx) => keep(e?.bounds, cx));
 }
 
-// A press in the pane above the row (between it and the window's top, in the
-// row's columns): herdr's focused() says nothing when a press goes into a mod
-// block, so each row watches every press in the window (capture phase: a mod
+// A press in the row's own pane (in its columns: above the row at the bottom,
+// below it down to the status bar on top): herdr's focused() says nothing when
+// a press goes into a mod block, so each row watches every press in the window (capture phase: a mod
 // stopping it can't hide it) and takes those in its own pane.
-export function inColumn(e) {
+export function inColumn(e, L) {
   const b = e?.bounds, p = e?.position;
-  return Boolean(b && p && p.x >= b.x && p.x <= b.x + b.width && p.y < b.y);
+  if (!b || !p || p.x < b.x || p.x > b.x + b.width) return false;
+  // At the bottom: the pane is above the row. On top: below it, down to the
+  // status bar.
+  if (!L?.top) return p.y < b.y;
+  const view = viewport(), z = zoom();
+  const floor = view ? view.height - Math.round(L.status * z) - Math.round(Math.max(4, L.gap || 0) * z) : Infinity;
+  return p.y > b.y + b.height && p.y < floor;
 }
 
 // Drag to reorder a row's tabs (orbit-tabs: the panes' and the side panel's). A press on a

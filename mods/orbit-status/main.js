@@ -12,7 +12,7 @@ import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { run, theme, layout, spaces, agents, machines, updates, readTextFile, exec, home } from "herdr";
 import { look, glass } from "./look.js";
-import { backdrop, orbitPlace } from "./glass.js";
+import { backdrop, orbitPlace, orbitRadius } from "./glass.js";
 
 const ICONS = "mods/orbit-status/icons";
 
@@ -180,7 +180,7 @@ export default class OrbitStatus extends View {
     const box = (el, key, dx) => el.id(`status-${key}`).relative().h_full().items_center()
       .on_size_change(sized(key))
       .child(backdrop({ x: bar && dx(sizes[key]) !== null ? bar.x + dx(sizes[key]) : undefined, y: bar?.y,
-        w: sizes[key]?.width, h: sizes[key]?.height, radius: 0, fill: glass(t) }));
+        w: sizes[key]?.width, h: sizes[key]?.height, radius: orbitRadius(Lk), corners: "tl tr bl br", fill: glass(t) }));
     const leftAt = () => 0;
     return h_flex().id("orbit-status").size_full().gap(Lk.gap || 6).text_size(13)
       .on_size_change(sized("bar"))

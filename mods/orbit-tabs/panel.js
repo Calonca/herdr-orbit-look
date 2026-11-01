@@ -142,7 +142,7 @@ export class PanelRow {
         this.sized(size.width, cx);
       })
       .on_mouse_move((e, cx) => remember(this, e?.bounds, cx))
-      .on_mouse_down_out((e, cx) => { remember(this, e?.bounds, cx); if (inColumn(e)) take(); })
+      .on_mouse_down_out((e, cx) => { remember(this, e?.bounds, cx); if (inColumn(e, L)) take(); })
       .on_mouse_down("left", () => take())
       .when(Boolean(under), (el) => el.child(under))
       .children(row);

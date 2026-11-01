@@ -11,7 +11,7 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { look, glass, spaceLook, glyphPath, statusColor } from "./look.js";
-import { backdrop, orbitPlace } from "./glass.js";
+import { backdrop, orbitPlace, orbitRadius } from "./glass.js";
 import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window } from "herdr";
 
 // Where a space is now: its first terminal's live folder, else where it was made.
@@ -382,7 +382,7 @@ export default class Spaces extends View {
     const at = orbitPlace(L, "sidebar-top", this.own);
     return v_flex().id("orbit-spaces").size_full().min_h(0).relative().text_size(sz(16))
       .on_size_change((size, cx) => { if (size.width !== this.own?.width || size.height !== this.own?.height) { this.own = size; cx.notify(); } })
-      .child(backdrop({ x: at?.x, y: at?.y, w: this.own?.width, h: this.own?.height, radius: 0, fill: glass(t) }))
+      .child(backdrop({ x: at?.x, y: at?.y, w: this.own?.width, h: this.own?.height, radius: orbitRadius(L), corners: "tl tr", fill: glass(t) }))
       .child(v_flex().flex_1().min_h(0).px(11).pt(8).pb(14).gap(1).overflow_y_scrollbar()
         .on_mouse_up("left", (_e, cx) => { this.pressed = null; cx.notify(); })
         .children(this.grouped(t, collapsed)));

@@ -1,6 +1,8 @@
-// What the orbit mod writes into layouts/orbit.json: the theme's glass, the
-// outline colours (the pane with the keys in the shown space's colour), the
-// right pane's children and the side panel's views. Only the orbit mod has
+// What the orbit mod writes into layouts/orbit.json: the look settings
+// (density, corners, gap, the tab rows on top or at the bottom, the
+// background picture), the theme's glass, the outline colours (the pane with
+// the keys in the shown space's colour), the right pane's children and the
+// side panel's views. Only the orbit mod has
 // this file: the other mods ask it for a change (look.js ask).
 //
 // - apply(next?): writes the layout; `next` is merged into the saved settings
@@ -17,8 +19,19 @@ import { glass, keysIn, find, LINE, PANEL_DRAG_MIN, GENERATED } from "./look.js"
 export const LAYOUT = "orbit";
 export const KEY = "orbit.settings";
 
+// The look settings (orbit-dialogs' settings dialog changes them), saved in
+// shared "orbit.settings" with the side panel's views. null: the density's.
+export const DEFAULTS = { density: "comfortable", rounding: 4, gap: 0, tabs: "bottom", background: null, views: null };
+
+// The densities. The mods were drawn at comfortable; `scale` is relative to it.
+export const DENSITIES = {
+  compact: { radius: 4, gap: 6, header: 30, status: 28, padding: [8, 6], footer: 67, scale: 0.9 / 1.15 },
+  default: { radius: 12, gap: 10, header: 38, status: 34, padding: [14, 12], footer: 75, scale: 1 / 1.15 },
+  comfortable: { radius: 16, gap: 14, header: 46, status: 40, padding: [18, 16], footer: 86, scale: 1 },
+};
+
 export function settings() {
-  return { views: null, ...(shared(KEY) ?? {}) };
+  return { ...DEFAULTS, ...(shared(KEY) ?? {}) };
 }
 
 // The side panel's views, in their tabs' order: herdr's files and changes
@@ -39,13 +52,48 @@ export function viewId(v) {
 // children and the panel's views in it. A layout can't give a theme colour an
 // alpha, so colours are written as hex.
 export function shape(root, s, colors) {
+  const L = lookOf(s);
+  const { radius, gap, top } = L;
   const glassy = glass(colors);
+  // The background picture, and the space around the terminals.
+  root.background = { image: L.background.image, fit: "cover" };
+  root.terminal_padding = L.padding;
+  // The gap: between the sidebar, the panes and the panel, and around them
+  // all and the status bar (the window pads the sides, the body its top and
+  // bottom; the orbit block under the bar grows to it, 4px at least).
+  const put = (node, key, value) => { if (!node) return; if (value) node[key] = value; else delete node[key]; };
+  put(root, "padding", gap ? [0, gap] : null);
+  const row = find(root, "body");
+  put(row, "gap", gap);
+  put(row, "padding", gap ? [gap, 0] : null);
+  put(find(root, "work"), "gap", gap);
+  const block = find(root, "orbit");
+  if (block) block.size = { px: Math.max(4, gap) };
+  const status = find(root, "status");
+  if (status) status.size = { px: L.status };
+  const footer = find(root, "sidebar-footer");
+  if (footer) footer.size = { px: L.footer };
+  // Each pane's frame: its outline's top (orbit-edge), its content between
+  // the side lines, its tab row; with the tabs on top, upside down.
+  for (const id of ["left-frame", "right-frame", "panel"]) {
+    const frame = find(root, id);
+    const kids = frame?.children ?? [];
+    const cap = kids.find((c) => c.id.endsWith("-cap")), mid = kids.find((c) => c.id.endsWith("-mid")), row = kids.find((c) => c.id.endsWith("-tabs"));
+    if (!cap || !mid || !row) continue;
+    cap.size = { px: radius + LINE };
+    row.size = { px: L.header + radius + LINE };
+    frame.children = [...(top ? [row, mid, cap] : [cap, mid, row]), ...kids.filter((c) => c !== cap && c !== mid && c !== row)];
+  }
   const edge = colors.border.slice(0, 7);
   const space = spaces().find((x) => x.active);
   const ring = (space ? identity(spaceKey(space)) : colors.accent).slice(0, 7);
   const keys = keysIn();
   const sidebar = find(root, "sidebar");
-  if (sidebar) sidebar.background = glassy;
+  if (sidebar) {
+    sidebar.background = glassy;
+    // Square while flush with the window; with a gap, the panes' corners.
+    put(sidebar, "radius", gap ? radius : null);
+  }
   const sidePanel = find(root, "panel");
   if (sidePanel) sidePanel.min = PANEL_DRAG_MIN;
   for (const [stack, mid, side] of [["left", "left-mid", "left"], ["right", "right-mid", "right"], ["panel-body", "panel-mid", "panel"]]) {
@@ -162,9 +210,17 @@ export async function addPanelView(cx, view) {
   run("layout.show", { id: "panel" });
 }
 
-// The look the other mods draw with (look.js look()), from the settings.
+// The look the other mods draw with (look.js look()), from the settings: the
+// density's sizes, its corners and gap unless set, the tab rows' side, and
+// the background (a picture of the person's has no blurred copy: the glass
+// over it is the plain fill).
 export function lookOf(s = settings()) {
-  return { radius: 4, gap: 0, header: 46, status: 40, footer: 86, scale: 1, small: 4, top: false, background: GENERATED };
+  const d = DENSITIES[s.density] ?? DENSITIES.comfortable;
+  const radius = s.rounding ?? d.radius;
+  const background = s.background ? { image: s.background, blur: null } : GENERATED;
+  return { ...d, radius, gap: s.gap ?? d.gap, small: Math.min(4, radius), top: s.tabs === "top", background,
+    // What's set (null: the density's), for the settings dialog.
+    density: s.density, rounding: s.rounding, gapSet: s.gap, tabs: s.tabs, picked: s.background };
 }
 
 // The blocks whose place a mod needs before an event tells it its own (the

@@ -26,6 +26,7 @@
     "alt-l": "orbit.right-pane",
     "alt-right": "orbit.right-pane",
     "alt-shift-h": "orbit.move",
-    "alt-shift-l": "orbit.move"
+    "alt-shift-l": "orbit.move",
+    "ctrl-,": "orbit.settings"
   }
 }

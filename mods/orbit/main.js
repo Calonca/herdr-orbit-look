@@ -23,6 +23,7 @@
 //   orbit.recent     the space shown before this one
 //   orbit.switcher   the recent spaces, most recent first, to pick from
 //   orbit.add        what a new tab should show (the picker, as a dialog)
+//   orbit.settings   the look settings (orbit-dialogs' settings dialog)
 // - The other orbit mods' asks (look.js ask): the only writer of
 //   "orbit.sides", "orbit.settings" and the layout file is this mod.
 // Put it in the layout as a small block:
@@ -35,6 +36,8 @@ import { save, show, showRight, close, closeAsked, cancelAsk, newTerminal, newMo
 import { apply, closePanelView, renamePanelView, movePanelView, addPanelView, share } from "./layout.js";
 import { find } from "./look.js";
 import { identity, spaceKey, lookUpRepos, publish } from "./identity.js";
+
+export const openSettings = () => openOverlay({ mod: "orbit-dialogs", kind: "dialog", frame: "none", width: 640, height: 400, props: { dialog: "settings" } });
 
 // This build's version, also in shared "orbit.version" (shared.json in
 // herdr-app's home), so you can see which one you have.
@@ -214,6 +217,8 @@ export default class Orbit extends View {
       if (back) run("space.select", { id: back });
     } else if (name === "switcher") {
       openOverlay({ mod: "orbit-dialogs", kind: "dialog", frame: "none", width: 560, props: { dialog: "switcher" } });
+    } else if (name === "settings") {
+      openSettings();
     } else if (name === "add") {
       openOverlay({ mod: "orbit-add", kind: "dialog", frame: "none", width: 640, height: 480, props: { space: active?.id } });
     }
@@ -277,6 +282,9 @@ export default class Orbit extends View {
       case "view-rename": return renamePanelView(a.id, a.name);
       case "view-move": return movePanelView(a.id, a.to);
       case "view-add": return addPanelView(cx, { title: a.title, mod: a.mod, props: a.props ?? null });
+      // The look settings only (the settings dialog): the panel's views are
+      // its tab row's to change.
+      case "settings": return apply(Object.fromEntries(Object.entries(a).filter(([k]) => ["density", "rounding", "gap", "tabs", "background"].includes(k))));
     }
   }
 

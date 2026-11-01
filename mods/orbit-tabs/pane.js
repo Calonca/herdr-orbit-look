@@ -163,7 +163,7 @@ export class PaneRow {
     const take = () => { if (state().focus !== side) ask("focus", { side }); };
     const under = rowGlass(this, L, `${side}-tabs`, glass(t));
     return drag.root(track(this, h_flex().id(`orbit-tabs-${side}`).size_full().min_w(0).items_start().overflow_x_hidden()))
-      .on_mouse_down_out((e, cx) => { remember(this, e?.bounds, cx); if (inColumn(e)) take(); })
+      .on_mouse_down_out((e, cx) => { remember(this, e?.bounds, cx); if (inColumn(e, L)) take(); })
       .on_mouse_down("left", () => take())
       .when(Boolean(under), (el) => el.child(under))
       .children(row);

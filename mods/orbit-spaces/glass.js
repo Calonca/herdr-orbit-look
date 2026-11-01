@@ -43,11 +43,14 @@ export function backdrop({ x, y, w, h, radius = 0, corners = "", fill }) {
   const z = zoom();
   const px = (v) => v / z;
   const base = div().absolute().left(0).top(0).w(px(w)).h(px(h));
+  // Only the corners asked for are round.
+  const rr = (el, r) => el.when(corners.includes("tl"), (e) => e.rounded_tl(px(r))).when(corners.includes("tr"), (e) => e.rounded_tr(px(r)))
+    .when(corners.includes("bl"), (e) => e.rounded_bl(px(r))).when(corners.includes("br"), (e) => e.rounded_br(px(r)));
   // The background's blurred copy; a picture without one gets the plain fill.
   const picture = look().background;
   const view = viewport();
   if (!picture?.blur || !view || !(w > 0) || !(h > 0) || !Number.isFinite(x) || !Number.isFinite(y)) {
-    return base.bg(fill).rounded(px(radius));
+    return rr(base.bg(fill), radius);
   }
   const at = cover(picture, view);
   const r = Math.min(radius, w / 2, h / 2);
@@ -75,23 +78,28 @@ export function backdrop({ x, y, w, h, radius = 0, corners = "", fill }) {
     const k = inset(i);
     rows.push(band(h - 1 - i, 1, round("bl") ? k : 0, round("br") ? k : 0));
   }
-  const rr = (el) => el.when(round("tl"), (e) => e.rounded_tl(px(r))).when(round("tr"), (e) => e.rounded_tr(px(r)))
-    .when(round("bl"), (e) => e.rounded_bl(px(r))).when(round("br"), (e) => e.rounded_br(px(r)));
-  return base.children(rows).child(rr(div().absolute().left(0).top(0).size_full().bg(fill)));
+  return base.children(rows).child(rr(div().absolute().left(0).top(0).size_full().bg(fill), r));
 }
 
 // Where a block of the orbit layout sits in the window, in window pixels,
-// from look()'s numbers and the block's own size: the status bar, then the
-// orbit block (4px) under it.
+// from look()'s numbers and the block's own size: the gap around everything
+// (the window pads the sides, the body its top and bottom), the status bar,
+// then the orbit block under it (the gap, 4px at least).
 //   "sidebar-top": the sidebar's first block; "sidebar-bottom": its last;
 //   "status": the status bar block.
 export function orbitPlace(L, where, own) {
   const z = zoom(), view = viewport();
   if (!view || !own) return null;
   // herdr-app rounds each zoomed length to whole pixels.
-  const status = Math.round(L.status * z), keys = Math.round(4 * z);
-  if (where === "sidebar-top") return { x: 0, y: 0 };
-  if (where === "sidebar-bottom") return { x: 0, y: view.height - keys - status - own.height };
-  if (where === "status") return { x: 0, y: view.height - keys - own.height };
+  const gap = Math.round((L.gap || 0) * z), status = Math.round(L.status * z), keys = Math.round(Math.max(4, L.gap || 0) * z);
+  if (where === "sidebar-top") return { x: gap, y: gap };
+  if (where === "sidebar-bottom") return { x: gap, y: view.height - keys - status - gap - own.height };
+  if (where === "status") return { x: gap, y: view.height - keys - own.height };
   return null;
+}
+
+// The corner radius of the layout's panels, in window pixels: square while
+// they're flush with the window (no gap).
+export function orbitRadius(L) {
+  return L.gap ? L.radius * zoom() : 0;
 }

@@ -9,7 +9,7 @@ import { View, div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { run, theme, layout, spaces, panes, pickFolder, openOverlay, updates, machines, exec } from "herdr";
 import { look, glass, find } from "./look.js";
-import { backdrop, orbitPlace, zoom } from "./glass.js";
+import { backdrop, orbitPlace, orbitRadius, zoom } from "./glass.js";
 
 // A space's checkout: "main", "linked" (a worktree) or null (as the menu asks).
 async function checkout(space) {
@@ -34,7 +34,7 @@ export default class OrbitSidebarFooter extends View {
     const at = orbitPlace(L, "sidebar-bottom", this.own);
     return v_flex().id("orbit-sidebar-footer").size_full().relative().px(11).pb(8).justify_end().gap(4)
       .on_size_change((size, cx) => { if (size.width !== this.own?.width || size.height !== this.own?.height) { this.own = size; cx.notify(); } })
-      .child(backdrop({ x: at?.x, y: at?.y, w: this.own?.width, h: this.own?.height, radius: 0, fill: glass(t) }))
+      .child(backdrop({ x: at?.x, y: at?.y, w: this.own?.width, h: this.own?.height, radius: orbitRadius(L), corners: "bl br", fill: glass(t) }))
       .child(h_flex().id("agents-fold").h(27).px(4).gap(8).items_center().rounded(4).text_size(16).text_color(t.foreground)
         .hover((s) => s.bg(t.foreground.slice(0, 7) + "1a"))
         .on_click(() => run("layout.toggle", { id: "agents" }))
