@@ -62,7 +62,10 @@ Your clicks (sizes, what's shown) stay in `layouts/.state/`, your settings
 (`"orbit.settings"` in `shared.json`) stay, and your `orbit-windows.json` is
 never replaced.
 
-Version 3 adds the settings, the six themes and the `ctrl-,` key. From
+Version 3 adds the settings, the six themes and the `ctrl-,` key. Its
+corners and gap start on "auto", the density's (16 and 14 at comfortable):
+the panels stand apart with rounded corners. For the look of versions 1 and 2
+(panels touching, corners of 4), pick corners 4 and gap "none". From
 version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
 `orbit-tabs` and `orbit-edge`).
 
@@ -124,7 +127,8 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
   the "make tab N" prompt, and the settings.
 - **Settings** (`ctrl-,`, or "settings" in the picker): the theme, density
   (compact, default, comfortable), corners, the gap between the panels, the
-  tab rows at the bottom or on top, and the background picture. They apply
+  tab rows at the bottom or on top, and the background picture. Corners and
+  gap start on "auto", the density's own. They apply
   at once and are kept in `shared.json` (`"orbit.settings"`).
 - **Status bar** (`orbit-status`): the sidebar toggle, "herdr offline" while
   the core can't be reached, folded tabs and an update pill on the left; on

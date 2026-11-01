@@ -46,7 +46,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   | `orbit-rose-pine` | `#c4a7e7` | `#c4a7e7 #9ccfd8 #31748f #f6c177 #ebbcba #eb6f92` |
 
   Any other theme: its ANSI 5, 6, 2, 3, 11, 1.
-- **Sidebar**, 400px wide (44–560), glass, square corners:
+- **Sidebar**, 400px wide (44–560), glass, corners of radius 16:
   - A header per machine, "Local" first: 27px, 16px semibold, a `▾`/`▸` fold
     (15px, muted). A machine that can't be reached shows "! attention" in red
     and why under it.
@@ -63,8 +63,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   - At the foot, an 86px block: "▸ agents" (27px row, 16px) and under it
     "open folder" (16px, `#a9b1d6`).
 - **Two panes**, sharing the rest of the width (each at least 240px), each in
-  an outline 2px wide with corners of radius 4: the one with the keys in the
-  shown space's colour, the other in the border colour. Its top is a 6px cap
+  an outline 2px wide with corners of radius 16: the one with the keys in the
+  shown space's colour, the other in the border colour. Its top is an 18px cap
   with the rounded corners; its sides run down to the tab row.
   - The left pane shows the shown space's own herdr tabs.
   - The right pane, hidden until it holds something, shows the space's
@@ -74,7 +74,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
     icon, 14px name, a pill "herdr" for herdr's own views, the description at
     13px muted on the right; the chosen row in accent), hints "esc close · ⏎
     open · ↑↓ choose" at 12px.
-- **The tab row**, 52px, the bottom of the pane's outline:
+- **The tab row**, 64px, the bottom of the pane's outline:
   - A 6px glass band whose bottom edge is the tab line (2px, outline colour),
     then the row, then the row's edge (2px) with rounded bottom corners, in a
     muted colour: on the pane with the keys, the space colour 30% of the way
@@ -91,7 +91,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   - At the left row's right end, the split toggle: an 18×14 icon of two
     panes, the right one filled while the right pane shows.
   - The shown tab is a folder tab: no tab line above it, its sides (2px, the
-    outline colour) curving out of the tab line with radius 4 and down to its
+    outline colour) curving out of the tab line with radius 6 and down to its
     own bottom edge, which lies on the row's edge; its label in the identity
     colour (foreground when the pane hasn't the keys).
 - **Side panel**, hidden at first, 368px (280–900), on the right: views
@@ -107,7 +107,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   theme's `popover`, 31px rows with a 14px icon, a key hint on the right).
 - **Sidebar foot**: "menu" at the right of "open folder", with an accent dot
   while an update is ready.
-- **Status bar**, 40px, glass, 13px text, 14px in from each side:
+- **Status bar**, 40px, glass, corners of radius 16, 13px text, 14px in from each side:
   - Left: the sidebar toggle (an 18px panel icon), "herdr offline" in red
     while the core can't be reached, "N folded" (muted) for settled tabs, and
     an accent "update ready · restart" pill.
@@ -116,9 +116,12 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
     red `#f7768e` from 90%), `?` in accent, three counts with a dot (to handle:
     red, or muted at 0; in progress: yellow; done: green), the clock (HH:MM),
     and the side panel toggle (the sidebar icon mirrored).
-- Under the status bar, a 4px block (the `orbit` mod, which draws nothing).
-- **The settings change the above** (defaults: comfortable, corners 4, no
-  gap, tab rows at the bottom, the generated picture). Densities:
+- **The gap**: the sidebar, the panes, the side panel and the status bar
+  stand 14px apart and 14px from the window's edges; under the status bar,
+  a 14px block (the `orbit` mod, which draws nothing).
+- **The settings change the above** (defaults: comfortable, corners and
+  gap on auto, tab rows at the bottom, the generated picture: the look
+  above). Densities:
 
   | | corners | gap | tab row text | status bar | terminal padding | sidebar foot | sidebar scale |
   |---|---|---|---|---|---|---|---|
@@ -129,7 +132,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   Corners (auto: the density's, or 0, 4, 8, 12) round the pane outlines,
   their tab rows and, with a gap, the sidebar and status bar. The gap (auto,
   none, 4, 8, 12, 16) sets the panels apart and from the window's edges; the
-  4px block under the status bar grows to it. Each pane's cap is corners + 2
+  block under the status bar is the gap, at least 4px. With no gap the
+  panels touch and the sidebar and status bar have square corners. Each pane's cap is corners + 2
   tall and its tab row text + corners + 2. With the tab rows on top, each
   pane's frame is upside down: its row on top, the shown tab open downwards,
   its cap at the bottom. A picture of the person's replaces the background;
@@ -230,11 +234,11 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
     - `sidebar`, a column (400px, 44–560, `resizable: false`): `spaces`
       (`orbit-spaces`), `agents` (herdr's `agents`, hidden), `sidebar-footer`
       (86px, `orbit-sidebar-footer`).
-    - `work`, a row of three frames. Each frame is a column: `<x>-cap` (6px,
+    - `work`, a row of three frames. Each frame is a column: `<x>-cap` (18px,
       `orbit-edge` with `props.pane`), `<x>-mid` (a row, `resizable: false`,
       `divider` 2px in the outline colour, holding a zero-wide `orbit-edge`
       block with no props (draws nothing), the content, another zero-wide block: the divider draws the
-      outline's sides), `<x>-tabs` (52px, the tab row mod).
+      outline's sides), `<x>-tabs` (64px, the tab row mod).
       - `left-frame` (min 240): content the stack `left` with the block
         `left-tab` (`{ "tab": "active" }`, pane frame gap 0, radius 0,
         transparent, no border) and `left-pick` (`orbit-add`,
@@ -249,7 +253,10 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
         `props.panel: true`), then a block per view (`panel-v<hash>`, with
         `title`) written by the `orbit` mod; tab row `orbit-tabs` with
         `props.stack: "panel-body"`.
-  - `status` (40px, `orbit-status`), `orbit` (4px, the `orbit` mod).
+  - `status` (40px, `orbit-status`), `orbit` (14px, the `orbit` mod).
+  The root's padding `[0, 14]`, `body`'s and `work`'s gap 14 and `body`'s
+  padding `[14, 0]` are the gap; the `orbit` mod writes these sizes from the
+  settings.
 - **Mods** (all `place: "none"`):
   - `orbit`: keeps the layout file in step. On start, when `layouts/` changes,
     when the theme or the shown space changes and when the keys move, it
@@ -440,9 +447,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   opens, and opens in that pane; "configure windows…" copies the prompt and
   shows the toast.
 - `ctrl-,` opens the settings. "top" puts every tab row on top, the shown
-  tab open downwards; a gap of 8 sets the sidebar, panes, panel and status
-  bar apart with rounded corners, their glass still lined up with the
-  picture; "compact" makes the rows and bar smaller; each applies at once
+  tab open downwards; gap "none" joins the sidebar, panes, panel and status
+  bar with square corners, their glass still lined up with the picture; "compact" makes the rows and bar smaller; each applies at once
   and stays after a restart.
 - Each theme button switches the theme, and the space colours follow it
   (Nord: a yellow space is `#ebcb8b`); Esc still closes the dialog after.
