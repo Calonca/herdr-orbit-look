@@ -7,7 +7,9 @@ This is an unofficial layout. It is not affiliated with or endorsed by Herdr.
 It uses only what herdr-app offers to everyone (a layout, mods and a theme)
 and doesn't change the app. Made for herdr-app 0.1.11.
 
-**Version 2** (stage 2: the interface). See [Updating](#updating).
+**Version 3**. See [Updating](#updating).
+
+![Orbit: the sidebar, two panes, the picker open in the right one](preview.png)
 
 ## Add it
 
@@ -25,7 +27,7 @@ section (those keys apply only while the orbit layout shows; see Keys), and
 pick the **orbit** layout in herdr-app's settings (or `ctrl-shift-l`).
 `ctrl-shift-l` switches back to your own layout; deleting the files removes it.
 Check a name isn't taken first: the layout is `orbit`, the mods are `orbit` and
-`orbit-*`, the theme is `orbit`.
+`orbit-*`, the themes are `orbit` and `orbit-*`.
 
 The picker's own list is `orbit-windows.json` in herdr-app's home (see the
 picker below). Without the file the list is empty; to start one, copy
@@ -46,23 +48,31 @@ it), or `VERSION` at the top of `mods/orbit/main.js`.
 Herdr's add flow never overwrites: adding this repo again would make a second
 copy (`orbit-2`, ...). To update, either:
 
-- tell your agent: "replace my orbit layout, the orbit-* mods and
-  themes/orbit.json with the latest from github.com/Calonca/herdr-orbit-look"
-  (it removes `layouts/orbit.json`, `layouts/orbit.svg`, `mods/orbit` and
-  `mods/orbit-*` and `themes/orbit.json` first, then copies the new ones and
+- tell your agent: "replace my orbit layout, the orbit-* mods and the
+  orbit themes with the latest from github.com/Calonca/herdr-orbit-look"
+  (it removes `layouts/orbit.json`, `layouts/orbit.svg`, `mods/orbit`, every
+  `mods/orbit-*` and `themes/orbit*.json` first, then copies the new ones and
   replaces the `layout:orbit` section of `keys.json`; your other files and
-  keys and `orbit-windows.json` stay as they are); or
+  keys, `orbit-windows.json` and the pictures in `backgrounds/` stay as they
+  are); or
 - run `./install.sh` from a fresh clone: it replaces what it installed before
   and moves anything else under the same names to a backup folder.
 
-Your clicks (sizes, what's shown) stay in `layouts/.state/`, and your
-`orbit-windows.json` is never replaced.
+Your clicks (sizes, what's shown) stay in `layouts/.state/`, your settings
+(`"orbit.settings"` in `shared.json`) stay, and your `orbit-windows.json` is
+never replaced.
+
+Version 3 adds the settings, the six themes and the `ctrl-,` key. From
+version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
+`orbit-tabs` and `orbit-edge`).
 
 ## What you see
 
 - **Background**: a generated space picture (`mods/orbit/backgrounds/`), with
   the sidebar, the pane, its tab row and the status bar as glass over it: the
   theme's surface, a little see-through, over a blurred copy of the picture.
+  A picture of your own can replace it (settings); the glass over it is the
+  plain see-through surface, without the blur.
 - **Space colours**: every space gets one of six colours and one of 8 symbols
   from a hash of its name; a git worktree and the main checkout it belongs to
   share their repo's. The pane's outline, its tab row and the space's row in
@@ -110,14 +120,22 @@ Your clicks (sizes, what's shown) stay in `layouts/.state/`, and your
   the panel moves the coloured outline there.
 - **Menus and dialogs** (`orbit-dialogs`): the sidebar's "menu" (search,
   settings, add machine, new space, the space's rename, worktrees and close,
-  keybinds), a tab's menu, the close dialog, the switcher of recent spaces and
-  the "make tab N" prompt.
+  keybinds), a tab's menu, the close dialog, the switcher of recent spaces,
+  the "make tab N" prompt, and the settings.
+- **Settings** (`ctrl-,`, or "settings" in the picker): the theme, density
+  (compact, default, comfortable), corners, the gap between the panels, the
+  tab rows at the bottom or on top, and the background picture. They apply
+  at once and are kept in `shared.json` (`"orbit.settings"`).
 - **Status bar** (`orbit-status`): the sidebar toggle, "herdr offline" while
   the core can't be reached, folded tabs and an update pill on the left; on
   the right cpu (with a 20 s sparkline), ram and disk use (yellow from 70%,
   red from 90%, details on hover), `?` for the shortcuts, what needs you /
   runs / is done, the clock and the side panel toggle.
-- **Theme** `orbit` (Tokyo Night colours), JetBrains Mono in terminals.
+- **Themes**: `orbit` (Tokyo Night colours), and six variants: Catppuccin
+  Mocha, Everforest, Gruvbox Dark, Kanagawa, Nord and Rosé Pine
+  (`themes/orbit-*.json`), each with its own six space colours. Pick one in
+  the settings or in herdr-app's (any other theme works too: the space
+  colours are then its ANSI colours). JetBrains Mono in terminals.
 
 ## Keys
 
@@ -134,6 +152,7 @@ Your clicks (sizes, what's shown) stay in `layouts/.state/`, and your
 | `alt-shift-h`, `alt-shift-l` | move the shown terminal tab to the other pane |
 | `ctrl-tab` | back to the space shown before this one |
 | `ctrl-shift-space` | the recent spaces, most recent first (↑/↓ or Tab, 1-9 or Enter, Esc) |
+| `ctrl-,` | the settings |
 
 They are commands of the `orbit` mod (`orbit.<name>`); its header lists the
 rest (`orbit.split`, `orbit.side-panel`, `orbit.add`, `orbit.window`).
@@ -145,9 +164,16 @@ sidebar, `ctrl-shift-l` the layout).
 - `orbit-spaces` runs `git status` and `git rev-parse` in each space's folder
   (on that space's machine), runs `hc machine ls`, and watches local repos'
   git folders for changes.
-- `orbit-tabs` runs `git rev-parse` in each space's folder, so a worktree gets
-  its repo's colour; `orbit-sidebar-footer` and `orbit-dialogs` (the menu) run it to offer
-  the worktree items.
+- `orbit` runs `git rev-parse` in each space's folder, so a worktree gets its
+  repo's colour; `orbit-sidebar-footer` and `orbit-dialogs` (the menu) run it
+  to offer the worktree items.
+- `orbit-dialogs` (the settings), only when you click "background…": runs
+  KDE's `kdialog` or, without it, GNOME's `zenity` to open a file dialog
+  (from a toolbox or a flatpak, the host's, through `flatpak-spawn --host`);
+  with neither, it opens herdr-app's folder picker and lists the pictures in
+  the folder you pick (`ls`). The picture you choose is copied (`cp`) into
+  `backgrounds/` in herdr-app's home, and the dialog's answer goes through
+  `data/orbit-settings/` there. Theme buttons run herdr-app's `app.theme`.
 - `orbit-add` asks herdr-app which coding agents are installed
   (`knownAgents`), and reads `orbit-windows.json` from herdr-app's home each
   time it shows: what that file lists opens or runs when you pick it (a mod,
@@ -156,8 +182,8 @@ sidebar, `ctrl-shift-l` the layout).
 - `orbit-status` reads `/proc/stat`, `/proc/loadavg` and `/proc/meminfo`, and
   runs `df` on your home folder every 30 s.
 - `orbit` reads and writes `layouts/orbit.json` in herdr-app's home: it puts
-  the shown theme's glass colours, the space's outline colour, the right
-  pane's terminals and views and the side panel's views there.
+  the settings, the shown theme's glass colours, the space's outline colour,
+  the right pane's terminals and views and the side panel's views there.
 - None of them uses the network.
 
 ## Files
@@ -176,7 +202,7 @@ sidebar, `ctrl-shift-l` the layout).
   the copies are the same file. What every mod would otherwise work out
   again (each space's colour and symbol, the look, where the tab rows sit)
   the `orbit` mod works out once and shares.
-- `themes/orbit.json`
+- `themes/orbit.json` and the six `themes/orbit-*.json`
 - `keys.json`: the keys, to merge into herdr-app's
 - `defaults/orbit-windows.json`: an empty list for the picker, to copy into
   herdr-app's home when you have none
@@ -188,6 +214,19 @@ sidebar, `ctrl-shift-l` the layout).
 - The `orbit` theme's colours are the Tokyo Night palette by Enkia
   ([tokyo-night-vscode-theme](https://github.com/tokyo-night/tokyo-night-vscode-theme),
   MIT).
+- The six variants' colours are each palette's own:
+  - Catppuccin Mocha by Catppuccin, [catppuccin/catppuccin](https://github.com/catppuccin/catppuccin)
+    ([MIT](https://github.com/catppuccin/catppuccin/blob/main/LICENSE));
+  - Everforest by sainnhe, [sainnhe/everforest](https://github.com/sainnhe/everforest)
+    ([MIT](https://github.com/sainnhe/everforest/blob/master/LICENSE));
+  - Gruvbox Dark by morhetz, [morhetz/gruvbox](https://github.com/morhetz/gruvbox)
+    (MIT/X11, as its README states; the repo has no license file);
+  - Kanagawa by Tommaso Laurenzi, [rebelot/kanagawa.nvim](https://github.com/rebelot/kanagawa.nvim)
+    ([MIT](https://github.com/rebelot/kanagawa.nvim/blob/master/LICENSE));
+  - Nord by Sven Greb, [nordtheme/nord](https://github.com/nordtheme/nord)
+    ([MIT](https://github.com/nordtheme/nord/blob/develop/license));
+  - Rosé Pine by mvllow, [rose-pine/rose-pine-palette](https://github.com/rose-pine/rose-pine-palette)
+    ([MIT](https://github.com/rose-pine/rose-pine-palette/blob/main/LICENSE)).
 - The space background is generated by `scripts/space.py` (procedural:
   gradients, seeded stars, a planet), not a photo or a third-party image;
   `scripts/blur.py` makes its blurred copy. Both scripts reproduce the files

@@ -41,7 +41,7 @@ export const openSettings = () => openOverlay({ mod: "orbit-dialogs", kind: "dia
 
 // This build's version, also in shared "orbit.version" (shared.json in
 // herdr-app's home), so you can see which one you have.
-export const VERSION = 2;
+export const VERSION = 3;
 
 const RECENT = "orbit.recent";
 

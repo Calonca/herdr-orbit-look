@@ -32,6 +32,20 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   `#7dcfff` cyan, `#9ece6a` green, `#e0af68` yellow, `#ff9e64` orange,
   `#f7768e` red) and one of 8 symbols (hexagon, triangle, square, circle, star,
   plus, cross, diamond, 16px SVGs, outlined and filled).
+- **Themes**: `orbit` above, and six variants with their own identity
+  colours (purple, cyan, green, yellow, orange, red), each known by its
+  accent:
+
+  | Theme | Accent | Identity colours |
+  |---|---|---|
+  | `orbit-catppuccin-mocha` | `#89b4fa` | `#cba6f7 #89dceb #a6e3a1 #f9e2af #fab387 #f38ba8` |
+  | `orbit-everforest` | `#a7c080` | `#d699b6 #83c092 #a7c080 #dbbc7f #e69875 #e67e80` |
+  | `orbit-gruvbox-dark` | `#83a598` | `#d3869b #8ec07c #b8bb26 #fabd2f #fe8019 #fb4934` |
+  | `orbit-kanagawa` | `#7e9cd8` | `#957fb8 #7fb4ca #98bb6c #e6c384 #ffa066 #e82424` |
+  | `orbit-nord` | `#88c0d0` | `#b48ead #8fbcbb #a3be8c #ebcb8b #d08770 #bf616a` |
+  | `orbit-rose-pine` | `#c4a7e7` | `#c4a7e7 #9ccfd8 #31748f #f6c177 #ebbcba #eb6f92` |
+
+  Any other theme: its ANSI 5, 6, 2, 3, 11, 1.
 - **Sidebar**, 400px wide (44–560), glass, square corners:
   - A header per machine, "Local" first: 27px, 16px semibold, a `▾`/`▸` fold
     (15px, muted). A machine that can't be reached shows "! attention" in red
@@ -84,7 +98,9 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   (herdr's files and changes to start with), framed like the panes, with a
   tab each in a row like theirs (an 11px ⠿ before each name), then `+ ⠿`.
 - **Dialogs and menus**, on the theme's surface at 95% with a 2px border and
-  radius 4: the close dialog (380×150: "close <name>?", "close" in red,
+  the corner radius: the settings (700×470: a 104px label column, then
+  32px toggles, the chosen one in accent; "orbit settings" and "esc close"
+  at the foot), the close dialog (380×150: "close <name>?", "close" in red,
   "keep"), the switcher (560 wide: "projects · N", then a 42px row per space
   with its symbol, name, machine and state), the "make tab N" prompt
   (420×250: a name field and a command field), and menus (240 wide on the
@@ -101,6 +117,23 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
     red, or muted at 0; in progress: yellow; done: green), the clock (HH:MM),
     and the side panel toggle (the sidebar icon mirrored).
 - Under the status bar, a 4px block (the `orbit` mod, which draws nothing).
+- **The settings change the above** (defaults: comfortable, corners 4, no
+  gap, tab rows at the bottom, the generated picture). Densities:
+
+  | | corners | gap | tab row text | status bar | terminal padding | sidebar foot | sidebar scale |
+  |---|---|---|---|---|---|---|---|
+  | compact | 4 | 6 | 30 | 28 | `[8, 6]` | 67 | 0.9/1.15 |
+  | default | 12 | 10 | 38 | 34 | `[14, 12]` | 75 | 1/1.15 |
+  | comfortable | 16 | 14 | 46 | 40 | `[18, 16]` | 86 | 1 |
+
+  Corners (auto: the density's, or 0, 4, 8, 12) round the pane outlines,
+  their tab rows and, with a gap, the sidebar and status bar. The gap (auto,
+  none, 4, 8, 12, 16) sets the panels apart and from the window's edges; the
+  4px block under the status bar grows to it. Each pane's cap is corners + 2
+  tall and its tab row text + corners + 2. With the tab rows on top, each
+  pane's frame is upside down: its row on top, the shown tab open downwards,
+  its cap at the bottom. A picture of the person's replaces the background;
+  the glass over it is the plain surface at 62%.
 
 ## How it behaves
 
@@ -159,6 +192,15 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   Close, Hide the panel; middle-click `+ ⠿` hides the panel. Dragged narrower
   than 140px it closes and opens again at 280px; between 140 and 280 it
   springs back to 280px.
+- **Settings** (`ctrl-,`, or "settings" in the picker): each click applies at
+  once: the theme (herdr-app's `app.theme`, any window), density, corners,
+  gap, tab rows. "background…" opens a file dialog (KDE's `kdialog`, else
+  GNOME's `zenity`; from a toolbox or flatpak the host's through
+  `flatpak-spawn --host`; with neither, herdr-app's folder picker and the
+  folder's pictures as buttons); the picture is copied into
+  `backgrounds/` in herdr-app's home (a KDE wallpaper package named after the
+  package) and shows at once; "generated" puts the space picture back. Esc
+  closes.
 - **Sidebar menu**: Search, Settings, Add machine, New space (and New space
   on each connected machine), the shown space's Rename space, New worktree
   and Open worktree (in a git checkout), Remove worktree (in a linked one),
@@ -171,7 +213,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   `ctrl-shift-x` close; `alt-h`/`alt-left` and `alt-l`/`alt-right` the keys
   to the left or right pane; `alt-shift-h`/`alt-shift-l` move the shown
   terminal tab across; `ctrl-tab` the space shown before; `ctrl-shift-space`
-  the switcher (preselects the space before; ↑/↓ or Tab, 1-9 or Enter, Esc).
+  the switcher (preselects the space before; ↑/↓ or Tab, 1-9 or Enter, Esc);
+  `ctrl-,` the settings.
 - **The pane with the keys** follows clicks and herdr's focus; each space
   remembers its own, and a pane that's put away gives the keys to the left.
 - **Status bar**: the left button toggles the sidebar; hovering cpu, ram or
@@ -229,12 +272,23 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   - `defaults/orbit-windows.json`: `{ "windows": [] }`.
   - `orbit-dialogs`, opened with `props.dialog`: `menu` (derived from
     herdr-app's `menu` mod; icons from herdr's shipped `workspace-chrome`),
-    `confirm`, `switcher`, `new-tab`.
+    `confirm`, `switcher`, `new-tab`, `settings` (each change asked of the
+    `orbit` mod as `run("orbit.settings <JSON>")`; `orbit.settings` alone
+    opens it).
   - `orbit-spaces`: a restyled clone of herdr-app's `spaces` mod.
   - `orbit-tabs`: the panes' rows (`pane.js`, `props.stack` `left` /
     `right`) and the side panel's (`panel.js`, `props.stack: "panel-body"`).
-  - `orbit-sidebar-footer`, `orbit-status`, `orbit-edge` (the 6px cap with
-    `props.pane`; with no props it draws nothing).
+  - `orbit-sidebar-footer`, `orbit-status`, `orbit-edge` (the cap with
+    `props.pane`, rounded at its top, or its bottom with the rows on top;
+    with no props it draws nothing).
+  - `themes/orbit-*.json`: the six variants, the same keys as `orbit.json`.
+  - The settings in shared `"orbit.settings"`: `{ density, rounding, gap,
+    tabs, background, views }` (`null`: the density's). The `orbit` mod's
+    `layout.js` writes them into the layout (root `background`,
+    `terminal_padding`, `padding`; `body` gap and padding; `work` gap; the
+    `orbit` block's size; `status`, `sidebar-footer`; each frame's cap and
+    tab row sizes and order; the sidebar's radius with a gap) and shares the
+    look.
   - Only in `orbit`: `actions.js` (show, new, close, move, split, rename,
     reorder, the panel toggle), `layout.js` (the layout writer, the panel's
     views in shared `"orbit.settings".views`, the look and the tab rows'
@@ -256,20 +310,24 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - **herdr API**: `spaces`, `panes`, `agents`, `machines`, `updates`,
   `layout`, `focused`, `theme`, `settings`, `shared`, `setShared`, `exec`,
   `hc`, `readTextFile`, `writeTextFile`, `watchFolder`, `appHome`, `home`,
-  `pickFolder`, `openOverlay`, `closeOverlay`, `run`, `window`, `nextCommand`,
+  `pickFolder`, `notify`, `openOverlay`, `closeOverlay`, `run`, `window`, `nextCommand`,
   `knownAgents`, `terminals`, `keys`. Commands: `space.select`, `space.move`,
   `space.new`, `space.rename`, `space.close`, `tab.new`, `tab.select`,
   `tab.move`, `tab.rename`, `tab.close`, `pane.focus`, `pane.split`,
   `pane.zoom`, `pane.close`, `terminal.right_click`, `terminal.park`,
   `layout.toggle`, `layout.show`, `layout.hide`, `layout.select`,
   `layout.resize`, `agent.focus`, `mod.open`, `app.help`, `app.settings`,
-  `app.update`. Shipped mods: `agents`, `files`, `changes`, `picker`,
+  `app.theme`, `app.update`. Shipped mods: `agents`, `files`, `changes`, `picker`,
   `machine-add`, `worktree`, `menu` (the space menu: `tab: "space"`).
 - **Programs**: `git status --porcelain=v2 --branch` and `git rev-parse` in
   each space's folder (on its machine), `hc machine ls --json`,
   `df -B1 --output=used,avail,size,target <home>`; files read: `/proc/stat`,
   `/proc/loadavg`, `/proc/meminfo`, `layouts/orbit.json`,
   `orbit-windows.json` (the picker's list: its entries run what they name).
+  The settings' "background…", only when clicked: `kdialog` or `zenity`
+  (maybe through `flatpak-spawn --host`), `mkdir`, `ls` (herdr's folder
+  picker's folder), `cp` into `backgrounds/`; it writes
+  `data/orbit-settings/picked`.
 - **Art**: `scripts/space.py` renders the background (procedural, seeded),
   `scripts/blur.py` its blurred copy, `scripts/glyphs.py` the 8 symbols in
   `mods/orbit-tabs/glyphs/`. The status bar's icons, the fillets and the ⠿
@@ -302,9 +360,22 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   the ones in their own column.
 - herdr's `files` and `changes` draw their own card inside the panel.
 - Linux only for cpu, ram and disk (`/proc`, `df`); elsewhere they're hidden.
-- The background picture's size (2560×1600) is written in `look.js`; another
-  picture needs its size there and a blurred copy.
-- Corners are radius 4 and the gap 0 in this build; there are no settings.
+- The generated picture's size (2560×1600) and its blurred copy are written
+  in `look.js` (`GENERATED`). A picture of the person's has no blurred copy:
+  the glass over it is the plain fill (`backdrop()` falls back, with the
+  same square and round corners).
+- The layout's root says `"theme": "orbit"`, but herdr-app's `app.theme`
+  wins: the settings' theme buttons and herdr's own settings both work, and
+  the space colours follow the theme's accent. A theme opened while a dialog
+  is open takes the keys: the settings dialog takes them back (Esc).
+- The background's file dialog runs on the person's desktop (from a
+  toolbox, the host's through `flatpak-spawn --host`), apart from herdr-app
+  (its `exec` stops a command after 30 s): the dialog writes its answer to a
+  file, which the settings wait for (`watchFolder`, up to 15 minutes).
+  herdr-app has no file picker for mods (only `pickFolder`), hence the
+  fallback. Say so in the person's terms before they click it.
+- A layout's background picture must be inside herdr-app's home: the chosen
+  picture is copied into `backgrounds/`, never referenced where it is.
 - **Merge `keys.json`**: add its `layout:orbit` section to the person's
   `keys.json`, asking before replacing a key they already use there.
 - A right-pane terminal is a herdr tab of its own: herdr shows it on the left
@@ -328,10 +399,11 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - **Updating**: copies don't update themselves, and the add flow never
   overwrites (it would make `orbit-2`). To update, remove `layouts/orbit.json`,
   `layouts/orbit.svg`, `mods/orbit`, every `mods/orbit-*` (an older copy may
-  have more of them: `orbit-menu`, `orbit-nothing`, ... all go) and
-  `themes/orbit.json`, then copy the new ones in, and replace the
+  have more of them: `orbit-panel-tabs`, `orbit-nothing`: all go) and
+  `themes/orbit*.json`, then copy the new ones in, and replace the
   `layout:orbit` section of `keys.json` with the new one; leave the person's
-  other files and keys alone. This build is version 2 (`VERSION` in
+  other files and keys alone, the settings in `shared.json` and the
+  pictures in `backgrounds/`. This build is version 3 (`VERSION` in
   `mods/orbit/main.js`, shared `"orbit.version"`).
 
 ## Done when
@@ -367,3 +439,13 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - An entry added to `orbit-windows.json` shows in the picker the next time it
   opens, and opens in that pane; "configure windows…" copies the prompt and
   shows the toast.
+- `ctrl-,` opens the settings. "top" puts every tab row on top, the shown
+  tab open downwards; a gap of 8 sets the sidebar, panes, panel and status
+  bar apart with rounded corners, their glass still lined up with the
+  picture; "compact" makes the rows and bar smaller; each applies at once
+  and stays after a restart.
+- Each theme button switches the theme, and the space colours follow it
+  (Nord: a yellow space is `#ebcb8b`); Esc still closes the dialog after.
+- A picture chosen with "background…" (or copied into `backgrounds/` and
+  set as `"background"`) shows behind everything, the glass over it plain;
+  "generated" brings the space back.
