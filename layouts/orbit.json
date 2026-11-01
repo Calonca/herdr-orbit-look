@@ -1,0 +1,285 @@
+{
+  "id": "root",
+  "type": "column",
+  "preview": "layouts/orbit.svg",
+  "titlebar": "system",
+  "theme": "orbit",
+  "font": "JetBrains Mono",
+  "font_size": 14,
+  "background": {
+    "image": "mods/orbit/backgrounds/space.png",
+    "fit": "cover"
+  },
+  "terminal_padding": [
+    18,
+    16
+  ],
+  "terminal_opacity": 0,
+  "children": [
+    {
+      "id": "body",
+      "type": "row",
+      "children": [
+        {
+          "id": "sidebar",
+          "type": "column",
+          "size": {
+            "px": 400
+          },
+          "min": 44,
+          "max": 560,
+          "background": "#1616229e",
+          "resizable": false,
+          "children": [
+            {
+              "id": "spaces",
+              "type": "block",
+              "size": {
+                "weight": 1
+              },
+              "min": 90,
+              "content": {
+                "mod": "orbit-spaces"
+              }
+            },
+            {
+              "id": "agents",
+              "type": "block",
+              "size": {
+                "weight": 1
+              },
+              "min": 90,
+              "hidden": true,
+              "content": {
+                "mod": "agents"
+              }
+            },
+            {
+              "id": "sidebar-footer",
+              "type": "block",
+              "size": {
+                "px": 86
+              },
+              "content": {
+                "mod": "orbit-sidebar-footer"
+              }
+            }
+          ]
+        },
+        {
+          "id": "work",
+          "type": "row",
+          "children": [
+            {
+              "id": "left-frame",
+              "type": "column",
+              "size": {
+                "weight": 1
+              },
+              "min": 240,
+              "children": [
+                {
+                  "id": "left-cap",
+                  "type": "block",
+                  "size": {
+                    "px": 6
+                  },
+                  "content": {
+                    "mod": "orbit-edge",
+                    "props": {
+                      "pane": "left"
+                    }
+                  }
+                },
+                {
+                  "id": "left-mid",
+                  "type": "row",
+                  "resizable": false,
+                  "divider": {
+                    "width": 2,
+                    "color": "#7aa2f7"
+                  },
+                  "children": [
+                    {
+                      "id": "left-s1",
+                      "type": "block",
+                      "size": {
+                        "px": 0
+                      },
+                      "content": {
+                        "mod": "orbit-nothing"
+                      }
+                    },
+                    {
+                      "id": "left",
+                      "type": "stack",
+                      "active": "left-tab",
+                      "size": {
+                        "weight": 1
+                      },
+                      "background": "#1616229e",
+                      "children": [
+                        {
+                          "id": "left-tab",
+                          "type": "block",
+                          "content": {
+                            "tab": "active",
+                            "pane": {
+                              "gap": 0,
+                              "radius": 0,
+                              "lone": false,
+                              "background": "#00000000"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "left-s2",
+                      "type": "block",
+                      "size": {
+                        "px": 0
+                      },
+                      "content": {
+                        "mod": "orbit-nothing"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "left-tabs",
+                  "type": "block",
+                  "size": {
+                    "px": 52
+                  },
+                  "content": {
+                    "mod": "orbit-tabs",
+                    "props": {
+                      "stack": "left"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "panel",
+              "type": "column",
+              "hidden": true,
+              "size": {
+                "px": 368
+              },
+              "min": 280,
+              "max": 900,
+              "children": [
+                {
+                  "id": "panel-cap",
+                  "type": "block",
+                  "size": {
+                    "px": 6
+                  },
+                  "content": {
+                    "mod": "orbit-edge",
+                    "props": {
+                      "pane": "panel"
+                    }
+                  }
+                },
+                {
+                  "id": "panel-mid",
+                  "type": "row",
+                  "resizable": false,
+                  "divider": {
+                    "width": 2,
+                    "color": "#414868"
+                  },
+                  "children": [
+                    {
+                      "id": "panel-s1",
+                      "type": "block",
+                      "size": {
+                        "px": 0
+                      },
+                      "content": {
+                        "mod": "orbit-nothing"
+                      }
+                    },
+                    {
+                      "id": "panel-body",
+                      "type": "stack",
+                      "active": "panel-files",
+                      "size": {
+                        "weight": 1
+                      },
+                      "background": "#1616229e",
+                      "children": [
+                        {
+                          "id": "panel-files",
+                          "type": "block",
+                          "title": "files",
+                          "content": {
+                            "mod": "files"
+                          }
+                        },
+                        {
+                          "id": "panel-changes",
+                          "type": "block",
+                          "title": "changes",
+                          "content": {
+                            "mod": "changes"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "panel-s2",
+                      "type": "block",
+                      "size": {
+                        "px": 0
+                      },
+                      "content": {
+                        "mod": "orbit-nothing"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "panel-tabs",
+                  "type": "block",
+                  "size": {
+                    "px": 52
+                  },
+                  "content": {
+                    "mod": "orbit-panel-tabs",
+                    "props": {
+                      "stack": "panel-body"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "type": "block",
+      "size": {
+        "px": 40
+      },
+      "content": {
+        "mod": "orbit-status"
+      }
+    },
+    {
+      "id": "orbit",
+      "type": "block",
+      "size": {
+        "px": 4
+      },
+      "content": {
+        "mod": "orbit"
+      }
+    }
+  ]
+}
