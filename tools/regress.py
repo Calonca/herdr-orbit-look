@@ -30,6 +30,9 @@ Scenarios:
   symbols each card's symbol is the sidebar's for that space: filled in the
           state's colour for working, blocked, done; empty with no agent and
           once a finished agent was seen (idle)
+  tabs    the shown tab of the left and the right pane's rows is in the
+          colour the sidebar shows the shown space in, for two spaces of
+          different colours, back and forth
   keep    a mod in the right pane keeps running across space switches (its
           init runs once): A -> B -> A, and to a pinned space and back
   settings  orbit.settings (ctrl-,) opens Orbit look settings in the right
@@ -480,7 +483,30 @@ def symbols(ids):
     time.sleep(1)
 
 
-SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("settings", settings), ("keep", keep)]
+def tabs(ids):
+    colors = lambda: shared().get("orbit.probe.colors", {})
+    seen = {}
+    for name in ["shown", "blocked"]:
+        sid = ids[name][0]
+        do("space.select", {"id": sid})
+        time.sleep(1)
+        sb("do", "orbit.new-mod " + json.dumps({"space": sid, "side": "right", "title": "memory", "mod": "orbit-dialogs",
+                                                 "props": {"dialog": "stat", "stat": "ram"}}))
+        time.sleep(1.5)
+    for name in ["shown", "blocked", "shown", "blocked"]:
+        do("space.select", {"id": ids[name][0]})
+        time.sleep(1.5)
+        c = colors()
+        ok = c.get("sidebar") and c.get("left") == c.get("sidebar") and c.get("right") == c.get("sidebar")
+        check("tabs", f"{name}: left and right shown tabs in the sidebar's colour", ok, str(c))
+        seen[name] = c.get("sidebar")
+    check("tabs", "the two spaces' colours differ (the test means something)", seen["shown"] != seen["blocked"], str(seen))
+    shot("tabs")
+    do("space.select", {"id": ids["shown"][0]})
+    time.sleep(1)
+
+
+SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("settings", settings), ("keep", keep)]
 
 
 def main():

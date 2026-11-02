@@ -13,7 +13,7 @@
 import { div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { panes, spaces, props, run, theme, openOverlay, layout } from "herdr";
-import { look, glass, find, ask, spaceLook, statusColor } from "./look.js";
+import { look, glass, find, ask, spaceLook, statusColor, probeColor } from "./look.js";
 import { mark, main, WIDGET } from "./labels.js";
 import { state, LEFT_TAB, entries, entryLabel, isSplit } from "./sides.js";
 import { rowKit, muted, rowGlass, track, remember, dragKit, editKit, inColumn } from "./rowframe.js";
@@ -82,12 +82,15 @@ export class PaneRow {
       const status = e.kind === "tab" ? e.tab.status : pane?.status ?? null;
       const m = e.kind === "mod" || e.kind === "pick" ? { icon: WIDGET, tint: true } : mark(pane);
       const dot = statusColor(status);
-      const color = shown ? (focused ? ident : t.foreground) : t.ansi7;
+      // The shown tab in the shown space's colour, in either pane (as the
+      // sidebar shows that space); the outline marks the pane with the keys.
+      const color = shown ? ident : t.ansi7;
+      if (shown) probeColor(side, color);
       const inner = h_flex().id(`d-tab-${side}-${i}`).h(26).px(10).items_center().text_size(12).text_color(color)
         .when(Boolean(dot), (el) => el.child(div().size(6).mr(4).flex_none().rounded(3).bg(dot)))
         .when(!dot && Boolean(pane?.program?.agent), (el) => el.child(div().size(6).mr(4).flex_none().rounded(3).border(1).border_color(t.muted)))
         .when(Boolean(m), (el) => el.child(m.tint
-          ? svg(m.icon).size(12).mr(5).flex_none().text_color(e.kind === "pick" ? ident : shown && focused ? ident : t.muted)
+          ? svg(m.icon).size(12).mr(5).flex_none().text_color(e.kind === "pick" || shown ? ident : t.muted)
           : image(m.icon).w(12).h(12).mr(5).flex_none()))
         .child(editing ? edit.field(t, entryLabel(e)) : div().min_w(0).truncate().child(entryLabel(e)))
         .when(!editing, (el) => el.tooltip(e.kind === "pick" ? "pick what this window shows · middle-click: put it away"

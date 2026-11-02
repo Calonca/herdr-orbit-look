@@ -63,6 +63,14 @@ export function statusColor(status) {
   return k ? theme()[k] : null;
 }
 
+// For tools/regress.py (shared "orbit.probe" on): the colour a place drew the
+// shown space in ("left", "right", "sidebar"), in shared "orbit.probe.colors".
+export function probeColor(where, color) {
+  if (shared("orbit.probe") !== true) return;
+  const all = shared("orbit.probe.colors") ?? {};
+  if (all[where] !== color) setShared("orbit.probe.colors", { ...all, [where]: color });
+}
+
 // A space's symbol, `r` px: filled in its agents' state colour while one is
 // blocked, working or done (finished while you weren't looking), else empty;
 // its outline in `outline` over it. The sidebar and the taskbar both draw it

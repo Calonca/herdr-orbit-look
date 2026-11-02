@@ -80,11 +80,11 @@ export class PanelRow {
     const tab = (c, i) => {
       const shown = stack.active === c.id;
       const editing = edit.on(c.id);
-      const color = shown ? (focused ? ident : t.foreground) : t.ansi7;
+      const color = shown ? ident : t.ansi7; // as the panes' rows (pane.js)
       const inner = h_flex().id(`panel-tab-${i}`).h(26).px(10).gap(5).items_center().text_size(12)
         .text_color(color)
         .when(!shown, (el) => el.rounded(RADIUS).hover((s) => s.bg(t.foreground.slice(0, 7) + "0f").text_color(t.foreground)))
-        .child(svg(ICON).size(11).flex_none().text_color(shown && focused ? ident : t.muted))
+        .child(svg(ICON).size(11).flex_none().text_color(shown ? ident : t.muted))
         .child(editing ? edit.field(t, c.title ?? c.id) : div().min_w(0).truncate().child(c.title ?? c.id))
         .when(!editing, (el) => el.tooltip("drag to move · double-click: rename · middle-click: close"))
         .on_click((ev) => { if ((ev?.click_count ?? 1) < 2 && !editing) show(c.id); })
