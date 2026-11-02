@@ -23,8 +23,9 @@ Scenarios:
           opens the same view in the right pane and closes the popup
   order   the taskbar: pinned in pin order, the shown space, those waiting
           (blocked, done), those at work; an idle unpinned space isn't there
-  pin     right-click → Pin puts a card first ("orbit.pinned"); Unpin takes it
-          out again
+  pin     right-click → Pin puts a card first ("orbit.pinned") and shows a pin
+          icon in it (the card one line, as tall as before); Unpin takes it out
+          again, and the icon
   drag    a card dragged onto another lands in its place, pinned
   settings  orbit.settings (ctrl-,) opens Orbit look settings in the right
           pane, not an overlay; again, it shows that one (no second copy)
@@ -239,14 +240,25 @@ def menu_click(card, item=0):
 
 def pin(ids):
     names, p = cards()
+    plain = p["task:working"]
     menu_click(p["task:working"])
     check("pin", "Pin stores it", wait(lambda: shared().get("orbit.pinned") == [ids["working"][0]]), str(shared().get("orbit.pinned")))
     names, p = cards()
     check("pin", "a pinned card leads", names[:1] == ["working"], str(names))
+    card, icon = p["task:working"], p.get("pin:working")
+    inside = icon and card["x"] < icon["x"] and icon["x"] + icon["width"] <= card["x"] + card["width"] \
+        and card["y"] <= icon["y"] and icon["y"] + icon["height"] <= card["y"] + card["height"]
+    check("pin", "a pinned card has the pin icon, inside it", inside, f"card {card} icon {icon}")
+    check("pin", "the pin makes it wider, not taller", card["width"] > plain["width"] + 10 and card["height"] == plain["height"],
+          f"before {plain} after {card}")
+    others = [k for k in p if k.startswith("task:") and k != "task:working"]
+    check("pin", "unpinned cards: their usual size", all(p[k]["height"] == plain["height"] for k in others), str(others))
+    shot("pinned")
     menu_click(p["task:working"])
     check("pin", "Unpin takes it out", wait(lambda: shared().get("orbit.pinned") == []), str(shared().get("orbit.pinned")))
-    names, _ = cards()
+    names, p = cards()
     check("pin", "unpinned, its group's place again", names[-1:] == ["working"], str(names))
+    check("pin", "unpinned: no pin icon (its old size again)", abs(p["task:working"]["width"] - plain["width"]) < 1, f"{p['task:working']} vs {plain}")
 
 
 def drag(ids):

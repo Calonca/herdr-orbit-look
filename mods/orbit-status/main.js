@@ -9,7 +9,8 @@
 // outline in the space's colour on the shown space) and its name. Click shows
 // the space, right-click pins or unpins it (orbit-dialogs' menu, tab
 // "taskbar"; shared "orbit.pinned"), a drag onto another card moves it there
-// and pins it (an accent bar shows where it lands). What doesn't fit is cut.
+// and pins it (an accent bar shows where it lands). A pinned card shows a pin
+// after its name. What doesn't fit is cut.
 //
 // cpu, ram and disk open their popup above the widget (orbit-dialogs' "stat"),
 // a second click closes it. The popup gets props.pin (its title) and
@@ -237,6 +238,10 @@ export default class OrbitStatus extends View {
         })
         .child(symbol)
         .child(div().max_w(150).truncate().child(s.name))
+        // Pinned: a pin after the name, inside the card.
+        .when(pinned.includes(s.id), (el) => el.child(div().id(`pin-${s.id}`).flex_none()
+          .on_mouse_move((e) => this.probe(`pin:${s.name}`, e?.bounds))
+          .child(svg(`${ICONS}/pin.svg`).size(11).text_color(t.muted))))
         .when(mark?.before === s.id, (el) => el.child(line("before")))
         .when(mark?.after === s.id, (el) => el.child(line("after")));
     });
