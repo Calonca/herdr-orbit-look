@@ -81,12 +81,11 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
     from the border, then 60% of the way to its own grey (`#676579` for
     purple); else the border colour. The outline's sides go on past the tab
     line to that edge (a T).
-  - First the space: its symbol (13px, identity colour) and name (14px bold,
-    foreground, at most 220px), 18px in.
-  - Then the pane's tabs, 26px tall, 12px text, 10px padding: a 6px dot in
+  - The pane's tabs, 12px in (the space's symbol and name are the
+    taskbar's), 26px tall, 12px text, 10px padding: a 6px dot in
     the agent's state colour (an agent with no state: a 6px muted ring), the
     program's 12px icon (a view: the ⠿ mark), the name. Others are `#a9b1d6`,
-    lighter on hover. The right row has no space name, only its tabs.
+    lighter on hover.
   - After the tabs, `+ >_` and `+ ⠿` (12px, muted, 26px tall).
   - At the left row's right end, the split toggle: an 18×14 icon of two
     panes, the right one filled while the right pane shows.
@@ -108,14 +107,19 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - **Sidebar foot**: "menu" at the right of "open folder", with an accent dot
   while an update is ready.
 - **Status bar**, 40px, glass, corners of radius 16, 13px text, 14px in from each side:
-  - Left: the sidebar toggle (an 18px panel icon), "herdr offline" in red
-    while the core can't be reached, "N folded" (muted) for settled tabs, and
-    an accent "update ready · restart" pill.
-  - Right: cpu % with a sparkline (20 bars 2px wide, 14px tall, one a second),
-    ram %, disk % (each with a 14px icon; plain, yellow `#e0af68` from 70%,
-    red `#f7768e` from 90%), `?` in accent, three counts with a dot (to handle:
-    red, or muted at 0; in progress: yellow; done: green), the clock (HH:MM),
-    and the side panel toggle (the sidebar icon mirrored).
+  - Left: the sidebar toggle (an 18px panel icon), a 1px line 18px tall in
+    the border colour, the taskbar, then "herdr offline" in red while the core
+    can't be reached, "N folded" (muted) for settled tabs, and an accent
+    "update ready · restart" pill.
+  - The taskbar: cards 26px tall, 8px in, 4px apart, corners of 5, 12.5px
+    text; each the space's symbol (14px, the filled glyph in its agents' state
+    colour, muted when none; on the shown space the outline glyph over it in
+    the space's colour, and the card a faint foreground band) and its name (at
+    most 150px, cut short). Cards past the bar's room are cut.
+  - Right: cpu, ram and disk, each a 14px icon and a bar 34×6 (corners of 3,
+    on the muted colour at 25%; blue `#7aa2f7`, yellow `#e0af68` from 70%, red
+    `#f7768e` from 90%); cpu's sparkline after it (20 bars 2px wide, 14px
+    tall, one a second, each in its own level's colour); the clock (HH:MM).
 - **The gap**: the sidebar, the panes, the side panel and the status bar
   stand 14px apart and 14px from the window's edges; under the status bar,
   a 14px block (the `orbit` mod, which draws nothing).
@@ -142,10 +146,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 ## How it behaves
 
 - **Agent states**: blocked `#f7768e`, working `#e0af68`, done `#9ece6a`; idle
-  has no colour. They fill the space's symbol in the sidebar and colour a tab's
-  dot. The status bar counts blocked and done agents as "to handle", working
-  as "in progress", idle as "done"; clicking a non-zero count focuses its
-  first agent.
+  has no colour. They fill the space's symbol in the sidebar and the taskbar and
+  colour a tab's dot.
 - **Identity**: FNV-1a (32-bit) of the space's name as UTF-8 bytes; colour =
   hash % 6, symbol = (hash >>> 9) % 8. A git worktree and the main checkout it
   belongs to use their repo's common git dir instead of the name, so they
@@ -190,7 +192,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   right pane (its tabs, or the picker when it has none) or puts it away
   without ending anything. An agent shown from herdr's agents list or an
   alert that lives on the right shows there.
-- **Side panel**: the status bar's right-most button opens it (on what it
+- **Side panel**: the `orbit.side-panel` command opens it (on what it
   showed, else its first view) and closes it; `+ ⠿` picks a view (files,
   changes, agents), which becomes a tab; right-click a view's tab: Rename,
   Close, Hide the panel; middle-click `+ ⠿` hides the panel. Dragged narrower
@@ -221,9 +223,24 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   `ctrl-,` the settings.
 - **The pane with the keys** follows clicks and herdr's focus; each space
   remembers its own, and a pane that's put away gives the keys to the left.
-- **Status bar**: the left button toggles the sidebar; hovering cpu, ram or
-  disk shows details (load and each core; used, available and swap; the
-  filesystem's sizes); `?` opens herdr's shortcuts.
+- **Status bar**: the left button toggles the sidebar. A click on cpu, ram or
+  disk opens a popup 300px wide above it, its left edge at the widget's (kept
+  in the window): the details, live (load and each core as a bar; used,
+  available and swap; the filesystem's sizes). The widget keeps its hover
+  band and no tooltip while it's open; a second click, Esc or a click beside
+  closes it. Its "open in pane ⇥" opens the same view in the right pane and
+  closes the popup. Any popup the bar opens gets `props.pin` (its title),
+  `props.pinCommand` (`orbit.new-mod <args as JSON>`, opening the same mod in
+  the right pane) and `props.height`. herdr has no list of open overlays, so
+  while one is open the bar reads `herdr-app status` to see it close.
+- **Taskbar**: the cards in order: pinned (pin order), the shown space,
+  spaces whose agents are done or blocked, then working, each group by the
+  last change in its tabs, newest first; an unpinned space with only idle
+  agents isn't there. Click shows the space (the card keeps its size).
+  Right-click: a one-item menu above the card, Pin or Unpin
+  (`"orbit.pinned"`). Drag a card onto another: it takes that card's place
+  and is pinned; dropped past the pinned cards it ends them. A 2px accent bar
+  shows where it lands.
 
 ## Built from
 
@@ -425,8 +442,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - The tab row's line is open under the shown tab, whose sides curve out of
   it; the row's edge below is muted, with rounded corners.
 - An agent reporting working, blocked or done fills its space's symbol and
-  its tab's dot yellow, red or green, and the status bar's counts change.
-- The status bar's right button opens the side panel with files and changes;
+  its tab's dot yellow, red or green, and its taskbar card appears.
+- `orbit.side-panel` opens the side panel with files and changes;
   clicking in it moves the coloured outline there, clicking the terminal moves
   it back.
 - cpu, ram and disk update every second (disk every 30 s) and turn yellow and

@@ -91,8 +91,8 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
   that outline, the shown tab a folder tab open into the content. Each tab has
   its program's icon and its agent's state (working yellow, blocked red, done
   green).
-  - The left pane shows the space's own tabs, led by the space's symbol and
-    name. The right pane, beside it, holds terminals and views of its own,
+  - The left pane shows the space's own tabs (the space's symbol and name
+    are in the status bar's taskbar). The right pane, beside it, holds terminals and views of its own,
     per space; the split toggle at the left row's right end shows it or puts
     it away (nothing closes).
   - Click shows a tab; double-click renames it; drag moves it; middle-click
@@ -118,7 +118,7 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
 - **Side panel** (its tab row is `orbit-tabs` too): herdr's files and changes to start
   with, framed as the panes are, with a tab each. `+ ⠿` picks another view
   for it; tabs rename, move and close like the panes' (right-click: Rename,
-  Close, Hide the panel). The status bar's right-most button opens and closes
+  Close, Hide the panel). The `orbit.side-panel` command opens and closes
   it; dragged narrower than half its smallest width, it closes. Clicking in
   the panel moves the coloured outline there.
 - **Menus and dialogs** (`orbit-dialogs`): the sidebar's "menu" (search,
@@ -130,11 +130,21 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
   tab rows at the bottom or on top, and the background picture. Corners and
   gap start on "auto", the density's own. They apply
   at once and are kept in `shared.json` (`"orbit.settings"`).
-- **Status bar** (`orbit-status`): the sidebar toggle, "herdr offline" while
-  the core can't be reached, folded tabs and an update pill on the left; on
-  the right cpu (with a 20 s sparkline), ram and disk use (yellow from 70%,
-  red from 90%, details on hover), `?` for the shortcuts, what needs you /
-  runs / is done, the clock and the side panel toggle.
+- **Status bar** (`orbit-status`): on the left the sidebar toggle, then
+  after a thin line the taskbar, then "herdr offline" while the core can't be
+  reached, folded tabs and an update pill; on the right cpu (with a 20 s
+  sparkline), ram and disk use as small bars (blue, yellow from 70%, red from
+  90%) and the clock.
+  - The taskbar: a card per space that is pinned (in pin order), shown, or
+    has agents that finished or wait for you, then those at work (each group
+    most recent first). A card is the space's symbol, filled in its agents'
+    state colour and outlined in the space's colour when shown, and its name.
+    Click shows the space; right-click pins or unpins it; drag a card onto
+    another to move it there (it's pinned then). An unpinned space leaves once
+    its agents are idle. Pins are kept in `shared.json` (`"orbit.pinned"`).
+  - cpu, ram and disk open a popup with the details above them (each core,
+    the load; used, available, swap; the filesystem); a second click closes
+    it, and "open in pane ⇥" opens the same view in the right pane.
 - **Themes**: `orbit` (Tokyo Night colours), and six variants: Catppuccin
   Mocha, Everforest, Gruvbox Dark, Kanagawa, Nord and Rosé Pine
   (`themes/orbit-*.json`), each with its own six space colours. Pick one in
@@ -212,6 +222,11 @@ sidebar, `ctrl-shift-l` the layout).
   herdr-app's home when you have none
 - `scripts/space.py` and `scripts/blur.py` make the background and its blurred
   copy; `scripts/glyphs.py` the symbols. Only needed to change them.
+- `scripts/sandbox`: a throwaway herdr-app on its own core, home and display
+  (headless, or a private Xvfb with `SANDBOX_X11=1`), to try changes in.
+  `tools/regress.py` clicks through the status bar there (its popups, the
+  taskbar's order, pins and drag); `node tools/taskbar-test.mjs` checks the
+  taskbar's order without a window.
 
 ## Credits
 

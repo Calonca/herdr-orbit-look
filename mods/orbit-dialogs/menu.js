@@ -7,13 +7,15 @@
 //     Keybinds: what herdr's stock sidebar offers that this one has no button for.
 //   tab "orbit-tab" (a tab of the orbit rows, right-clicked): Rename, then
 //     herdr's pane items (tabmenu.js).
+//   tab "taskbar" (a space's card in the status bar, right-clicked): Pin or
+//     Unpin (shared "orbit.pinned", the space ids in pin order).
 // The icons are herdr-app's own, from its shipped `workspace-chrome` mod.
 // ↑/↓ move, Enter runs, Esc closes. An item is [label, command, args, icon?];
 // a command "worktree" opens the worktree dialog, as herdr's menu does.
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { run, props, closeOverlay, openOverlay, theme, keys, spaces, panes, exec, updates, machines, setShared } from "herdr";
+import { run, props, closeOverlay, openOverlay, theme, keys, spaces, panes, exec, updates, machines, shared, setShared } from "herdr";
 import { tabMenuItems, ruleAfterRename } from "./tabmenu.js";
 import { ask } from "./look.js";
 
@@ -61,6 +63,11 @@ export function items(p, git) {
     ];
   }
   if (p.tab === "orbit-tab") return tabMenuItems(p.target);
+  if (p.tab === "taskbar") {
+    const id = p.target?.id;
+    const pinned = (shared("orbit.pinned") ?? []).includes(id);
+    return [[pinned ? "Unpin" : "Pin", "orbit-pin", { id, pin: !pinned }, pinned ? "pin-off" : "pin"]];
+  }
   return [];
 }
 
@@ -104,7 +111,10 @@ export class Menu {
     closeOverlay(props()?.overlay);
     // Rename: the row the tab is in opens its name field (orbit-tabs).
     if (it[1] === "orbit-rename") setShared("orbit.rename", { ...it[2], n: Date.now() });
-    else if (it[1] === "orbit-close-view") ask("view-close", { id: it[2].id });
+    else if (it[1] === "orbit-pin") {
+      const rest = (shared("orbit.pinned") ?? []).filter((id) => id !== it[2].id);
+      setShared("orbit.pinned", it[2].pin ? [...rest, it[2].id] : rest);
+    } else if (it[1] === "orbit-close-view") ask("view-close", { id: it[2].id });
     else if (it[1] === "worktree") openOverlay({ mod: "worktree", kind: "dialog", ...(it[2].action === "open" ? { width: 560, height: 480 } : { width: 440, height: 260 }), props: it[2] });
     else run(it[1], it[2]);
   }

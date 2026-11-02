@@ -7,13 +7,13 @@
 // window" tab with the picker), and at the left row's right end the split
 // toggle. Click shows a tab, double-click renames it, drag moves it,
 // middle-click closes it (a terminal asks first), right-click opens its menu
-// (orbit-dialogs' menu). The space's symbol and name lead the left row when
-// it holds a terminal.
+// (orbit-dialogs' menu). The space's symbol and name are the status bar's
+// taskbar's, not the row's.
 
 import { div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { panes, spaces, props, run, theme, openOverlay, layout } from "herdr";
-import { look, glass, find, ask, spaceLook, glyphPath, statusColor } from "./look.js";
+import { look, glass, find, ask, spaceLook, statusColor } from "./look.js";
 import { mark, main, WIDGET } from "./labels.js";
 import { state, LEFT_TAB, entries, entryLabel, isSplit } from "./sides.js";
 import { rowKit, muted, rowGlass, track, remember, dragKit, editKit, inColumn } from "./rowframe.js";
@@ -38,7 +38,7 @@ export class PaneRow {
     const st = state();
     const ps = panes();
     const list = entries(space, side, st, ps);
-    const { color: ident, glyph } = spaceLook(space);
+    const { color: ident } = spaceLook(space);
     const focused = st.focus === side;
     const line = focused ? ident : t.border;
     const stop = (_e, cx) => cx.stop_propagation();
@@ -55,13 +55,7 @@ export class PaneRow {
       ? (e.kind === "pick" ? stack.active === e.id : stack.active === LEFT_TAB && e.tab.active)
       : stack.active === e.id;
 
-    const terminal = list.some((e) => e.kind === "term" || (e.kind === "tab" && ps.some((p) => p.tab === e.tab.id && p.terminal)));
-    const lead = side === "left" && terminal
-      ? seg(h_flex().flex_shrink_1().min_w(48).overflow_hidden().pl(18).pr(12).gap(9).items_center()
-        .child(svg(glyphPath(glyph, false)).size(13).flex_none().text_color(ident))
-        .child(div().min_w(0).max_w(220).truncate().text_size(14).font_bold().text_color(t.foreground).child(space.name)), { first: true })
-        .flex_shrink_1().min_w(48)
-      : seg(div().w(12), { first: true });
+    const lead = seg(div().w(12), { first: true });
 
     // Drag a tab onto another to move it there (rowframe.js dragKit): on
     // the left herdr's tab order (tab.move, as herdr's tab bar), on the right

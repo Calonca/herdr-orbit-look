@@ -5,6 +5,7 @@
 //   "new-tab"   make tab N, when ctrl+N finds none (new-tab.js)
 //   "switcher"  the recent spaces, to pick from (switcher.js)
 //   "settings"  the look: density, corners, gap, tab rows, background (settings.js)
+//   "stat"      the status bar's cpu, ram or disk in detail (stat.js); also in a pane
 
 import { View, div } from "gpui-kit";
 import { props } from "herdr";
@@ -13,8 +14,9 @@ import { Confirm } from "./confirm.js";
 import { NewTab } from "./new-tab.js";
 import { Switcher } from "./switcher.js";
 import { Settings } from "./settings.js";
+import { Stat } from "./stat.js";
 
-const DIALOGS = { menu: Menu, confirm: Confirm, "new-tab": NewTab, switcher: Switcher, settings: Settings };
+const DIALOGS = { menu: Menu, confirm: Confirm, "new-tab": NewTab, switcher: Switcher, settings: Settings, stat: Stat };
 
 export default class OrbitDialogs extends View {
   init(p, cx) {
