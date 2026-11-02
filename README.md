@@ -87,8 +87,9 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
   A picture of your own can replace it (settings); the glass over it is the
   plain see-through surface, without the blur.
 - **Space colours**: every space gets one of six colours and one of 8 symbols
-  from a hash of its name; a git worktree and the main checkout it belongs to
-  share their repo's. The pane's outline, its tab row and the space's row in
+  from a hash of its repository's name (its origin's, else its main
+  checkout's folder), so the same repo on another machine and every worktree
+  of it look the same; a space outside a repo goes by its own name. The pane's outline, its tab row and the space's row in
   the sidebar use that colour.
 - **Sidebar** (`orbit-spaces`, a restyled clone of herdr-app's `spaces`, and
   `orbit-sidebar-footer`): a header per machine; each space with its symbol
@@ -241,8 +242,9 @@ sidebar, `ctrl-shift-l` the layout).
   (headless, or a private Xvfb with `SANDBOX_X11=1`), to try changes in.
   `tools/regress.py` clicks through the status bar there (its popups and
   menus where they open, the taskbar's order, pins and drag, the look
-  settings), by default on a HiDPI screen (scale 2) at zoom 1.2; `node tools/taskbar-test.mjs` checks the
-  taskbar's order without a window.
+  settings), by default on a HiDPI screen (scale 2) at zoom 1.2; `node tools/taskbar-test.mjs` and
+  `node tools/identity-test.mjs` check the taskbar's order and what a space's
+  colour is keyed on, without a window.
 
 ## Credits
 

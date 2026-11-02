@@ -4,6 +4,7 @@
 // "orbit.identity"), and the other mods read them (look.js spaceLook()).
 
 import { theme, shared, setShared, panes, spaces, exec } from "herdr";
+import { identityKey } from "./repokey.js";
 
 // Each shipped theme's identity colours (purple, cyan, green, yellow, orange,
 // red), the theme known by its accent: Tokyo Night, then the six others in
@@ -62,18 +63,16 @@ export function glyph(name) {
 }
 
 
-// A space's identity comes from its name; a worktree and the
-// main checkout it belongs to share their repo's (the common git dir), so they
-// match. Each space's repo, and whether it's a linked worktree, is looked up
-// once and kept in shared state for every mod.
+// A space's identity comes from its repository (repokey.js): the origin's
+// name, else the main checkout's folder, so the same repo on another machine,
+// and every worktree of it, look the same; a space outside a repo goes by its
+// name. Each space's repo is looked up once (on its machine) and kept in
+// shared state for every mod.
 const GIT = "orbit.git";
 const asked = new Set();
 
 export function spaceKey(space) {
-  const all = shared(GIT) ?? {};
-  const mine = all[space?.id];
-  if (mine?.repo && (mine.linked || Object.values(all).some((g) => g?.linked && g.repo === mine.repo))) return mine.repo;
-  return space?.name ?? "";
+  return identityKey(space, (shared(GIT) ?? {})[space?.id]);
 }
 
 function spaceFolder(space) {
@@ -86,7 +85,9 @@ export function lookUpRepos(cx) {
   const known = shared(GIT) ?? {};
   const ids = new Set(spaces().map((s) => s.id));
   for (const space of spaces()) {
-    if (space.id in known || asked.has(space.id)) continue;
+    // Known, unless looked up before the origin was (an older copy's).
+    const k = known[space.id];
+    if ((space.id in known && (k === null || "origin" in k)) || asked.has(space.id)) continue;
     const folder = spaceFolder(space);
     if (!folder) continue;
     asked.add(space.id);
@@ -95,7 +96,10 @@ export function lookUpRepos(cx) {
       try {
         const r = await exec("git", ["rev-parse", "--path-format=absolute", "--git-common-dir", "--git-dir"], { cwd: folder, on: space.machine });
         const [repo, dir] = r.stdout.trim().split("\n");
-        if (r.code === 0 && repo) git = { repo, linked: Boolean(dir) && dir !== repo };
+        if (r.code === 0 && repo) {
+          const o = await exec("git", ["config", "--get", "remote.origin.url"], { cwd: folder, on: space.machine });
+          git = { repo, linked: Boolean(dir) && dir !== repo, origin: o.code === 0 ? o.stdout.trim() || null : null };
+        }
       } catch (_) { /* not reachable: its name stays its identity */ }
       // Spaces that are gone are dropped on the way.
       const now = Object.fromEntries(Object.entries(shared(GIT) ?? {}).filter(([id]) => ids.has(id)));

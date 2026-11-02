@@ -148,10 +148,14 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - **Agent states**: blocked `#f7768e`, working `#e0af68`, done `#9ece6a`; idle
   has no colour. They fill the space's symbol in the sidebar and the taskbar and
   colour a tab's dot.
-- **Identity**: FNV-1a (32-bit) of the space's name as UTF-8 bytes; colour =
-  hash % 6, symbol = (hash >>> 9) % 8. A git worktree and the main checkout it
-  belongs to use their repo's common git dir instead of the name, so they
-  match. With another theme than these seven, the colours are its ANSI 5, 6, 2, 3,
+- **Identity**: FNV-1a (32-bit) of a name as UTF-8 bytes; colour =
+  hash % 6, symbol = (hash >>> 9) % 8. The name hashed is the space's
+  repository's, the same on every machine and for each worktree
+  (`mods/orbit/repokey.js`): its `remote.origin.url`'s last part (the URL
+  normalised: no scheme, user, port or `.git`, `host:path` as `host/path`),
+  else its main checkout's folder (`git rev-parse --git-common-dir`'s
+  parent); a space outside a repo hashes its own name. Each space's repo is
+  looked up once, on its machine, and kept in shared `"orbit.git"`. match. With another theme than these seven, the colours are its ANSI 5, 6, 2, 3,
   11 and 1.
 - **The pane with the keys**: clicking into the side panel moves the coloured
   outline (and the bright lines of its tab row) there; clicking a terminal, a

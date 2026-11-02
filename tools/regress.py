@@ -33,6 +33,10 @@ Scenarios:
   tabs    the shown tab of the left and the right pane's rows is in the
           colour the sidebar shows the shown space in, for two spaces of
           different colours, back and forth
+  identity  a space's colour and symbol come from its repository: the same
+          repo at another path (as on another machine), a worktree and its
+          main checkout, with or without an origin, look the same; another
+          repo has its own
   keep    a mod in the right pane keeps running across space switches (its
           init runs once): A -> B -> A, and to a pinned space and back
   settings  orbit.settings (ctrl-,) opens Orbit look settings in the right
@@ -506,7 +510,43 @@ def tabs(ids):
     time.sleep(1)
 
 
-SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("settings", settings), ("keep", keep)]
+def identity(ids):
+    base = f"{ROOT}/repos"
+    subprocess.run(["rm", "-rf", base])
+    os.makedirs(base)
+    g = lambda *a, cwd=None: subprocess.run(["git", *a], cwd=cwd, capture_output=True, text=True)
+    def repo(path, origin=None):
+        os.makedirs(path)
+        g("init", "-q", "-b", "main", cwd=path)
+        g("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "start", cwd=path)
+        if origin:
+            g("remote", "add", "origin", origin, cwd=path)
+    repo(f"{base}/app", "git@github.com:me/app.git")
+    repo(f"{base}/elsewhere/app-clone", "https://github.com/me/app")  # the same repo, another place
+    g("worktree", "add", "-q", "-b", "fix", f"{base}/app-fix", cwd=f"{base}/app")
+    repo(f"{base}/notes")  # no origin
+    g("worktree", "add", "-q", "-b", "draft", f"{base}/notes-draft", cwd=f"{base}/notes")
+    repo(f"{base}/other", "git@github.com:me/other.git")
+    made = {}
+    for name, folder in [("app here", "app"), ("app there", "elsewhere/app-clone"), ("app fix", "app-fix"),
+                         ("notes", "notes"), ("notes draft", "notes-draft"), ("other", "other")]:
+        made[name] = do("space.new", {"name": name, "folder": f"{base}/{folder}"}).get("space")
+    look = lambda: shared().get("orbit.identity", {})
+    have = lambda: all("origin" in (shared().get("orbit.git", {}).get(sid) or {}) for sid in made.values())
+    check("identity", "every new space's repo looked up", wait(have, 15), json.dumps({k: shared().get("orbit.git", {}).get(v) for k, v in made.items()}))
+    time.sleep(1)
+    idt = {k: look().get(v) for k, v in made.items()}
+    same = lambda a, b: idt[a] is not None and idt[a] == idt[b]
+    check("identity", "same repo, another place (another machine): same colour and symbol", same("app here", "app there"), str(idt))
+    check("identity", "a worktree and its main checkout: same", same("app here", "app fix"), str(idt))
+    check("identity", "without an origin, a worktree and its main checkout: same", same("notes", "notes draft"), str(idt))
+    check("identity", "another repo: its own", idt["other"] is not None and idt["other"] != idt["app here"], str(idt))
+    for sid in made.values():
+        do("space.close", {"id": sid})
+    time.sleep(1)
+
+
+SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("keep", keep)]
 
 
 def main():
