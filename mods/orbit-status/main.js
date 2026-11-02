@@ -23,7 +23,7 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { run, theme, layout, spaces, machines, updates, shared, setShared, openOverlay, closeOverlay } from "herdr";
-import { look, glass, spaceLook, spaceSymbol } from "./look.js";
+import { look, glass, spaceLook, spaceSymbol, accentBand, probeColor } from "./look.js";
 import { backdrop, orbitPlace, orbitRadius, zoom, viewport } from "./glass.js";
 import { System, bytes, pct, level } from "./system.js";
 import { order, drop, landing } from "./taskbar.js";
@@ -223,9 +223,11 @@ export default class OrbitStatus extends View {
       const symbol = spaceSymbol(s, 14, s.active ? spaceLook(s).color : t.muted, "taskbar");
       const line = (side) => div().absolute().top(4).bottom(4).w(2).rounded(1).bg(t.accent)
         .when(side === "before", (m) => m.left(0)).when(side === "after", (m) => m.right(0));
+      if (s.active) { probeColor("taskbar-band", accentBand(spaceLook(s).color)); probeColor("taskbar-text", t.foreground); }
       return h_flex().id(`task-${s.id}`).relative().h(26).px(8).gap(6).flex_none().items_center().rounded(5)
         .text_size(12.5).text_color(s.active ? t.foreground : t.ansi7)
-        .when(s.active, (el) => el.bg(t.foreground.slice(0, 7) + "14"))
+        // The shown space's accent, as the sidebar's row: a band of its colour.
+        .when(s.active, (el) => el.bg(accentBand(spaceLook(s).color)))
         .hover((st) => st.bg(t.foreground.slice(0, 7) + "24"))
         .when(!g && this.popup?.widget !== `task-${s.id}`, (el) => el.tooltip(`${s.name}${pinned.includes(s.id) ? " · pinned" : ""}\nright-click: ${pinned.includes(s.id) ? "unpin" : "pin"} · drag to move`))
         .on_mouse_down("left", (_e, cx) => { cx.stop_propagation(); this.drag = { from: i, over: i }; })

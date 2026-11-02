@@ -63,8 +63,14 @@ export function statusColor(status) {
   return k ? theme()[k] : null;
 }
 
-// For tools/regress.py (shared "orbit.probe" on): the colour a place drew the
-// shown space in ("left", "right", "sidebar"), in shared "orbit.probe.colors".
+// The shown space's accent where it's listed (the sidebar's row, the
+// taskbar's card): a band of its colour behind it, the text staying white.
+export function accentBand(color) {
+  return color.slice(0, 7) + "29";
+}
+
+// For tools/regress.py (shared "orbit.probe" on): a colour a place drew
+// ("sidebar-band", "taskbar-text", ...), in shared "orbit.probe.colors".
 export function probeColor(where, color) {
   if (shared("orbit.probe") !== true) return;
   const all = shared("orbit.probe.colors") ?? {};

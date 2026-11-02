@@ -30,9 +30,9 @@ Scenarios:
   symbols each card's symbol is the sidebar's for that space: filled in the
           state's colour for working, blocked, done; empty with no agent and
           once a finished agent was seen (idle)
-  tabs    the shown tab of the left and the right pane's rows is in the
-          colour the sidebar shows the shown space in, for two spaces of
-          different colours, back and forth
+  tabs    the shown space's accent (the band behind its sidebar row and its
+          taskbar card) is its colour, and the text stays white there and in
+          the panes' shown tabs, for two spaces, back and forth
   identity  a space's colour and symbol come from its repository: the same
           repo at another path (as on another machine), a worktree and its
           main checkout, with or without an origin, look the same; another
@@ -488,7 +488,11 @@ def symbols(ids):
 
 
 def tabs(ids):
+    """The shown space's accent (a band of its colour behind the sidebar's row
+    and the taskbar's card) and white text (those two and the panes' shown
+    tabs), for two spaces of different colours, back and forth."""
     colors = lambda: shared().get("orbit.probe.colors", {})
+    fg = json.load(open(f"{HOME}/themes/tokyo-night.json"))["foreground"].lower()[:7]
     seen = {}
     for name in ["shown", "blocked"]:
         sid = ids[name][0]
@@ -500,10 +504,13 @@ def tabs(ids):
     for name in ["shown", "blocked", "shown", "blocked"]:
         do("space.select", {"id": ids[name][0]})
         time.sleep(1.5)
-        c = colors()
-        ok = c.get("sidebar") and c.get("left") == c.get("sidebar") and c.get("right") == c.get("sidebar")
-        check("tabs", f"{name}: left and right shown tabs in the sidebar's colour", ok, str(c))
-        seen[name] = c.get("sidebar")
+        c = {k: (v or "").lower() for k, v in colors().items()}
+        band = c.get("space", "")[:7] + "29"
+        check("tabs", f"{name}: the sidebar's and the taskbar's accent is the space's colour",
+              c.get("space") and c.get("sidebar-band") == band and c.get("taskbar-band") == band, str(c))
+        texts = {k: c.get(k, "")[:7] for k in ["sidebar-text", "taskbar-text", "left-text", "right-text"]}
+        check("tabs", f"{name}: the text stays white", all(v == fg for v in texts.values()), f"{texts} want {fg}")
+        seen[name] = c.get("space")
     check("tabs", "the two spaces' colours differ (the test means something)", seen["shown"] != seen["blocked"], str(seen))
     shot("tabs")
     do("space.select", {"id": ids["shown"][0]})
