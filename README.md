@@ -149,8 +149,9 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
   90%) and the clock.
   - The taskbar: a card per space that is pinned (in pin order), shown, or
     has agents that finished or wait for you, then those at work (each group
-    most recent first). A card is the space's symbol, filled in its agents'
-    state colour and outlined in the space's colour when shown, and its name.
+    most recent first). A card is the space's symbol, drawn as the sidebar draws it (filled in
+    its agents' state colour while one is blocked, working or done, else
+    empty; outlined in the space's colour when shown), and its name.
     Click shows the space; right-click pins or unpins it; drag a card onto
     another to move it there (it's pinned then). A pinned card has a pin after
     its name. An unpinned space leaves once

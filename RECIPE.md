@@ -110,9 +110,11 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
     can't be reached, "N folded" (muted) for settled tabs, and an accent
     "update ready · restart" pill.
   - The taskbar: cards 26px tall, 8px in, 4px apart, corners of 5, 12.5px
-    text; each the space's symbol (14px, the filled glyph in its agents' state
-    colour, muted when none; on the shown space the outline glyph over it in
-    the space's colour, and the card a faint foreground band) and its name (at
+    text; each the space's symbol (14px, as the sidebar's: the filled glyph in
+    its agents' state colour while one is blocked, working or done, none
+    otherwise; the outline glyph over it, muted, or on the shown space in the
+    space's colour, and the card a faint foreground band; look.js
+    `spaceSymbol` draws both) and its name (at
     most 150px, cut short); a pinned card then an 11px pin (muted). Cards
     past the bar's room are cut.
   - Right: cpu, ram and disk, each a 14px icon and a bar 34×6 (corners of 3,

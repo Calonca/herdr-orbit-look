@@ -10,7 +10,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { look, glass, spaceLook, glyphPath, statusColor } from "./look.js";
+import { look, glass, spaceLook, spaceSymbol } from "./look.js";
 import { backdrop, orbitPlace, orbitRadius } from "./glass.js";
 import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window } from "herdr";
 
@@ -277,8 +277,7 @@ export default class Spaces extends View {
   row({ w, i, g, tree, kids, last }, t) {
     const on = w.active;
     const nested = Boolean(tree);
-    const { color, glyph: kind } = spaceLook(w);
-    const fill = statusColor(w.status);
+    const { color } = spaceLook(w);
     const two = !nested && Boolean(g);
     const h = nested ? LINE - 3 : two ? LINE + SUB - 2 : LINE;
     const r = nested ? 12 : 14; // the symbol's box
@@ -287,8 +286,7 @@ export default class Spaces extends View {
     const folded = this.foldedRepos.has(g?.repo);
     const stub = last ? DOT_X + 4 : DOT_X;
     const symbol = div().absolute().left(dotX - r / 2).top((nested ? h : LINE) / 2 - r / 2).size(r)
-      .when(Boolean(fill), (el) => el.child(svg(glyphPath(kind, true)).absolute().size(r).text_color(fill)))
-      .child(svg(glyphPath(kind, false)).absolute().size(r).text_color(on ? (t.idle ?? t.foreground) : t.muted));
+      .child(spaceSymbol(w, r, on ? (t.idle ?? t.foreground) : t.muted, "sidebar"));
     const ident = color.slice(0, 7);
     return div()
       .relative()

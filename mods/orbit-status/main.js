@@ -23,7 +23,7 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { run, theme, layout, spaces, machines, updates, shared, setShared, openOverlay, closeOverlay } from "herdr";
-import { look, glass, spaceLook, glyphPath, statusColor } from "./look.js";
+import { look, glass, spaceLook, spaceSymbol } from "./look.js";
 import { backdrop, orbitPlace, orbitRadius, zoom, viewport } from "./glass.js";
 import { System, bytes, pct, level } from "./system.js";
 import { order, drop, landing } from "./taskbar.js";
@@ -217,11 +217,10 @@ export default class OrbitStatus extends View {
     const mark = g && g.over !== g.from ? landing(ids, pinned, g.from, g.over) : null;
     const set = (v, cx) => { this.drag = v; cx.notify(); };
     const cards = list.map((s, i) => {
-      const { color, glyph } = spaceLook(s);
-      const fill = statusColor(s.status) ?? t.muted;
-      const symbol = div().relative().size(14).flex_none()
-        .child(svg(glyphPath(glyph, true)).absolute().top(0).left(0).size(14).text_color(fill))
-        .when(s.active, (el) => el.child(svg(glyphPath(glyph, false)).absolute().top(0).left(0).size(14).text_color(color)));
+      // As the sidebar draws it (look.js spaceSymbol): filled while an agent
+      // is blocked, working or done, else empty; the shown space's outline in
+      // its own colour.
+      const symbol = spaceSymbol(s, 14, s.active ? spaceLook(s).color : t.muted, "taskbar");
       const line = (side) => div().absolute().top(4).bottom(4).w(2).rounded(1).bg(t.accent)
         .when(side === "before", (m) => m.left(0)).when(side === "after", (m) => m.right(0));
       return h_flex().id(`task-${s.id}`).relative().h(26).px(8).gap(6).flex_none().items_center().rounded(5)

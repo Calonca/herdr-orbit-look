@@ -6,6 +6,7 @@
 // - glass(): the theme's surface, a little see-through.
 // - keysIn(): which pane has the keys.
 // - spaceLook(space): its colour and symbol.
+// - spaceSymbol(): a space's symbol as the sidebar and the taskbar draw it.
 // - ask(): a change to the panes, the tabs or the side panel.
 // The orbit mod (the layout's controller) works out the look, the spaces'
 // colours and where the tab rows sit once, and shares them ("orbit.look",
@@ -13,7 +14,8 @@
 // every change to the layout file and to shared "orbit.sides" itself; the
 // other mods ask it, through a command.
 
-import { theme, shared, run } from "herdr";
+import { div, svg } from "gpui-kit";
+import { theme, shared, setShared, run } from "herdr";
 
 // The width of a pane's outline and of the lines in its tab row.
 export const LINE = 2;
@@ -59,6 +61,24 @@ export function glyphPath(kind, filled) {
 export function statusColor(status) {
   const k = { blocked: "ansi1", working: "ansi3", done: "ansi2" }[status];
   return k ? theme()[k] : null;
+}
+
+// A space's symbol, `r` px: filled in its agents' state colour while one is
+// blocked, working or done (finished while you weren't looking), else empty;
+// its outline in `outline` over it. The sidebar and the taskbar both draw it
+// with this, so they show the same. `where`: tools/regress.py's probe
+// (shared "orbit.probe.symbols", what was drawn for each space).
+export function spaceSymbol(space, r, outline, where = null) {
+  const { glyph } = spaceLook(space);
+  const fill = statusColor(space?.status);
+  if (where && shared("orbit.probe") === true) {
+    const key = `${where}:${space.id}`, all = shared("orbit.probe.symbols") ?? {};
+    const now = { glyph, fill: fill ?? null };
+    if (JSON.stringify(all[key]) !== JSON.stringify(now)) setShared("orbit.probe.symbols", { ...all, [key]: now });
+  }
+  return div().relative().size(r).flex_none()
+    .when(Boolean(fill), (el) => el.child(svg(glyphPath(glyph, true)).absolute().top(0).left(0).size(r).text_color(fill)))
+    .child(svg(glyphPath(glyph, false)).absolute().top(0).left(0).size(r).text_color(outline));
 }
 
 export function find(node, id) {

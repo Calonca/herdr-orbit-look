@@ -27,6 +27,9 @@ Scenarios:
           icon in it (the card one line, as tall as before); Unpin takes it out
           again, and the icon
   drag    a card dragged onto another lands in its place, pinned
+  symbols each card's symbol is the sidebar's for that space: filled in the
+          state's colour for working, blocked, done; empty with no agent and
+          once a finished agent was seen (idle)
   keep    a mod in the right pane keeps running across space switches (its
           init runs once): A -> B -> A, and to a pinned space and back
   settings  orbit.settings (ctrl-,) opens Orbit look settings in the right
@@ -451,7 +454,33 @@ def keep(ids):
     shot("keep")
 
 
-SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("settings", settings), ("keep", keep)]
+def symbols(ids):
+    """Each card's symbol against the sidebar's, per state. The idle case: an
+    agent that reports idle, as a finished one is once seen (the sandbox's
+    window never has the focus herdr counts a look by), in the shown space so
+    it has a card."""
+    ansi = json.load(open(f"{HOME}/themes/tokyo-night.json"))["ansi"]
+    cases = [("working", "working", ansi[3]), ("blocked", "blocked", ansi[1]), ("done", "done (finished, not seen)", ansi[2]),
+             ("shown", "no agent", None), ("idle", "idle (finished and seen)", None)]
+    sb("hc", "send", ids["idle"][1], "printf '\\033]7501;state=idle\\007'")
+    time.sleep(1)
+    for name, what, fill in cases:
+        if name == "idle":
+            do("space.select", {"id": ids["idle"][0]})
+            time.sleep(2)
+        sid = ids[name][0]
+        syms = shared().get("orbit.probe.symbols", {})
+        bar, side = syms.get(f"taskbar:{sid}"), syms.get(f"sidebar:{sid}")
+        check("symbols", f"{what}: the card's symbol is the sidebar's", bar is not None and bar == side, f"taskbar {bar} sidebar {side}")
+        got = (bar or {}).get("fill")
+        ok = got is None if fill is None else (got or "").lower()[:7] == fill.lower()[:7]
+        check("symbols", f"{what}: {'empty' if fill is None else 'filled ' + fill}", bar is not None and ok, f"{bar}")
+    shot("symbols")
+    do("space.select", {"id": ids["shown"][0]})
+    time.sleep(1)
+
+
+SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("settings", settings), ("keep", keep)]
 
 
 def main():
