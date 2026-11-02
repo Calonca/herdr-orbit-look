@@ -27,6 +27,8 @@ Scenarios:
           icon in it (the card one line, as tall as before); Unpin takes it out
           again, and the icon
   drag    a card dragged onto another lands in its place, pinned
+  keep    a mod in the right pane keeps running across space switches (its
+          init runs once): A -> B -> A, and to a pinned space and back
   settings  orbit.settings (ctrl-,) opens Orbit look settings in the right
           pane, not an overlay; again, it shows that one (no second copy)
 """
@@ -209,7 +211,9 @@ def opened_rect(before, after, anchor=None):
     `anchor`: only the run of changed columns that holds the anchor's left
     edge (a toast elsewhere doesn't count)."""
     from PIL import ImageChops
-    top = int(110 * SCALE)  # below a terminal's blinking cursor
+    # From the window's top: a terminal's blinking cursor changes too, but
+    # only the columns around the anchor count.
+    top = int(8 * SCALE)
     bottom = int((bar_y() - 22 * ZOOM) * SCALE)
     box = (0, top, before.width, bottom)
     diff = ImageChops.difference(before.crop(box), after.crop(box)).convert("L").point(lambda v: 255 if v > 24 else 0)
@@ -404,7 +408,50 @@ def settings(ids):
     check("settings", "again: still one", len(mine()) == 1, str(mine()))
 
 
-SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("settings", settings)]
+COUNTER = """import { View, div } from "gpui-kit";
+import { shared, setShared, props } from "herdr";
+// tools/regress.py: counts how often a copy starts (init), by its props.tag.
+export default class Counter extends View {
+  init() {
+    const tag = props()?.tag ?? "?";
+    const all = shared("regress.inits") ?? {};
+    setShared("regress.inits", { ...all, [tag]: (all[tag] ?? 0) + 1 });
+  }
+  render() { return div().size_full().child(`counter ${props()?.tag}`); }
+}
+"""
+
+
+def keep(ids):
+    os.makedirs(f"{HOME}/mods/regress-counter", exist_ok=True)
+    open(f"{HOME}/mods/regress-counter/main.js", "w").write(COUNTER)
+    open(f"{HOME}/mods/regress-counter/mod.json", "w").write('{ "place": "none" }\n')
+    time.sleep(1.5)
+    a, b = ids["shown"][0], ids["working"][0]
+    do("space.select", {"id": a})
+    time.sleep(1)
+    run_name = "orbit.new-mod " + json.dumps({"space": a, "side": "right", "title": "counter", "mod": "regress-counter", "props": {"tag": "A"}})
+    sb("do", run_name)
+    inits = lambda: shared().get("regress.inits", {}).get("A", 0)
+    check("keep", "the mod starts in the right pane", wait(lambda: inits() >= 1, 5), str(shared().get("regress.inits")))
+    time.sleep(2)
+    start = inits()
+    for target in [b, a, b, a]:
+        do("space.select", {"id": target})
+        time.sleep(1.5)
+    check("keep", "A -> B -> A twice: it never starts again", inits() == start, f"inits {start} -> {inits()}")
+    # A pinned space, another outline colour.
+    pinned_ids = [ids["blocked"][0]]
+    # (pinning goes through the menu elsewhere; here the shared value is only read)
+    do("space.select", {"id": ids["blocked"][0]})
+    time.sleep(1.5)
+    do("space.select", {"id": a})
+    time.sleep(1.5)
+    check("keep", "to another space and back: still the same copy", inits() == start, f"inits {start} -> {inits()}")
+    shot("keep")
+
+
+SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("settings", settings), ("keep", keep)]
 
 
 def main():
