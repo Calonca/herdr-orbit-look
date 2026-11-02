@@ -238,8 +238,9 @@ sidebar, `ctrl-shift-l` the layout).
   copy; `scripts/glyphs.py` the symbols. Only needed to change them.
 - `scripts/sandbox`: a throwaway herdr-app on its own core, home and display
   (headless, or a private Xvfb with `SANDBOX_X11=1`), to try changes in.
-  `tools/regress.py` clicks through the status bar there (its popups, the
-  taskbar's order, pins and drag); `node tools/taskbar-test.mjs` checks the
+  `tools/regress.py` clicks through the status bar there (its popups and
+  menus where they open, the taskbar's order, pins and drag, the look
+  settings), by default on a HiDPI screen (scale 2) at zoom 1.2; `node tools/taskbar-test.mjs` checks the
   taskbar's order without a window.
 
 ## Credits

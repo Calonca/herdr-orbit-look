@@ -15,15 +15,14 @@
 // cpu, ram and disk open their popup above the widget (orbit-dialogs' "stat"),
 // a second click closes it. The popup gets props.pin (its title) and
 // props.pinCommand, which opens the same mod in a pane, and props.height.
-// herdr has no list of open overlays, so while one is open the bar asks
-// `herdr-app status` for them, to know when it closed.
+// The popup tells the bar when it closes (shared "orbit.popup").
 //
 // System figures come from /proc every second and `df` every 30 s (system.js;
 // Linux, elsewhere those widgets stay hidden).
 
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { run, theme, layout, spaces, machines, updates, exec, shared, setShared, openOverlay, closeOverlay } from "herdr";
+import { run, theme, layout, spaces, machines, updates, shared, setShared, openOverlay, closeOverlay } from "herdr";
 import { look, glass, spaceLook, glyphPath, statusColor } from "./look.js";
 import { backdrop, orbitPlace, orbitRadius, zoom, viewport } from "./glass.js";
 import { System, bytes, pct, level } from "./system.js";
@@ -33,11 +32,20 @@ const ICONS = "mods/orbit-status/icons";
 const PINNED = "orbit.pinned";
 
 // The popups the widgets open: orbit-dialogs' "stat", this size.
+// The popups the widgets open: orbit-dialogs' "stat", this size (its rows
+// have fixed heights, stat.js).
 const POPUPS = {
-  cpu: { title: "cpu", width: 300, height: 250 },
-  ram: { title: "memory", width: 300, height: 140 },
-  disk: { title: "disk", width: 300, height: 165 },
+  cpu: { title: "cpu", width: 300, height: 260 },
+  ram: { title: "memory", width: 300, height: 150 },
+  disk: { title: "disk", width: 300, height: 180 },
 };
+
+// cpu's height for `n` cores, every row in full (stat.js: CORE_COLUMNS
+// columns, CORE_ROW apart; the rest of the popup is 150).
+const CORE_COLUMNS = 3, CORE_ROW = 22;
+function cpuHeight(n) {
+  return 150 + Math.ceil(Math.max(1, n) / CORE_COLUMNS) * CORE_ROW;
+}
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -57,25 +65,53 @@ export default class OrbitStatus extends View {
     this.acx = cx;
   }
 
-  // A widget's popup, above it (bounds: the widget's, in window pixels), or
-  // closed when it's the one open. `spec`: { title, mod, props, width, height }.
-  toggle(widget, bounds, spec, cx) {
-    const open = this.popup;
-    if (open) { closeOverlay(open.id); this.popup = null; }
-    if (open?.widget === widget) { cx.notify(); return; }
+  // Where a popup `w`×`h` (the mod's lengths, which herdr-app zooms) opens:
+  // above `bounds` (an element's, window pixels), its left edge at the
+  // element's, inside the window. herdr-app takes `at` in window pixels, not
+  // zoomed; the height is cut to the room above. Returns { at, h }.
+  above(bounds, w, h) {
     const z = zoom(), view = viewport();
-    const w = spec.width, h = spec.height;
-    // Above the widget, its left edge at the widget's, kept in the window.
-    const right = view ? view.width / z - w - 8 : Infinity;
-    const at = bounds ? { x: Math.max(8, Math.min(bounds.x / z, right)), y: Math.max(8, bounds.y / z - h - 6) } : "pointer";
-    const inPane = { mod: spec.mod, title: spec.title, props: spec.props };
-    const id = openOverlay({ mod: spec.mod, kind: "popup", width: w, height: h, at, props: {
+    if (!bounds) return { at: "pointer", h };
+    const room = (bounds.y - 6 - 8) / z;
+    h = Math.max(40, Math.min(h, room));
+    const x = Math.max(8, Math.min(bounds.x, view ? view.width - w * z - 8 : bounds.x));
+    return { at: { x, y: Math.max(8, bounds.y - h * z - 6) }, h };
+  }
+
+  // Opens a popup for `widget` (orbit-dialogs, `props`), above `bounds`. The
+  // popup says when it opens and closes (shared "orbit.popup", orbit-dialogs
+  // main.js), so the bar knows without asking herdr-app.
+  openPopup(widget, bounds, w, h, props, cx) {
+    if (this.popup) closeOverlay(this.popup.id);
+    const place = this.above(bounds, w, h);
+    const id = openOverlay({ mod: "orbit-dialogs", kind: "popup", width: w, height: place.h, at: place.at,
+      props: { ...props(place.h), bar: true } });
+    this.popup = { widget, id, at: Date.now() };
+    cx.notify();
+  }
+
+  // A widget's popup, or, when its popup was open at the press, closed. (A
+  // press beside a popup can close it before the click arrives: what counts
+  // is what was open when the button went down.)
+  toggle(widget, press, spec, cx) {
+    if (press?.wasOpen) {
+      if (this.popup?.widget === widget) closeOverlay(this.popup.id);
+      this.popup = null;
+      cx.notify();
+      return;
+    }
+    const inPane = { mod: "orbit-dialogs", title: spec.title, props: spec.props };
+    this.openPopup(widget, press?.bounds ?? null, spec.width, spec.height, (h) => ({
       ...spec.props, height: h, pin: spec.title,
       pinCommand: `orbit.new-mod ${JSON.stringify({ side: "right", ...inPane })}`,
-    } });
-    this.popup = { widget, id, mod: spec.mod };
-    this.watch();
-    cx.notify();
+    }), cx);
+  }
+
+  // The popup closed (shared "orbit.popup" no longer names it); a moment's
+  // grace while it opens.
+  popupGone() {
+    const p = this.popup;
+    return p && Date.now() - p.at > 1500 && shared("orbit.popup") !== p.id;
   }
 
   // For tools/regress.py only: with shared "orbit.probe" on, where each
@@ -89,29 +125,8 @@ export default class OrbitStatus extends View {
     setShared("orbit.probe.status", { ...all, [key]: { x: b.x, y: b.y, width: b.width, height: b.height } });
   }
 
-  // While a popup is open: is it still? `herdr-app status` lists the open
-  // overlays by their mod's name; one popup is open at a time.
-  watch() {
-    if (this.watching) return;
-    this.watching = true;
-    this.acx.spawn(async (cx) => {
-      try {
-        while (this.popup) {
-          await cx.sleep(0.3);
-          const p = this.popup;
-          if (!p) break;
-          const r = await exec("herdr-app", ["status"]).catch(() => null);
-          let list = null;
-          try { list = JSON.parse(r?.stdout ?? "").overlays; } catch (_) { list = null; }
-          if (!Array.isArray(list)) continue;
-          const open = list.some((o) => (typeof o === "string" ? o : o?.mod ?? o?.id) === p.mod);
-          if (!open && this.popup === p) { this.popup = null; cx.notify(); }
-        }
-      } finally { this.watching = false; }
-    });
-  }
-
   render() {
+    if (this.popupGone()) this.popup = null;
     const t = theme();
     const sys = this.sys;
     const hover = t.foreground.slice(0, 7) + "24";
@@ -123,8 +138,11 @@ export default class OrbitStatus extends View {
       const open = this.popup?.widget === id;
       return h_flex().id(id).h(28).px(6).gap(6).items_center().rounded(4).flex_none()
         .hover((s) => s.bg(hover)).when(open, (el) => el.bg(hover))
-        .on_mouse_down("left", (e, cx) => { cx.stop_propagation(); this.pressed = { id, bounds: e?.bounds ?? null }; })
-        .when(Boolean(action), (el) => el.on_click((_e, cx) => action(this.pressed?.id === id ? this.pressed.bounds : null, cx)))
+        .on_mouse_down("left", (e, cx) => {
+          cx.stop_propagation();
+          this.pressed = { id, bounds: e?.bounds ?? null, wasOpen: this.popup?.widget === id };
+        })
+        .when(Boolean(action), (el) => el.on_click((_e, cx) => action(this.pressed?.id === id ? this.pressed : null, cx)))
         .when(Boolean(tip) && !open, (el) => el.tooltip(tip))
         .on_mouse_move((e) => this.probe(id, e?.bounds))
         .children(children);
@@ -132,8 +150,8 @@ export default class OrbitStatus extends View {
     // A use as a small bar: blue, yellow from 70%, red from 90%.
     const meter = (v) => div().w(34).h(6).flex_none().rounded(3).bg(t.muted.slice(0, 7) + "40")
       .child(div().h_full().rounded(3).w(Math.max(1, Math.round(v * 34))).bg(level(t, v)));
-    const popupOf = (name) => (bounds, cx) => this.toggle(name, bounds,
-      { ...POPUPS[name], mod: "orbit-dialogs", props: { dialog: "stat", stat: name } }, cx);
+    const popupOf = (name) => (press, cx) => this.toggle(name, press, { ...POPUPS[name],
+      ...(name === "cpu" ? { height: cpuHeight(sys.cores.length) } : {}), props: { dialog: "stat", stat: name } }, cx);
     const usage = (name, v, tip) => ghost(name, [icon(name), meter(v)], popupOf(name), tip);
     const L = layout();
     const sidebarOpen = find(L, "sidebar")?.hidden !== true;
@@ -226,15 +244,9 @@ export default class OrbitStatus extends View {
         .on_click(() => { if (!s.active) run("space.select", { id: s.id }); })
         .on_mouse_down("right", (e, cx) => {
           cx.stop_propagation();
-          const z = zoom(), b = e?.bounds, h = 41;
-          if (this.popup) closeOverlay(this.popup.id);
-          const id = openOverlay({ mod: "orbit-dialogs", kind: "popup", width: 160, height: h,
-            ...(b ? { at: { x: b.x / z, y: Math.max(8, b.y / z - h - 6) } } : {}),
-            props: { dialog: "menu", tab: "taskbar", target: { id: s.id } } });
           // Its menu is the card's popup: no tooltip over it while it's open.
-          this.popup = { widget: `task-${s.id}`, id, mod: "orbit-dialogs" };
-          this.watch();
-          cx.notify();
+          this.openPopup(`task-${s.id}`, e?.bounds ?? null, 160, 41,
+            () => ({ dialog: "menu", tab: "taskbar", target: { id: s.id } }), cx);
         })
         .child(symbol)
         .child(div().max_w(150).truncate().child(s.name))

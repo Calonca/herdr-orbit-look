@@ -233,8 +233,14 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   closes it. Its "open in pane ⇥" opens the same view in the right pane and
   closes the popup. Any popup the bar opens gets `props.pin` (its title),
   `props.pinCommand` (`orbit.new-mod <args as JSON>`, opening the same mod in
-  the right pane) and `props.height`. herdr has no list of open overlays, so
-  while one is open the bar reads `herdr-app status` to see it close.
+  the right pane) and `props.height`. herdr-app takes a popup's `at` in
+  window pixels but zooms its width and height, so the bar places it at the
+  element's own (unzoomed) position, minus the zoomed height. The cpu popup is
+  as tall as its cores need (three columns, 22px a row), cut to the room
+  above the bar (then the cores scroll). The popup says when it opens and
+  closes (shared `"orbit.popup"`), and the bar decides at the press whether
+  its popup was open, so a second click closes it even when the press itself
+  dismissed it.
 - **Taskbar**: the cards in order: pinned (pin order), the shown space,
   spaces whose agents are done or blocked, then working, each group by the
   last change in its tabs, newest first; an unpinned space with only idle

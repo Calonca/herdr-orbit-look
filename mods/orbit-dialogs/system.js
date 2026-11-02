@@ -6,7 +6,7 @@
 //
 // /proc every second and `df` every 30 s (Linux; elsewhere they stay null).
 
-import { readTextFile, exec, home } from "herdr";
+import { readTextFile, exec, home, shared } from "herdr";
 
 // Samples kept for cpu's sparkline, one a second.
 export const HISTORY = 20;
@@ -62,6 +62,9 @@ export class System {
             this.history = [...this.history, all].slice(-HISTORY);
           }
           this.cores = now.slice(1).map((c, i) => use(c, this.prev[i + 1]) ?? 0);
+          // tools/regress.py: a machine with this many cores (the rest idle).
+          const fake = shared("orbit.probe") === true ? shared("orbit.probe.cores") : null;
+          if (Number.isInteger(fake) && fake > this.cores.length) this.cores = [...this.cores, ...Array(fake - this.cores.length).fill(0)];
         }
         this.prev = now;
         const load = ((await readTextFile("/proc/loadavg")) ?? "").trim().split(/\s+/).slice(0, 3).map(Number);
