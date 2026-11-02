@@ -14,7 +14,7 @@ next to it are one build of it, for herdr-app 0.1.11.
 ## What you see
 
 Left to right, then the status bar along the bottom (the system draws the
-title bar: `"titlebar": "system"`). Theme `orbit` (Tokyo Night colours:
+title bar: `"titlebar": "system"`). Theme `tokyo-night` (Tokyo Night colours:
 background `#161622`, surface `#161622`, border `#414868`, foreground
 `#c0caf5`, muted `#9aa5ce`, accent `#7aa2f7`). Terminals in JetBrains Mono
 14px, padding `[18, 16]`, fully see-through (`terminal_opacity: 0`).
@@ -32,18 +32,18 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   `#7dcfff` cyan, `#9ece6a` green, `#e0af68` yellow, `#ff9e64` orange,
   `#f7768e` red) and one of 8 symbols (hexagon, triangle, square, circle, star,
   plus, cross, diamond, 16px SVGs, outlined and filled).
-- **Themes**: `orbit` above, and six variants with their own identity
+- **Themes**: `tokyo-night` above, and six others with their own identity
   colours (purple, cyan, green, yellow, orange, red), each known by its
   accent:
 
   | Theme | Accent | Identity colours |
   |---|---|---|
-  | `orbit-catppuccin-mocha` | `#89b4fa` | `#cba6f7 #89dceb #a6e3a1 #f9e2af #fab387 #f38ba8` |
-  | `orbit-everforest` | `#a7c080` | `#d699b6 #83c092 #a7c080 #dbbc7f #e69875 #e67e80` |
-  | `orbit-gruvbox-dark` | `#83a598` | `#d3869b #8ec07c #b8bb26 #fabd2f #fe8019 #fb4934` |
-  | `orbit-kanagawa` | `#7e9cd8` | `#957fb8 #7fb4ca #98bb6c #e6c384 #ffa066 #e82424` |
-  | `orbit-nord` | `#88c0d0` | `#b48ead #8fbcbb #a3be8c #ebcb8b #d08770 #bf616a` |
-  | `orbit-rose-pine` | `#c4a7e7` | `#c4a7e7 #9ccfd8 #31748f #f6c177 #ebbcba #eb6f92` |
+  | `catppuccin-mocha` | `#89b4fa` | `#cba6f7 #89dceb #a6e3a1 #f9e2af #fab387 #f38ba8` |
+  | `everforest` | `#a7c080` | `#d699b6 #83c092 #a7c080 #dbbc7f #e69875 #e67e80` |
+  | `gruvbox-dark` | `#83a598` | `#d3869b #8ec07c #b8bb26 #fabd2f #fe8019 #fb4934` |
+  | `kanagawa` | `#7e9cd8` | `#957fb8 #7fb4ca #98bb6c #e6c384 #ffa066 #e82424` |
+  | `nord` | `#88c0d0` | `#b48ead #8fbcbb #a3be8c #ebcb8b #d08770 #bf616a` |
+  | `rose-pine` | `#c4a7e7` | `#c4a7e7 #9ccfd8 #31748f #f6c177 #ebbcba #eb6f92` |
 
   Any other theme: its ANSI 5, 6, 2, 3, 11, 1.
 - **Sidebar**, 400px wide (44–560), glass, corners of radius 16:
@@ -113,7 +113,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
     text; each the space's symbol (14px, the filled glyph in its agents' state
     colour, muted when none; on the shown space the outline glyph over it in
     the space's colour, and the card a faint foreground band) and its name (at
-    most 150px, cut short). Cards past the bar's room are cut.
+    most 150px, cut short); a pinned card then an 11px pin (muted). Cards
+    past the bar's room are cut.
   - Right: cpu, ram and disk, each a 14px icon and a bar 34×6 (corners of 3,
     on the muted colour at 25%; blue `#7aa2f7`, yellow `#e0af68` from 70%, red
     `#f7768e` from 90%); the clock (HH:MM).
@@ -148,7 +149,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - **Identity**: FNV-1a (32-bit) of the space's name as UTF-8 bytes; colour =
   hash % 6, symbol = (hash >>> 9) % 8. A git worktree and the main checkout it
   belongs to use their repo's common git dir instead of the name, so they
-  match. With another theme than `orbit`, the colours are its ANSI 5, 6, 2, 3,
+  match. With another theme than these seven, the colours are its ANSI 5, 6, 2, 3,
   11 and 1.
 - **The pane with the keys**: clicking into the side panel moves the coloured
   outline (and the bright lines of its tab row) there; clicking a terminal, a
@@ -245,7 +246,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 
 ## Built from
 
-- **Layout** `layouts/orbit.json`, a root column (`theme: "orbit"`,
+- **Layout** `layouts/orbit.json`, a root column (`theme: "tokyo-night"`,
   `font: "JetBrains Mono"`, `font_size: 14`, the background, `terminal_padding`,
   `terminal_opacity: 0`, `preview: "layouts/orbit.svg"`):
   - `body`, a row:
@@ -306,7 +307,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   - `orbit-sidebar-footer`, `orbit-status`, `orbit-edge` (the cap with
     `props.pane`, rounded at its top, or its bottom with the rows on top;
     with no props it draws nothing).
-  - `themes/orbit-*.json`: the six variants, the same keys as `orbit.json`.
+  - `themes/*.json`: the six others, the same keys as `tokyo-night.json`.
   - The settings in shared `"orbit.settings"`: `{ density, rounding, gap,
     tabs, background, views }` (`null`: the density's). The `orbit` mod's
     `layout.js` writes them into the layout (root `background`,
@@ -361,9 +362,14 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 
 ## Watch out
 
-- **Copy `themes/` too.** The layout names the theme `orbit`; without
-  `themes/orbit.json` herdr-app doesn't apply the layout at all ("theme
-  "orbit" is not one of graphite, ink, moss, paper").
+- **Copy `themes/` too.** The layout names the theme `tokyo-night`; without
+  `themes/tokyo-night.json` herdr-app doesn't apply the layout at all ("theme
+  "tokyo-night" is not one of graphite, ink, moss, paper").
+- **A layout's own theme changing** (the themes were `orbit`, `orbit-*`)
+  makes herdr-app drop that layout's theme pick, and its saved clicks too
+  unless `layouts/.state/<layout>.json` names the new theme already.
+  `install.sh` renames them there first and picks the theme again after; the
+  `orbit` mod picks it again when the saved clicks still name an old one.
 - The `orbit` mod rewrites `layouts/orbit.json` (glass and outline colours):
   edit those there and they come back. It must be in the layout for the
   outline to follow the space.
@@ -389,7 +395,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   in `look.js` (`GENERATED`). A picture of the person's has no blurred copy:
   the glass over it is the plain fill (`backdrop()` falls back, with the
   same square and round corners).
-- The layout's root says `"theme": "orbit"`, but herdr-app's `app.theme`
+- The layout's root says `"theme": "tokyo-night"`, but herdr-app's `app.theme`
   wins: the settings' theme buttons and herdr's own settings both work, and
   the space colours follow the theme's accent. A theme opened while a dialog
   is open takes the keys: the settings view takes them back.
@@ -424,8 +430,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - **Updating**: copies don't update themselves, and the add flow never
   overwrites (it would make `orbit-2`). To update, remove `layouts/orbit.json`,
   `layouts/orbit.svg`, `mods/orbit`, every `mods/orbit-*` (an older copy may
-  have more of them: `orbit-panel-tabs`, `orbit-nothing`: all go) and
-  `themes/orbit*.json`, then copy the new ones in, and replace the
+  have more of them: `orbit-panel-tabs`, `orbit-nothing`: all go), the
+  old `themes/orbit*.json` and the files in `themes/`, then copy the new ones in, and replace the
   `layout:orbit` section of `keys.json` with the new one; leave the person's
   other files and keys alone, the settings in `shared.json` and the
   pictures in `backgrounds/`. This build is version 3 (`VERSION` in

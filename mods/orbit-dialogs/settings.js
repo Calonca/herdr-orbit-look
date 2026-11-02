@@ -1,5 +1,5 @@
-// The orbit layout's own settings: the theme (orbit's or one of its six
-// variants, herdr-app's app.theme; any other is in herdr-app's settings, as
+// The orbit layout's own settings: the theme (Tokyo Night or one of the six
+// others shipped in themes/, herdr-app's app.theme; any other is in herdr-app's settings, as
 // the UI font: "herdr settings…" opens them), density, corners, gap, the tab
 // rows on top or at the bottom, and the background picture. Each change is asked of the orbit mod (look.js ask),
 // which saves it in shared "orbit.settings" and writes it into the layout at
@@ -18,10 +18,10 @@ import { theme, props, closeOverlay, exec, home, appHome, run, readTextFile, wat
 import { look, ask } from "./look.js";
 
 const PRESETS = ["compact", "default", "comfortable"];
-// orbit's themes (themes/), known by their accent.
-const THEMES = [["orbit", "#7aa2f7"], ["catppuccin mocha", "#89b4fa", "orbit-catppuccin-mocha"], ["everforest", "#a7c080", "orbit-everforest"],
-  ["gruvbox dark", "#83a598", "orbit-gruvbox-dark"], ["kanagawa", "#7e9cd8", "orbit-kanagawa"], ["nord", "#88c0d0", "orbit-nord"],
-  ["rosé pine", "#c4a7e7", "orbit-rose-pine"]];
+// The themes shipped in themes/, known by their accent.
+const THEMES = [["tokyo night", "#7aa2f7", "tokyo-night"], ["catppuccin mocha", "#89b4fa", "catppuccin-mocha"], ["everforest", "#a7c080", "everforest"],
+  ["gruvbox dark", "#83a598", "gruvbox-dark"], ["kanagawa", "#7e9cd8", "kanagawa"], ["nord", "#88c0d0", "nord"],
+  ["rosé pine", "#c4a7e7", "rose-pine"]];
 const CORNERS = ["auto", 0, 4, 8, 12];
 const GAPS = ["auto", "none", 4, 8, 12, 16];
 const LABEL = 104;

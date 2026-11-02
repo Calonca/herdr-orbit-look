@@ -25,7 +25,8 @@ touch "$manifest"
 
 items() {
   local f
-  for f in "$repo"/mods/*/ "$repo"/layouts/*.json "$repo"/layouts/*.svg "$repo"/themes/*.json; do
+  # Themes first: a mod or layout that names one finds it there.
+  for f in "$repo"/themes/*.json "$repo"/mods/*/ "$repo"/layouts/*.json "$repo"/layouts/*.svg; do
     if [[ -e $f ]]; then f=${f%/}; printf '%s\n' "${f#"$repo"/}"; fi
   done
 }
@@ -68,6 +69,41 @@ if [[ ${1:-} == --remove ]]; then
   exit 0
 fi
 
+# The themes were renamed (orbit -> tokyo-night, orbit-nord -> nord, ...).
+# herdr-app drops a layout's saved clicks when the layout's own theme changes
+# under them, and its theme pick in any case, so first each layout's saved
+# clicks get the new names (layouts/.state), and after the copy the window,
+# when it's open, is given the pick again (app.theme), so the colours stay.
+repick=$(python3 - "$home" <<'PY'
+import glob, json, os, sys
+home = sys.argv[1]
+OLD = {"orbit": "tokyo-night", **{f"orbit-{t}": t for t in
+       ["catppuccin-mocha", "everforest", "gruvbox-dark", "kanagawa", "nord", "rose-pine"]}}
+for path in glob.glob(f"{home}/layouts/.state/*.json"):
+    try:
+        state = json.load(open(path))
+    except Exception:
+        continue
+    picks = state.get("theme") if isinstance(state.get("theme"), dict) else {}
+    saved = state.get("file") if isinstance(state.get("file"), dict) else {}
+    if not any(v in OLD for v in picks.values()) and saved.get("theme") not in OLD:
+        continue
+    if picks:
+        state["theme"] = {k: OLD.get(v, v) for k, v in picks.items()}
+    if saved.get("theme") in OLD:
+        saved["theme"] = OLD[saved["theme"]]
+    open(path + ".herdr-orbit-tmp", "w").write(json.dumps(state, indent=2) + "\n")
+    os.replace(path + ".herdr-orbit-tmp", path)
+    name = os.path.basename(path)[:-5]
+    print(f"theme names in {path}: {picks} -> {state.get('theme')}", file=sys.stderr)
+    # The light pick first, the dark one last (app.theme sets the slot of the
+    # theme's own kind; the dark one is what a dark desktop shows).
+    for kind in ["light", "dark"]:
+        if state.get("theme", {}).get(kind):
+            print(f"{name}\t{state['theme'][kind]}")
+PY
+)
+
 items | while read -r rel; do
   src=$repo/$rel dst=$home/$rel
   mkdir -p "$(dirname "$dst")"
@@ -91,6 +127,17 @@ items | while read -r rel; do
   fi
   echo "installed $dst"
 done
+
+# The theme picks again, in the open window (see above), for the layout it shows.
+if [[ -n $repick ]] && shown=$(HERDR_APP_HOME=$home DO_NOT_TRACK=1 HERDR_TELEMETRY=0 herdr-app status 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("layout") or "")'); then
+  sleep 2 # the window takes up the new theme and layout files first
+  while IFS=$'\t' read -r name pick; do
+    if [[ $name == "$shown" ]]; then
+      HERDR_APP_HOME=$home DO_NOT_TRACK=1 HERDR_TELEMETRY=0 herdr-app do app.theme "{\"name\":\"$pick\"}" >/dev/null
+      echo "theme $pick picked again for the $name layout"
+    fi
+  done <<<"$repick"
+fi
 
 # What this script installed and the repo no longer has goes from the home
 # too. Only manifest entries: the person's own files are never touched.

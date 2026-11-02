@@ -5,17 +5,17 @@
 
 import { theme, shared, setShared, panes, spaces, exec } from "herdr";
 
-// Each orbit theme's identity colours (purple, cyan, green, yellow, orange,
-// red), the theme known by its accent: orbit (Tokyo Night), then the six
-// variants in themes/.
+// Each shipped theme's identity colours (purple, cyan, green, yellow, orange,
+// red), the theme known by its accent: Tokyo Night, then the six others in
+// themes/.
 const IDENTITIES = {
-  "#7aa2f7": ["#bb9af7", "#7dcfff", "#9ece6a", "#e0af68", "#ff9e64", "#f7768e"], // orbit
-  "#89b4fa": ["#cba6f7", "#89dceb", "#a6e3a1", "#f9e2af", "#fab387", "#f38ba8"], // orbit-catppuccin-mocha
-  "#83a598": ["#d3869b", "#8ec07c", "#b8bb26", "#fabd2f", "#fe8019", "#fb4934"], // orbit-gruvbox-dark
-  "#88c0d0": ["#b48ead", "#8fbcbb", "#a3be8c", "#ebcb8b", "#d08770", "#bf616a"], // orbit-nord
-  "#c4a7e7": ["#c4a7e7", "#9ccfd8", "#31748f", "#f6c177", "#ebbcba", "#eb6f92"], // orbit-rose-pine
-  "#7e9cd8": ["#957fb8", "#7fb4ca", "#98bb6c", "#e6c384", "#ffa066", "#e82424"], // orbit-kanagawa
-  "#a7c080": ["#d699b6", "#83c092", "#a7c080", "#dbbc7f", "#e69875", "#e67e80"], // orbit-everforest
+  "#7aa2f7": ["#bb9af7", "#7dcfff", "#9ece6a", "#e0af68", "#ff9e64", "#f7768e"], // tokyo-night
+  "#89b4fa": ["#cba6f7", "#89dceb", "#a6e3a1", "#f9e2af", "#fab387", "#f38ba8"], // catppuccin-mocha
+  "#83a598": ["#d3869b", "#8ec07c", "#b8bb26", "#fabd2f", "#fe8019", "#fb4934"], // gruvbox-dark
+  "#88c0d0": ["#b48ead", "#8fbcbb", "#a3be8c", "#ebcb8b", "#d08770", "#bf616a"], // nord
+  "#c4a7e7": ["#c4a7e7", "#9ccfd8", "#31748f", "#f6c177", "#ebbcba", "#eb6f92"], // rose-pine
+  "#7e9cd8": ["#957fb8", "#7fb4ca", "#98bb6c", "#e6c384", "#ffa066", "#e82424"], // kanagawa
+  "#a7c080": ["#d699b6", "#83c092", "#a7c080", "#dbbc7f", "#e69875", "#e67e80"], // everforest
 };
 // Any other theme: its own ANSI colours.
 const ANSI = ["ansi5", "ansi6", "ansi2", "ansi3", "ansi11", "ansi1"];

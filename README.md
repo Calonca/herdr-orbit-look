@@ -27,7 +27,11 @@ section (those keys apply only while the orbit layout shows; see Keys), and
 pick the **orbit** layout in herdr-app's settings (or `ctrl-shift-l`).
 `ctrl-shift-l` switches back to your own layout; deleting the files removes it.
 Check a name isn't taken first: the layout is `orbit`, the mods are `orbit` and
-`orbit-*`, the themes are `orbit` and `orbit-*`.
+`orbit-*`, the themes are named by their palettes: `tokyo-night`,
+`catppuccin-mocha`, `everforest`, `gruvbox-dark`, `kanagawa`, `nord`,
+`rose-pine`.
+A theme of yours under one of those names is moved aside by `./install.sh`
+(to its backup folder), never overwritten.
 
 The picker's own list is `orbit-windows.json` in herdr-app's home (see the
 picker below). Without the file the list is empty; to start one, copy
@@ -49,9 +53,10 @@ Herdr's add flow never overwrites: adding this repo again would make a second
 copy (`orbit-2`, ...). To update, either:
 
 - tell your agent: "replace my orbit layout, the orbit-* mods and the
-  orbit themes with the latest from github.com/Calonca/herdr-orbit-look"
+  orbit look's themes with the latest from github.com/Calonca/herdr-orbit-look"
   (it removes `layouts/orbit.json`, `layouts/orbit.svg`, `mods/orbit`, every
-  `mods/orbit-*` and `themes/orbit*.json` first, then copies the new ones and
+  `mods/orbit-*`, the look's themes (`themes/orbit*.json` from before, and
+  the files in the repo's `themes/`) first, then copies the new ones and
   replaces the `layout:orbit` section of `keys.json`; your other files and
   keys, `orbit-windows.json` and the pictures in `backgrounds/` stay as they
   are); or
@@ -61,6 +66,11 @@ copy (`orbit-2`, ...). To update, either:
 Your clicks (sizes, what's shown) stay in `layouts/.state/`, your settings
 (`"orbit.settings"` in `shared.json`) stay, and your `orbit-windows.json` is
 never replaced.
+
+The themes were called `orbit` and `orbit-*` before; they're named by their
+palettes now (`orbit` is `tokyo-night`). `./install.sh` picks your theme
+again under its new name, so the colours stay; by hand, pick it again in the
+look settings.
 
 Version 3 adds the settings, the six themes and the `ctrl-,` key. Its
 corners and gap start on "auto", the density's (16 and 14 at comfortable):
@@ -142,14 +152,16 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
     most recent first). A card is the space's symbol, filled in its agents'
     state colour and outlined in the space's colour when shown, and its name.
     Click shows the space; right-click pins or unpins it; drag a card onto
-    another to move it there (it's pinned then). An unpinned space leaves once
+    another to move it there (it's pinned then). A pinned card has a pin after
+    its name. An unpinned space leaves once
     its agents are idle. Pins are kept in `shared.json` (`"orbit.pinned"`).
   - cpu, ram and disk open a popup with the details above them (each core,
     the load; used, available, swap; the filesystem); a second click closes
     it, and "open in pane ⇥" opens the same view in the right pane.
-- **Themes**: `orbit` (Tokyo Night colours), and six variants: Catppuccin
+- **Themes**: Tokyo Night (`tokyo-night`, the layout's own), Catppuccin
   Mocha, Everforest, Gruvbox Dark, Kanagawa, Nord and Rosé Pine
-  (`themes/orbit-*.json`), each with its own six space colours. Pick one in
+  (`themes/*.json`, each palette as it is), each with its own six space
+  colours. Pick one in
   the settings or in herdr-app's (any other theme works too: the space
   colours are then its ANSI colours). JetBrains Mono in terminals.
 
@@ -218,7 +230,7 @@ sidebar, `ctrl-shift-l` the layout).
   the copies are the same file. What every mod would otherwise work out
   again (each space's colour and symbol, the look, where the tab rows sit)
   the `orbit` mod works out once and shares.
-- `themes/orbit.json` and the six `themes/orbit-*.json`
+- `themes/`: Tokyo Night and the six others
 - `keys.json`: the keys, to merge into herdr-app's
 - `defaults/orbit-windows.json`: an empty list for the picker, to copy into
   herdr-app's home when you have none
@@ -232,10 +244,10 @@ sidebar, `ctrl-shift-l` the layout).
 
 ## Credits
 
-- The `orbit` theme's colours are the Tokyo Night palette by Enkia
+- The `tokyo-night` theme's colours are the Tokyo Night palette by Enkia
   ([tokyo-night-vscode-theme](https://github.com/tokyo-night/tokyo-night-vscode-theme),
   MIT).
-- The six variants' colours are each palette's own:
+- The six others' colours are each palette's own:
   - Catppuccin Mocha by Catppuccin, [catppuccin/catppuccin](https://github.com/catppuccin/catppuccin)
     ([MIT](https://github.com/catppuccin/catppuccin/blob/main/LICENSE));
   - Everforest by sainnhe, [sainnhe/everforest](https://github.com/sainnhe/everforest)

@@ -3,7 +3,7 @@
   "type": "column",
   "preview": "layouts/orbit.svg",
   "titlebar": "system",
-  "theme": "orbit",
+  "theme": "tokyo-night",
   "font": "JetBrains Mono",
   "font_size": 14,
   "background": {
