@@ -97,9 +97,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   (herdr's files and changes to start with), framed like the panes, with a
   tab each in a row like theirs (an 11px ⠿ before each name), then `+ ⠿`.
 - **Dialogs and menus**, on the theme's surface at 95% with a 2px border and
-  the corner radius: the settings (700×470: a 104px label column, then
-  32px toggles, the chosen one in accent; "orbit settings" and "esc close"
-  at the foot), the close dialog (380×150: "close <name>?", "close" in red,
+  the corner radius: the close dialog (380×150: "close <name>?", "close" in red,
   "keep"), the switcher (560 wide: "projects · N", then a 42px row per space
   with its symbol, name, machine and state), the "make tab N" prompt
   (420×250: a name field and a command field), and menus (240 wide on the
@@ -197,7 +195,11 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   Close, Hide the panel; middle-click `+ ⠿` hides the panel. Dragged narrower
   than 140px it closes and opens again at 280px; between 140 and 280 it
   springs back to 280px.
-- **Settings** (`ctrl-,`, or "settings" in the picker): each click applies at
+- **Orbit look settings**, a view in the right pane (a tab "Orbit look
+  settings"; a 104px label column, then 32px toggles, the chosen one in
+  accent; its title at the foot), opened by `ctrl-,` (which shows it again
+  when the space has it already) or "Orbit look settings" in the picker (in
+  that pane). Each click applies at
   once: the theme (herdr-app's `app.theme`, any window), density, corners,
   gap, tab rows. "background…" opens a file dialog (KDE's `kdialog`, else
   GNOME's `zenity`; from a toolbox or flatpak the host's through
@@ -295,9 +297,9 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   - `defaults/orbit-windows.json`: `{ "windows": [] }`.
   - `orbit-dialogs`, opened with `props.dialog`: `menu` (derived from
     herdr-app's `menu` mod; icons from herdr's shipped `workspace-chrome`),
-    `confirm`, `switcher`, `new-tab`, `settings` (each change asked of the
-    `orbit` mod as `run("orbit.settings <JSON>")`; `orbit.settings` alone
-    opens it).
+    `confirm`, `switcher`, `new-tab`, `settings` (in a pane: the orbit mod's
+    new-mod; each change asked of the `orbit` mod as
+    `run("orbit.settings <JSON>")`; `orbit.settings` alone opens it).
   - `orbit-spaces`: a restyled clone of herdr-app's `spaces` mod.
   - `orbit-tabs`: the panes' rows (`pane.js`, `props.stack` `left` /
     `right`) and the side panel's (`panel.js`, `props.stack: "panel-body"`).
@@ -390,7 +392,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - The layout's root says `"theme": "orbit"`, but herdr-app's `app.theme`
   wins: the settings' theme buttons and herdr's own settings both work, and
   the space colours follow the theme's accent. A theme opened while a dialog
-  is open takes the keys: the settings dialog takes them back (Esc).
+  is open takes the keys: the settings view takes them back.
 - The background's file dialog runs on the person's desktop (from a
   toolbox, the host's through `flatpak-spawn --host`), apart from herdr-app
   (its `exec` stops a command after 30 s): the dialog writes its answer to a
@@ -462,7 +464,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - An entry added to `orbit-windows.json` shows in the picker the next time it
   opens, and opens in that pane; "configure windows…" copies the prompt and
   shows the toast.
-- `ctrl-,` opens the settings. "top" puts every tab row on top, the shown
+- `ctrl-,` opens Orbit look settings in the right pane. "top" puts every tab row on top, the shown
   tab open downwards; gap "none" joins the sidebar, panes, panel and status
   bar with square corners, their glass still lined up with the picture; "compact" makes the rows and bar smaller; each applies at once
   and stays after a restart.

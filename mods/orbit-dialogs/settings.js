@@ -3,7 +3,8 @@
 // the UI font: "herdr settings…" opens them), density, corners, gap, the tab
 // rows on top or at the bottom, and the background picture. Each change is asked of the orbit mod (look.js ask),
 // which saves it in shared "orbit.settings" and writes it into the layout at
-// once. Esc closes. Props: { dialog: "settings" }.
+// once. Opened in the right pane ("Orbit look settings", the orbit mod's
+// openSettings), as other views are. Props: { dialog: "settings" }.
 //
 // "background…" opens a file dialog: KDE's kdialog, else GNOME's zenity (from
 // a toolbox or a flatpak, the host's, through flatpak-spawn); with neither,
@@ -72,8 +73,9 @@ export class Settings {
     ask("settings", change);
   }
 
+  // Opened as an overlay (an older copy's), Esc closes it; in a pane it stays.
   close() {
-    closeOverlay(props().overlay);
+    if (props()?.overlay) closeOverlay(props().overlay);
   }
 
   // Copies `path` into backgrounds/ and makes it the background.
@@ -156,8 +158,9 @@ export class Settings {
     }));
     const hint = (key, what) => h_flex().gap(5).child(div().text_color(t.accent).child(key)).child(div().child(what));
 
-    return v_flex().id("orbit-settings").track_focus(this.handle).size_full().min_h(0).bg(t.surface.slice(0, 7) + "f2")
-      .border(2).border_color(t.border).rounded(L.radius).text_color(t.foreground).overflow_hidden()
+    const popup = Boolean(props()?.overlay);
+    return v_flex().id("orbit-settings").track_focus(this.handle).size_full().min_h(0).text_color(t.foreground).overflow_hidden()
+      .when(popup, (el) => el.bg(t.surface.slice(0, 7) + "f2").border(2).border_color(t.border).rounded(L.radius))
       .on_key_down((e) => { if (e.key === "escape") this.close(); })
       .child(v_flex().id("settings-body").flex_1().min_h(0).px(24).pt(22).pb(10).gap(10).overflow_y_scrollbar()
         .child(line("theme", THEMES.map(([name, accent, file]) => toggle(`theme-${accent}`, name, t.accent.slice(0, 7).toLowerCase() === accent,
@@ -175,7 +178,7 @@ export class Settings {
         .when(found.length > 0, (el) => el.child(line("", found)))
         .when(Boolean(this.error), (el) => el.child(div().ml(LABEL + 6).text_size(13).text_color(t.ansi1).child(this.error ?? ""))))
       .child(h_flex().px(24).py(10).gap(22).flex_none().text_size(13).text_color(t.muted)
-        .child(div().flex_1().text_size(16).font_bold().text_color(t.foreground).child("orbit settings"))
-        .child(hint("esc", "close")));
+        .child(div().flex_1().text_size(16).font_bold().text_color(t.foreground).child("Orbit look settings"))
+        .when(popup, (el) => el.child(hint("esc", "close"))));
   }
 }

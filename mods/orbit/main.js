@@ -23,7 +23,7 @@
 //   orbit.recent     the space shown before this one
 //   orbit.switcher   the recent spaces, most recent first, to pick from
 //   orbit.add        what a new tab should show (the picker, as a dialog)
-//   orbit.settings   the look settings (orbit-dialogs' settings dialog)
+//   orbit.settings   the look settings ("Orbit look settings", in the right pane)
 // - The other orbit mods' asks (look.js ask): the only writer of
 //   "orbit.sides", "orbit.settings" and the layout file is this mod.
 // Put it in the layout as a small block:
@@ -37,7 +37,16 @@ import { apply, closePanelView, renamePanelView, movePanelView, addPanelView, sh
 import { find } from "./look.js";
 import { identity, spaceKey, lookUpRepos, publish } from "./identity.js";
 
-export const openSettings = () => openOverlay({ mod: "orbit-dialogs", kind: "dialog", frame: "none", width: 700, height: 470, props: { dialog: "settings" } });
+// The look settings (orbit-dialogs' "settings"), in the shown space's right
+// pane, as other views open there: shown again if that space has it already.
+export const SETTINGS_TITLE = "Orbit look settings";
+export async function openSettings(cx) {
+  const space = spaces().find((s) => s.active);
+  if (!space) return;
+  const had = state().mods.find((m) => m.space === space.id && m.mod === "orbit-dialogs" && m.props?.dialog === "settings");
+  if (had) { save({ focus: "right" }); showRight(space, had.id); return; }
+  await newMod(cx, space, "right", SETTINGS_TITLE, "orbit-dialogs", { dialog: "settings" });
+}
 
 // This build's version, also in shared "orbit.version" (shared.json in
 // herdr-app's home), so you can see which one you have.
@@ -218,7 +227,7 @@ export default class Orbit extends View {
     } else if (name === "switcher") {
       openOverlay({ mod: "orbit-dialogs", kind: "dialog", frame: "none", width: 560, props: { dialog: "switcher" } });
     } else if (name === "settings") {
-      openSettings();
+      await openSettings(cx);
     } else if (name === "add") {
       openOverlay({ mod: "orbit-add", kind: "dialog", frame: "none", width: 640, height: 480, props: { space: active?.id } });
     }

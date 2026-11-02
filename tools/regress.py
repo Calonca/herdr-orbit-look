@@ -26,6 +26,8 @@ Scenarios:
   pin     right-click → Pin puts a card first ("orbit.pinned"); Unpin takes it
           out again
   drag    a card dragged onto another lands in its place, pinned
+  settings  orbit.settings (ctrl-,) opens Orbit look settings in the right
+          pane, not an overlay; again, it shows that one (no second copy)
 """
 import argparse, json, os, subprocess, sys, time
 
@@ -272,7 +274,22 @@ def drag(ids):
     shot("drag-done")
 
 
-SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag)]
+def settings(ids):
+    mine = lambda: [m for m in shared().get("orbit.sides", {}).get("mods", [])
+                    if (m.get("props") or {}).get("dialog") == "settings" and m.get("space") == ids["shown"][0]]
+    do("space.select", {"id": ids["shown"][0]})
+    time.sleep(0.8)
+    do("orbit.settings")
+    check("settings", "opens in the right pane", wait(mine), json.dumps(shared().get("orbit.sides", {}).get("mods")))
+    check("settings", "titled Orbit look settings", [m.get("title") for m in mine()] == ["Orbit look settings"], str(mine()))
+    check("settings", "not an overlay", overlays() == [], str(overlays()))
+    shot("settings")
+    do("orbit.settings")
+    time.sleep(1.5)
+    check("settings", "again: still one", len(mine()) == 1, str(mine()))
+
+
+SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("settings", settings)]
 
 
 def main():

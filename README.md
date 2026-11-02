@@ -124,8 +124,10 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
 - **Menus and dialogs** (`orbit-dialogs`): the sidebar's "menu" (search,
   settings, add machine, new space, the space's rename, worktrees and close,
   keybinds), a tab's menu, the close dialog, the switcher of recent spaces,
-  the "make tab N" prompt, and the settings.
-- **Settings** (`ctrl-,`, or "settings" in the picker): the theme, density
+  the "make tab N" prompt, and the look settings.
+- **Orbit look settings** (`ctrl-,`, or "Orbit look settings" in the
+  picker), a view in the right pane like the picker's others (a second
+  `ctrl-,` shows the one already open): the theme, density
   (compact, default, comfortable), corners, the gap between the panels, the
   tab rows at the bottom or on top, and the background picture. Corners and
   gap start on "auto", the density's own. They apply
@@ -166,7 +168,7 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
 | `alt-shift-h`, `alt-shift-l` | move the shown terminal tab to the other pane |
 | `ctrl-tab` | back to the space shown before this one |
 | `ctrl-shift-space` | the recent spaces, most recent first (↑/↓ or Tab, 1-9 or Enter, Esc) |
-| `ctrl-,` | the settings |
+| `ctrl-,` | Orbit look settings, in the right pane |
 
 They are commands of the `orbit` mod (`orbit.<name>`); its header lists the
 rest (`orbit.split`, `orbit.side-panel`, `orbit.add`, `orbit.window`).
