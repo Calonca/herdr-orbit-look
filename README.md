@@ -132,8 +132,8 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
   at once and are kept in `shared.json` (`"orbit.settings"`).
 - **Status bar** (`orbit-status`): on the left the sidebar toggle, then
   after a thin line the taskbar, then "herdr offline" while the core can't be
-  reached, folded tabs and an update pill; on the right cpu (with a 20 s
-  sparkline), ram and disk use as small bars (blue, yellow from 70%, red from
+  reached, folded tabs and an update pill; on the right cpu, ram and disk
+  use as small bars (blue, yellow from 70%, red from
   90%) and the clock.
   - The taskbar: a card per space that is pinned (in pin order), shown, or
     has agents that finished or wait for you, then those at work (each group

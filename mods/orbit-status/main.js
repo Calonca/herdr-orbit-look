@@ -1,8 +1,8 @@
 // The status bar: on the left, the sidebar toggle, a thin line and the
 // taskbar (taskbar.js: a card per space that's pinned, shown, waiting for you
 // or at work), then "herdr offline" while the core can't be reached, how many
-// tabs are folded away (settled) and an update pill; on the right, cpu (a bar
-// and a sparkline of the last 20 s), ram and disk use as small bars (blue,
+// tabs are folded away (settled) and an update pill; on the right, cpu, ram
+// and disk use as small bars (blue,
 // yellow from 70%, red from 90%), and the clock.
 //
 // A taskbar card: the space's symbol filled in its agents' state colour (its
@@ -25,7 +25,7 @@ import { h_flex } from "gpui-base";
 import { run, theme, layout, spaces, machines, updates, exec, shared, setShared, openOverlay, closeOverlay } from "herdr";
 import { look, glass, spaceLook, glyphPath, statusColor } from "./look.js";
 import { backdrop, orbitPlace, orbitRadius, zoom, viewport } from "./glass.js";
-import { System, HISTORY, bytes, pct, level } from "./system.js";
+import { System, bytes, pct, level } from "./system.js";
 import { order, drop, landing } from "./taskbar.js";
 
 const ICONS = "mods/orbit-status/icons";
@@ -133,15 +133,7 @@ export default class OrbitStatus extends View {
       .child(div().h_full().rounded(3).w(Math.max(1, Math.round(v * 34))).bg(level(t, v)));
     const popupOf = (name) => (bounds, cx) => this.toggle(name, bounds,
       { ...POPUPS[name], mod: "orbit-dialogs", props: { dialog: "stat", stat: name } }, cx);
-    const usage = (name, v, tip, extra = []) => ghost(name, [icon(name), meter(v), ...extra], popupOf(name), tip);
-    // cpu's sparkline: a bar a second for the last 20 s, newest at the right.
-    const spark = (values) => h_flex().h(14).gap(1).items_end().flex_none().children(
-      Array.from({ length: HISTORY }, (_, i) => {
-        const v = values[values.length - HISTORY + i];
-        return div().w(2).h(v === undefined ? 1 : Math.max(1, Math.round(v * 14))).rounded(1)
-          .bg(v === undefined ? t.muted.slice(0, 7) + "40" : level(t, v));
-      }));
-
+    const usage = (name, v, tip) => ghost(name, [icon(name), meter(v)], popupOf(name), tip);
     const L = layout();
     const sidebarOpen = find(L, "sidebar")?.hidden !== true;
 
@@ -159,7 +151,7 @@ export default class OrbitStatus extends View {
     if (sys.cpu !== null) {
       const tip = [`total ${pct(sys.cpu)}`];
       if (sys.load) tip.push(`load  ${sys.load.map((x) => x.toFixed(2)).join(" ")}`);
-      right.push(usage("cpu", sys.cpu, tip.join("\n"), [spark(sys.history)]));
+      right.push(usage("cpu", sys.cpu, tip.join("\n")));
     }
     if (sys.mem) {
       const m = sys.mem;

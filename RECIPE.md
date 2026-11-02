@@ -118,8 +118,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
     most 150px, cut short). Cards past the bar's room are cut.
   - Right: cpu, ram and disk, each a 14px icon and a bar 34×6 (corners of 3,
     on the muted colour at 25%; blue `#7aa2f7`, yellow `#e0af68` from 70%, red
-    `#f7768e` from 90%); cpu's sparkline after it (20 bars 2px wide, 14px
-    tall, one a second, each in its own level's colour); the clock (HH:MM).
+    `#f7768e` from 90%); the clock (HH:MM).
 - **The gap**: the sidebar, the panes, the side panel and the status bar
   stand 14px apart and 14px from the window's edges; under the status bar,
   a 14px block (the `orbit` mod, which draws nothing).
