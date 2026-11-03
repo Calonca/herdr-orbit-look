@@ -39,6 +39,9 @@ Scenarios:
           repo has its own
   keep    a mod in the right pane keeps running across space switches (its
           init runs once): A -> B -> A, and to a pinned space and back
+  split   each space keeps its own split: the divider dragged in A and in B,
+          A -> B -> A gives each its own; a space never resized keeps the one
+          it had
   settings  orbit.settings (ctrl-,) opens Orbit look settings in the right
           pane, not an overlay; again, it shows that one (no second copy)
 """
@@ -461,6 +464,77 @@ def keep(ids):
     shot("keep")
 
 
+def split(ids):
+    """Each space keeps its own split: the divider between the panes dragged
+    in A (left wider) and B (left narrower), 60 px each, inside the panes'
+    minimums (a drag past one lands a moment later at it), then A -> B -> A. Where the panes
+    are is read from the tab rows' places (shared "orbit.places")."""
+    os.makedirs(f"{HOME}/mods/regress-counter", exist_ok=True)
+    open(f"{HOME}/mods/regress-counter/main.js", "w").write(COUNTER)
+    open(f"{HOME}/mods/regress-counter/mod.json", "w").write('{ "place": "none" }\n')
+    time.sleep(1.5)
+    a, b, other = ids["shown"][0], ids["working"][0], ids["blocked"][0]
+    left = lambda: (shared().get("orbit.places", {}).get("left-tabs") or {}).get("width", 0)
+    def still():
+        """The left pane's width once it holds still (a drag settles)."""
+        last = None
+        for _ in range(10):
+            now = left()
+            if now == last:
+                return now
+            last = now
+            time.sleep(1)
+        return last
+    def drag_by(dx):
+        pl = shared().get("orbit.places", {})
+        l, r = pl.get("left-tabs"), pl.get("right-tabs")
+        if not l or not r:
+            return False
+        gx = (l["x"] + l["width"] + r["x"]) / 2
+        y = l["y"] - 120
+        to = gx + dx
+        x("mousemove", "--window", win(), int(gx), int(y), "mousedown", 1)
+        for i in range(1, 9):
+            x("mousemove", "--window", win(), int(gx + (to - gx) * i / 8), int(y))
+            time.sleep(0.05)
+        x("mouseup", 1)
+        away()
+        return True
+    for sp, tag in [(a, "A"), (b, "B"), (other, "C")]:
+        do("space.select", {"id": sp})
+        time.sleep(1)
+        sb("do", "orbit.new-mod " + json.dumps({"space": sp, "side": "right", "title": "split", "mod": "regress-counter", "props": {"tag": "split" + tag}}))
+        time.sleep(1.5)
+    do("space.select", {"id": a})
+    time.sleep(1.5)
+    base = left()
+    check("split", "both panes shown", wait(lambda: drag_by(60), 3), str(shared().get("orbit.places")))
+    wait(lambda: left() > base + 40, 6)
+    wide = still()
+    near = lambda want: wait(lambda: abs(left() - want) <= 2, 6)
+    do("space.select", {"id": b})
+    check("split", "a space never resized has the split it had", near(base), f"{left()} vs {base}")
+    time.sleep(1)  # the switch settled before the drag
+    drag_by(-60)
+    wait(lambda: left() < base - 40, 6)
+    narrow = still()
+    nodes = lambda: json.load(open(f"{HOME}/layouts/.state/orbit.json")).get("nodes", {})
+    kept = lambda sp: (shared().get("orbit.splits") or {}).get("spaces", {}).get(sp)
+    at_b = (nodes().get("left-frame"), nodes().get("right-frame"), kept(b))
+    check("split", "the drags took (A wide, B narrow)", wide > base + 40 and narrow < base - 40, f"base {base} A {wide} B {narrow}")
+    # The sandbox's software-drawn window is slow: each switch is waited for.
+    seen = []
+    for sp, want in [(a, wide), (b, narrow), (a, wide)]:
+        do("space.select", {"id": sp})
+        seen.append((bool(near(want)), left(), want, nodes().get("left-frame"), kept(sp)))
+    check("split", "A -> B -> A: each keeps its own", all(v[0] for v in seen), f"{seen} B after its drag: {at_b}")
+    do("space.select", {"id": other})
+    check("split", "another space, never resized: the split it had", near(base), f"{left()} vs {base}")
+    do("space.select", {"id": a})
+    time.sleep(1.5)
+    shot("split")
+
+
 def symbols(ids):
     """Each card's symbol against the sidebar's, per state. The idle case: an
     agent that reports idle, as a finished one is once seen (the sandbox's
@@ -553,7 +627,7 @@ def identity(ids):
     time.sleep(1)
 
 
-SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("keep", keep)]
+SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("keep", keep), ("split", split)]
 
 
 def main():

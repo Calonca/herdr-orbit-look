@@ -106,6 +106,10 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
     are in the status bar's taskbar). The right pane, beside it, holds terminals and views of its own,
     per space; the split toggle at the left row's right end shows it or puts
     it away (nothing closes).
+  - Each space keeps its own split: drag the divider between the panes (or
+    the side panel's edge) in one space, and the others keep theirs;
+    switching back gives that space's again. A space never resized, and a
+    new one, has the split the layout had before any space kept one.
   - Click shows a tab; double-click renames it; drag moves it; middle-click
     closes it (a terminal asks first: Enter or the same close again confirms);
     right-click opens its menu (Rename, then herdr's pane items: split, zoom,

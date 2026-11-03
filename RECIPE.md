@@ -196,6 +196,14 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   right pane (its tabs, or the picker when it has none) or puts it away
   without ending anything. An agent shown from herdr's agents list or an
   alert that lives on the right shows there.
+- **Each space's split**: the left and right panes' sizes and the side
+  panel's width are the shown space's own. A drag in one space is kept for it
+  (shared `"orbit.splits"`: `{ default, spaces: { [space id]: { "left-frame",
+  "right-frame": weight, panel: px } } }`); a space switch gives the new
+  space's back with `layout.resize` (herdr's clicks, as a drag: the layout
+  file isn't written, nothing restarts). A space without one, and a new
+  space, gets `default`: the sizes when the first space kept its own. A
+  closed space's go.
 - **Side panel**: the `orbit.side-panel` command opens it (on what it
   showed, else its first view) and closes it; `+ ⠿` picks a view (files,
   changes, agents), which becomes a tab; right-click a view's tab: Rename,
@@ -330,7 +338,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   - Only in `orbit`: `actions.js` (show, new, close, move, split, rename,
     reorder, the panel toggle), `layout.js` (the layout writer, the panel's
     views in shared `"orbit.settings".views`, the look and the tab rows'
-    places it shares) and `identity.js` (each space's colour and symbol, the
+    places it shares), `split.js` (each space's split, shared
+    `"orbit.splits"`) and `identity.js` (each space's colour and symbol, the
     repo lookup: shared `"orbit.git"`). The orbit mod works these out once
     and shares them: `"orbit.identity"` (`{ [space id]: { color, glyph } }`),
     `"orbit.look"` (the sizes and the background picture), `"orbit.places"`

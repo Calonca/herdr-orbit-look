@@ -35,6 +35,7 @@ import { state, leftTabs, rightEntries, entries, shownEntry, LEFT_TAB, FRAME } f
 import { save, show, showRight, close, closeAsked, cancelAsk, newTerminal, newMod, openPending, dropPending, move, toggleSplit, toggleSidePanel, renameEntry, reorderRight } from "./actions.js";
 import { apply, closePanelView, renamePanelView, movePanelView, addPanelView, share } from "./layout.js";
 import { find } from "./look.js";
+import { follow } from "./split.js";
 import { identity, spaceKey, lookUpRepos, publish } from "./identity.js";
 
 // The look settings (orbit-dialogs' "settings"), in the shown space's right
@@ -137,6 +138,8 @@ export default class Orbit extends View {
     if (!find(L, "left") || !find(L, "right")) return;
     const space = spaces().find((s) => s.active);
     if (!space) return;
+    // The shown space's split (split.js).
+    follow(L, space.id, new Set(spaces().map((s) => s.id)), Date.now() - this.born > 10000);
     const ps = panes();
     let st = state();
     // Each space keeps its pane with the keys: leaving one notes it, coming
