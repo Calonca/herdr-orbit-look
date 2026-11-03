@@ -4,18 +4,19 @@
 // "orbit.identity"), and the other mods read them (look.js spaceLook()).
 
 import { theme, shared, setShared, panes, spaces, exec } from "herdr";
+import { identityKey } from "./repokey.js";
 
-// Each orbit theme's identity colours (purple, cyan, green, yellow, orange,
-// red), the theme known by its accent: orbit (Tokyo Night), then the six
-// variants in themes/.
+// Each shipped theme's identity colours (purple, cyan, green, yellow, orange,
+// red), the theme known by its accent: Tokyo Night, then the six others in
+// themes/.
 const IDENTITIES = {
-  "#7aa2f7": ["#bb9af7", "#7dcfff", "#9ece6a", "#e0af68", "#ff9e64", "#f7768e"], // orbit
-  "#89b4fa": ["#cba6f7", "#89dceb", "#a6e3a1", "#f9e2af", "#fab387", "#f38ba8"], // orbit-catppuccin-mocha
-  "#83a598": ["#d3869b", "#8ec07c", "#b8bb26", "#fabd2f", "#fe8019", "#fb4934"], // orbit-gruvbox-dark
-  "#88c0d0": ["#b48ead", "#8fbcbb", "#a3be8c", "#ebcb8b", "#d08770", "#bf616a"], // orbit-nord
-  "#c4a7e7": ["#c4a7e7", "#9ccfd8", "#31748f", "#f6c177", "#ebbcba", "#eb6f92"], // orbit-rose-pine
-  "#7e9cd8": ["#957fb8", "#7fb4ca", "#98bb6c", "#e6c384", "#ffa066", "#e82424"], // orbit-kanagawa
-  "#a7c080": ["#d699b6", "#83c092", "#a7c080", "#dbbc7f", "#e69875", "#e67e80"], // orbit-everforest
+  "#7aa2f7": ["#bb9af7", "#7dcfff", "#9ece6a", "#e0af68", "#ff9e64", "#f7768e"], // tokyo-night
+  "#89b4fa": ["#cba6f7", "#89dceb", "#a6e3a1", "#f9e2af", "#fab387", "#f38ba8"], // catppuccin-mocha
+  "#83a598": ["#d3869b", "#8ec07c", "#b8bb26", "#fabd2f", "#fe8019", "#fb4934"], // gruvbox-dark
+  "#88c0d0": ["#b48ead", "#8fbcbb", "#a3be8c", "#ebcb8b", "#d08770", "#bf616a"], // nord
+  "#c4a7e7": ["#c4a7e7", "#9ccfd8", "#31748f", "#f6c177", "#ebbcba", "#eb6f92"], // rose-pine
+  "#7e9cd8": ["#957fb8", "#7fb4ca", "#98bb6c", "#e6c384", "#ffa066", "#e82424"], // kanagawa
+  "#a7c080": ["#d699b6", "#83c092", "#a7c080", "#dbbc7f", "#e69875", "#e67e80"], // everforest
 };
 // Any other theme: its own ANSI colours.
 const ANSI = ["ansi5", "ansi6", "ansi2", "ansi3", "ansi11", "ansi1"];
@@ -62,18 +63,16 @@ export function glyph(name) {
 }
 
 
-// A space's identity comes from its name; a worktree and the
-// main checkout it belongs to share their repo's (the common git dir), so they
-// match. Each space's repo, and whether it's a linked worktree, is looked up
-// once and kept in shared state for every mod.
+// A space's identity comes from its repository (repokey.js): the origin's
+// name, else the main checkout's folder, so the same repo on another machine,
+// and every worktree of it, look the same; a space outside a repo goes by its
+// name. Each space's repo is looked up once (on its machine) and kept in
+// shared state for every mod.
 const GIT = "orbit.git";
 const asked = new Set();
 
 export function spaceKey(space) {
-  const all = shared(GIT) ?? {};
-  const mine = all[space?.id];
-  if (mine?.repo && (mine.linked || Object.values(all).some((g) => g?.linked && g.repo === mine.repo))) return mine.repo;
-  return space?.name ?? "";
+  return identityKey(space, (shared(GIT) ?? {})[space?.id]);
 }
 
 function spaceFolder(space) {
@@ -86,7 +85,9 @@ export function lookUpRepos(cx) {
   const known = shared(GIT) ?? {};
   const ids = new Set(spaces().map((s) => s.id));
   for (const space of spaces()) {
-    if (space.id in known || asked.has(space.id)) continue;
+    // Known, unless looked up before the origin was (an older copy's).
+    const k = known[space.id];
+    if ((space.id in known && (k === null || "origin" in k)) || asked.has(space.id)) continue;
     const folder = spaceFolder(space);
     if (!folder) continue;
     asked.add(space.id);
@@ -95,7 +96,10 @@ export function lookUpRepos(cx) {
       try {
         const r = await exec("git", ["rev-parse", "--path-format=absolute", "--git-common-dir", "--git-dir"], { cwd: folder, on: space.machine });
         const [repo, dir] = r.stdout.trim().split("\n");
-        if (r.code === 0 && repo) git = { repo, linked: Boolean(dir) && dir !== repo };
+        if (r.code === 0 && repo) {
+          const o = await exec("git", ["config", "--get", "remote.origin.url"], { cwd: folder, on: space.machine });
+          git = { repo, linked: Boolean(dir) && dir !== repo, origin: o.code === 0 ? o.stdout.trim() || null : null };
+        }
       } catch (_) { /* not reachable: its name stays its identity */ }
       // Spaces that are gone are dropped on the way.
       const now = Object.fromEntries(Object.entries(shared(GIT) ?? {}).filter(([id]) => ids.has(id)));

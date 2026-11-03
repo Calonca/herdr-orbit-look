@@ -144,8 +144,8 @@ export default class OrbitAdd extends View {
             } };
         return { ...row, icon: typeof w.icon === "string" && w.icon.endsWith(".svg") ? w.icon : null };
       }),
-      ...(tabsOnly ?? [{ name: "settings", mark: "widget", about: "orbit's look: density, corners, gap, tab rows, background",
-        open: () => run("orbit.settings") },
+      ...(tabsOnly ?? [view("Orbit look settings", "orbit-dialogs", "orbit's look: theme, density, corners, gap, tab rows, background",
+        { props: { dialog: "settings" } }),
       { name: "herdr settings", mark: "widget", about: "herdr-app's own: layouts, keys, machines", open: () => run("app.settings") }]),
       // Last: a prompt for the person's own agent to add to that list.
       { name: "configure windows…", mark: "widget", about: "add any mod here: copies a prompt for your agent", stay: true,

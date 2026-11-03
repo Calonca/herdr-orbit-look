@@ -1,0 +1,655 @@
+#!/usr/bin/env python3
+"""Regression suite for the orbit look's status bar: real clicks on an X11
+sandbox (scripts/sandbox with SANDBOX_X11=1: a private Xvfb display, its own
+app home and herdr core; never the person's display or app), then state checks.
+
+    tools/regress.py            a fresh sandbox (HERDR_APP_SANDBOX, default
+                                "regress"), every scenario, a PASS/FAIL table;
+                                the sandbox stays up
+    tools/regress.py --down     the same, then the sandbox goes
+    tools/regress.py -k drag    only scenarios whose name has "drag"
+
+Shots go to $REGRESS_OUT (default /tmp/herdr-regress). Exit 1 if anything fails.
+
+Clicks find their target with the status bar's probe (orbit-status main.js
+probe()): shared "orbit.probe" is set in the sandbox's shared.json before it
+starts, the pointer sweeps the bar, and each widget and taskbar card records
+where it is. Agent states come from OSC 7501 reports printed in the sandbox's
+terminals.
+
+Scenarios:
+  popup   a click on cpu opens its popup, a second click closes it; a click
+          beside it closes it; ram and disk open theirs; "open in pane ⇥"
+          opens the same view in the right pane and closes the popup
+  order   the taskbar: pinned in pin order, the shown space, those waiting
+          (blocked, done), those at work; an idle unpinned space isn't there
+  pin     right-click → Pin puts a card first ("orbit.pinned") and shows a pin
+          icon in it (the card one line, as tall as before); Unpin takes it out
+          again, and the icon
+  drag    a card dragged onto another lands in its place, pinned
+  symbols each card's symbol is the sidebar's for that space: filled in the
+          state's colour for working, blocked, done; empty with no agent and
+          once a finished agent was seen (idle)
+  tabs    the shown space's accent (the band behind its sidebar row and its
+          taskbar card) is its colour, and the text stays white there and in
+          the panes' shown tabs, for two spaces, back and forth
+  identity  a space's colour and symbol come from its repository: the same
+          repo at another path (as on another machine), a worktree and its
+          main checkout, with or without an origin, look the same; another
+          repo has its own
+  keep    a mod in the right pane keeps running across space switches (its
+          init runs once): A -> B -> A, and to a pinned space and back
+  split   each space keeps its own split: the divider dragged in A and in B,
+          A -> B -> A gives each its own; a space never resized keeps the one
+          it had
+  settings  orbit.settings (ctrl-,) opens Orbit look settings in the right
+          pane, not an overlay; again, it shows that one (no second copy)
+"""
+import argparse, json, os, subprocess, sys, time
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+NAME = os.environ.get("HERDR_APP_SANDBOX", "regress")
+ROOT = f"/var/tmp/herdr-app-{NAME}"
+HOME = f"{ROOT}/home"
+OUT = os.environ.get("REGRESS_OUT", "/tmp/herdr-regress")
+# The person's conditions by default: a HiDPI screen (scale 2), a window of
+# 1280×706 (logical), herdr-app's zoom 1.2. Positions below are logical
+# window pixels, as the probes report them; x() scales them for xdotool.
+W, H = (int(v) for v in os.environ.get("REGRESS_SIZE", "1280x706").split("x"))
+SCALE = float(os.environ.get("REGRESS_SCALE", "2"))
+ZOOM = float(os.environ.get("REGRESS_ZOOM", "1.2"))
+CORES = 32  # the cpu popup is tested with this many cores (a fake count)
+ENV = {**os.environ, "HERDR_APP_SANDBOX": NAME, "SANDBOX_X11": "1", "SANDBOX_WIDTH": str(int(W * SCALE)),
+       "SANDBOX_HEIGHT": str(int(H * SCALE)), "GPUI_X11_SCALE_FACTOR": str(SCALE),
+       "DO_NOT_TRACK": "1", "HERDR_TELEMETRY": "0"}
+
+results = []  # (scenario, case, ok, detail)
+
+
+def sb(*args, check=False):
+    r = subprocess.run([f"{REPO}/scripts/sandbox", *args], env=ENV, capture_output=True, text=True)
+    if check and r.returncode:
+        raise RuntimeError(f"sandbox {' '.join(args)}: {r.stderr or r.stdout}")
+    return r.stdout
+
+
+def do(action, args=None):
+    out = sb("do", action, json.dumps(args or {}))
+    try:
+        return json.loads(out)
+    except Exception:
+        return {}
+
+
+_win = None
+def win():
+    global _win
+    if _win is None:
+        _win = sb("x", "search", "--onlyvisible", "--name", ".").split()[0]
+    return _win
+
+
+def x(*args):
+    """xdotool on the sandbox's display: the two numbers after each
+    `--window <id>` are logical window pixels, scaled to the screen's."""
+    out, i = [], 0
+    while i < len(args):
+        out.append(args[i])
+        if args[i] == "--window" and i + 3 < len(args):
+            out += [args[i + 1], round(float(args[i + 2]) * SCALE), round(float(args[i + 3]) * SCALE)]
+            i += 4
+            continue
+        i += 1
+    return sb("x", *[str(a) for a in out])
+
+
+def away():
+    x("mousemove", "--window", win(), 700, 300)
+
+
+def click(px, py, button=1):
+    x("mousemove", "--window", win(), int(px), int(py), "click", button)
+
+
+def shared():
+    try:
+        return json.load(open(f"{HOME}/shared.json"))
+    except Exception:
+        return {}
+
+
+def overlays():
+    try:
+        return json.loads(sb("status")).get("overlays", [])
+    except Exception:
+        return None
+
+
+def wait(pred, timeout=3.0):
+    end = time.time() + timeout
+    while time.time() < end:
+        v = pred()
+        if v:
+            return v
+        time.sleep(0.15)
+    return pred()
+
+
+def check(scenario, case, ok, detail=""):
+    results.append((scenario, case, bool(ok), detail))
+    print(f"{'PASS' if ok else 'FAIL'}  {scenario:6} {case}{'  — ' + detail if detail and not ok else ''}", flush=True)
+
+
+def shot(name):
+    os.makedirs(OUT, exist_ok=True)
+    sb("shot", f"{OUT}/{name}.png")
+
+
+# The bar's row, swept so every widget and card reports where it is.
+def bar_y():
+    p = shared().get("orbit.probe.status", {})
+    if "sidebar" in p:
+        return p["sidebar"]["y"] + p["sidebar"]["height"] / 2
+    return H - 34 * ZOOM
+
+
+def sweep():
+    y = int(bar_y())
+    for px in range(10, W - 10, 12):
+        x("mousemove", "--window", win(), px, y)
+    away()
+    time.sleep(0.3)
+    return shared().get("orbit.probe.status", {})
+
+
+def cards():
+    """The taskbar's space names, left to right (after a sweep)."""
+    p = sweep()
+    y = bar_y()
+    on = [(v["x"], k[5:]) for k, v in p.items() if k.startswith("task:")]
+    # Only cards on the bar now: a sweep refreshes every card it passes.
+    return [n for _, n in sorted(on)], p
+
+
+def centre(b):
+    return b["x"] + b["width"] / 2, b["y"] + b["height"] / 2
+
+
+# ---------------------------------------------------------------- setup
+
+def setup():
+    sb("down")
+    os.makedirs(HOME, exist_ok=True)
+    json.dump({"frame.welcomed": "skipped", "layout": "orbit", "orbit.probe": True, "orbit.probe.cores": CORES},
+              open(f"{HOME}/shared.json", "w"))
+    json.dump({"zoom": ZOOM, "telemetry": False}, open(f"{HOME}/settings.json", "w"))
+    sb("up", check=True)
+    time.sleep(2)
+    # A fresh home shows "Updated to …" over the bar's right end: its ×, now,
+    # before an agent's toast could be there instead (a click on that one
+    # shows its space).
+    do("space.new", {"name": "first", "folder": "/tmp"})
+    time.sleep(2)
+    click(W - 37 * ZOOM, H - 34 * ZOOM)
+    away()
+    do("space.close", {})
+    time.sleep(1)
+    ids = {}
+    for n in ["idle", "working", "blocked", "done", "shown"]:
+        r = do("space.new", {"name": n, "folder": "/tmp"})
+        ids[n] = (r.get("space"), r.get("terminal"))
+    time.sleep(1.5)
+    report = {"working": "working", "blocked": "blocked", "done": "working"}
+    for n, st in report.items():
+        sb("hc", "send", ids[n][1], f"printf '\\033]7501;state={st}\\007'")
+    time.sleep(1)
+    # "done": it worked, then finished while another space was shown.
+    sb("hc", "send", ids["done"][1], "printf '\\033]7501;state=idle\\007'")
+    do("space.select", {"id": ids["shown"][0]})
+    time.sleep(1.5)
+    return ids
+
+
+# ---------------------------------------------------------------- scenarios
+
+def grab(name):
+    from PIL import Image
+    shot(name)
+    return Image.open(f"{OUT}/{name}.png").convert("RGB")
+
+
+def opened_rect(before, after, anchor=None):
+    """Where something new appeared between two shots, above the bar (the
+    bar's own figures change every second), in logical window pixels. With
+    `anchor`: only the run of changed columns that holds the anchor's left
+    edge (a toast elsewhere doesn't count)."""
+    from PIL import ImageChops
+    # From the window's top: a terminal's blinking cursor changes too, but
+    # only the columns around the anchor count.
+    top = int(8 * SCALE)
+    bottom = int((bar_y() - 22 * ZOOM) * SCALE)
+    box = (0, top, before.width, bottom)
+    diff = ImageChops.difference(before.crop(box), after.crop(box)).convert("L").point(lambda v: 255 if v > 24 else 0)
+    if anchor:
+        cols = [diff.crop((c, 0, c + 1, diff.height)).getbbox() is not None for c in range(diff.width)]
+        # the run of changed columns nearest the anchor's left edge
+        a = min(max(0, int(anchor["x"] * SCALE)), diff.width - 1)
+        on = [c for c, v in enumerate(cols) if v]
+        if not on:
+            return None
+        c0 = min(on, key=lambda c: abs(c - a))
+        lo = hi = c0
+        while lo > 0 and cols[lo - 1]:
+            lo -= 1
+        while hi < diff.width - 1 and cols[hi + 1]:
+            hi += 1
+        diff = diff.crop((lo, 0, hi + 1, diff.height))
+        bb = diff.getbbox()
+        bb = bb and (bb[0] + lo, bb[1], bb[2] + lo, bb[3])
+    else:
+        bb = diff.getbbox()
+    if not bb:
+        return None
+    return {"x": bb[0] / SCALE, "y": (bb[1] + top) / SCALE, "width": (bb[2] - bb[0]) / SCALE, "height": (bb[3] - bb[1]) / SCALE}
+
+
+def placed_above(scenario, what, rect, anchor, width):
+    """The popup's rect sits just above `anchor`: its bottom 6 above it, its
+    left edge at the anchor's (or kept inside the window)."""
+    if not rect:
+        check(scenario, f"{what}: it shows", False, "nothing appeared above the bar")
+        return
+    want_x = max(8, min(anchor["x"], W - width * ZOOM - 8))
+    bottom = rect["y"] + rect["height"]
+    check(scenario, f"{what}: just above it", anchor["y"] - 14 <= bottom <= anchor["y"], f"bottom {bottom}, anchor top {anchor['y']}")
+    check(scenario, f"{what}: at its left edge, in the window", abs(rect["x"] - want_x) <= 4 and rect["x"] + rect["width"] <= W,
+          f"rect {rect}, want x {want_x}")
+
+
+def popup(ids):
+    for _ in range(6):
+        _, p = cards()
+        if all(w in p for w in ["cpu", "ram", "disk"]):
+            break
+        time.sleep(2)
+    for w in ["cpu", "ram", "disk"]:
+        if w not in p:
+            check("popup", f"{w} widget found", False, "not probed")
+            return
+    rects = {}
+    for w in ["cpu", "ram", "disk"]:
+        before = grab(f"popup-{w}-0")
+        click(*centre(p[w]))
+        check("popup", f"{w} opens", wait(lambda: overlays() == ["orbit-dialogs"]), str(overlays()))
+        away()
+        time.sleep(1.5)  # cpu: two samples
+        rects[w] = opened_rect(before, grab(f"popup-{w}"), p[w])
+        placed_above("popup", w, rects[w], p[w], 300)
+        click(*centre(p[w]))
+        check("popup", f"{w}: a second click closes it", wait(lambda: overlays() == []), str(overlays()))
+        time.sleep(0.4)
+    # Every core's row in full inside the cpu popup (CORES of them): the
+    # pointer passes over the popup and each row says where it is.
+    cx, cy = centre(p["cpu"])
+    click(cx, cy)
+    wait(lambda: overlays() == ["orbit-dialogs"])
+    time.sleep(1.5)
+    r = rects["cpu"]
+    if r:
+        moves = []
+        for yy in range(int(r["y"]) + 4, int(r["y"] + r["height"]) - 2, 6):
+            for xx in range(int(r["x"]) + 6, int(r["x"] + r["width"]) - 6, 14):
+                moves += ["mousemove", "--window", win(), xx, yy]
+        for i in range(0, len(moves), 400):
+            x(*moves[i:i + 400])
+        time.sleep(0.5)
+        st = shared().get("orbit.probe.stat", {})
+        rows = [st.get(f"core:{n}") for n in range(CORES)]
+        missing = [n for n, b in enumerate(rows) if not b]
+        cut = [n for n, b in enumerate(rows) if b and not (r["y"] - 1 <= b["y"] and b["y"] + b["height"] <= r["y"] + r["height"] + 1)]
+        check("popup", f"cpu: all {CORES} cores' rows, none cut", not missing and not cut, f"missing {missing}, cut {cut}")
+    click(cx, cy)
+    wait(lambda: overlays() == [])
+    time.sleep(0.4)
+    # A press beside an open popup closes it; the next click opens it again.
+    click(cx, cy)
+    wait(lambda: overlays() == ["orbit-dialogs"])
+    click(W / 2, 200)
+    check("popup", "a click beside closes", wait(lambda: overlays() == []), str(overlays()))
+    time.sleep(1.8)
+    click(cx, cy)
+    check("popup", "then one click opens it again", wait(lambda: overlays() == ["orbit-dialogs"]), str(overlays()))
+    # "open in pane ⇥": top right of the popup.
+    time.sleep(0.6)
+    if r:
+        click(r["x"] + r["width"] - 50 * ZOOM, r["y"] + 24 * ZOOM)
+    mods = lambda: [m for m in shared().get("orbit.sides", {}).get("mods", []) if (m.get("props") or {}).get("stat") == "cpu"]
+    check("popup", "open in pane: the view in a pane", wait(mods), json.dumps(shared().get("orbit.sides", {}).get("mods")))
+    check("popup", "open in pane: the popup closes", wait(lambda: overlays() == []), str(overlays()))
+    shot("popup-pinned")
+
+
+def order(ids):
+    names, _ = cards()
+    want = ["shown", "blocked", "done", "working"]
+    # blocked and done wait for you, most recent first: done changed last.
+    want_alt = ["shown", "done", "blocked", "working"]
+    check("order", "shown, waiting, at work; idle left out", names in (want, want_alt), f"{names}")
+    check("order", "waiting: most recent first", names == want_alt, f"{names}")
+    shot("order")
+
+
+def menu_click(card, item=0, scenario=None):
+    """Right-clicks a card and picks the menu's item; with `scenario`, also
+    checks the menu opened just above that card."""
+    away()
+    time.sleep(0.3)
+    before = grab("menu-0")
+    click(*centre(card), button=3)
+    wait(lambda: overlays() == ["orbit-dialogs"])
+    away()
+    time.sleep(0.5)
+    r = opened_rect(before, grab("menu"), card)
+    if scenario:
+        placed_above(scenario, "its menu", r, card, 160)
+    if r:
+        click(r["x"] + 40, r["y"] + (5 + 15 + 31 * item) * ZOOM)
+    wait(lambda: overlays() == [])
+    time.sleep(0.3)
+
+
+def pin(ids):
+    names, p = cards()
+    plain = p["task:working"]
+    menu_click(p["task:working"], scenario="pin")
+    check("pin", "Pin stores it", wait(lambda: shared().get("orbit.pinned") == [ids["working"][0]]), str(shared().get("orbit.pinned")))
+    names, p = cards()
+    check("pin", "a pinned card leads", names[:1] == ["working"], str(names))
+    card, icon = p["task:working"], p.get("pin:working")
+    inside = icon and card["x"] < icon["x"] and icon["x"] + icon["width"] <= card["x"] + card["width"] \
+        and card["y"] <= icon["y"] and icon["y"] + icon["height"] <= card["y"] + card["height"]
+    check("pin", "a pinned card has the pin icon, inside it", inside, f"card {card} icon {icon}")
+    check("pin", "the pin makes it wider, not taller", card["width"] > plain["width"] + 10 and card["height"] == plain["height"],
+          f"before {plain} after {card}")
+    others = [k for k in p if k.startswith("task:") and k != "task:working"]
+    check("pin", "unpinned cards: their usual size", all(p[k]["height"] == plain["height"] for k in others), str(others))
+    shot("pinned")
+    menu_click(p["task:working"], scenario="pin")
+    check("pin", "Unpin takes it out", wait(lambda: shared().get("orbit.pinned") == []), str(shared().get("orbit.pinned")))
+    names, p = cards()
+    check("pin", "unpinned, its group's place again", names[-1:] == ["working"], str(names))
+    check("pin", "unpinned: no pin icon (its old size again)", abs(p["task:working"]["width"] - plain["width"]) < 1, f"{p['task:working']} vs {plain}")
+
+
+def drag(ids):
+    names, p = cards()
+    a, b = p[f"task:{names[-1]}"], p[f"task:{names[0]}"]
+    (ax, ay), (bx, by) = centre(a), centre(b)
+    x("mousemove", "--window", win(), int(ax), int(ay), "mousedown", 1, "sleep", 0.2,
+      "mousemove", "--window", win(), int((ax + bx) / 2), int(ay), "sleep", 0.2,
+      "mousemove", "--window", win(), int(bx), int(by), "sleep", 0.4)
+    shot("drag-over")
+    x("mouseup", 1)
+    moved = names[-1]
+    check("drag", "the moved card is pinned", wait(lambda: shared().get("orbit.pinned") == [ids[moved][0]]), str(shared().get("orbit.pinned")))
+    after, _ = cards()
+    check("drag", "it lands where dropped", after[:1] == [moved], str(after))
+    # A second card onto the first pinned one: in front of it, both pinned.
+    names, p = cards()
+    a, b = p[f"task:{names[-1]}"], p[f"task:{names[0]}"]
+    (ax, ay), (bx, by) = centre(a), centre(b)
+    x("mousemove", "--window", win(), int(ax), int(ay), "mousedown", 1, "sleep", 0.2,
+      "mousemove", "--window", win(), int(bx), int(by), "sleep", 0.3, "mouseup", 1)
+    second = names[-1]
+    check("drag", "dropped in front of a pinned card: both pinned, in that order",
+          wait(lambda: shared().get("orbit.pinned") == [ids[second][0], ids[moved][0]]), str(shared().get("orbit.pinned")))
+    shot("drag-done")
+
+
+def settings(ids):
+    mine = lambda: [m for m in shared().get("orbit.sides", {}).get("mods", [])
+                    if (m.get("props") or {}).get("dialog") == "settings" and m.get("space") == ids["shown"][0]]
+    do("space.select", {"id": ids["shown"][0]})
+    time.sleep(0.8)
+    do("orbit.settings")
+    check("settings", "opens in the right pane", wait(mine), json.dumps(shared().get("orbit.sides", {}).get("mods")))
+    check("settings", "titled Orbit look settings", [m.get("title") for m in mine()] == ["Orbit look settings"], str(mine()))
+    check("settings", "not an overlay", overlays() == [], str(overlays()))
+    shot("settings")
+    do("orbit.settings")
+    time.sleep(1.5)
+    check("settings", "again: still one", len(mine()) == 1, str(mine()))
+
+
+COUNTER = """import { View, div } from "gpui-kit";
+import { shared, setShared, props } from "herdr";
+// tools/regress.py: counts how often a copy starts (init), by its props.tag.
+export default class Counter extends View {
+  init() {
+    const tag = props()?.tag ?? "?";
+    const all = shared("regress.inits") ?? {};
+    setShared("regress.inits", { ...all, [tag]: (all[tag] ?? 0) + 1 });
+  }
+  render() { return div().size_full().child(`counter ${props()?.tag}`); }
+}
+"""
+
+
+def keep(ids):
+    os.makedirs(f"{HOME}/mods/regress-counter", exist_ok=True)
+    open(f"{HOME}/mods/regress-counter/main.js", "w").write(COUNTER)
+    open(f"{HOME}/mods/regress-counter/mod.json", "w").write('{ "place": "none" }\n')
+    time.sleep(1.5)
+    a, b = ids["shown"][0], ids["working"][0]
+    do("space.select", {"id": a})
+    time.sleep(1)
+    run_name = "orbit.new-mod " + json.dumps({"space": a, "side": "right", "title": "counter", "mod": "regress-counter", "props": {"tag": "A"}})
+    sb("do", run_name)
+    inits = lambda: shared().get("regress.inits", {}).get("A", 0)
+    check("keep", "the mod starts in the right pane", wait(lambda: inits() >= 1, 5), str(shared().get("regress.inits")))
+    time.sleep(2)
+    start = inits()
+    for target in [b, a, b, a]:
+        do("space.select", {"id": target})
+        time.sleep(1.5)
+    check("keep", "A -> B -> A twice: it never starts again", inits() == start, f"inits {start} -> {inits()}")
+    # A pinned space, another outline colour.
+    pinned_ids = [ids["blocked"][0]]
+    # (pinning goes through the menu elsewhere; here the shared value is only read)
+    do("space.select", {"id": ids["blocked"][0]})
+    time.sleep(1.5)
+    do("space.select", {"id": a})
+    time.sleep(1.5)
+    check("keep", "to another space and back: still the same copy", inits() == start, f"inits {start} -> {inits()}")
+    shot("keep")
+
+
+def split(ids):
+    """Each space keeps its own split: the divider between the panes dragged
+    in A (left wider) and B (left narrower), 60 px each, inside the panes'
+    minimums (a drag past one lands a moment later at it), then A -> B -> A. Where the panes
+    are is read from the tab rows' places (shared "orbit.places")."""
+    os.makedirs(f"{HOME}/mods/regress-counter", exist_ok=True)
+    open(f"{HOME}/mods/regress-counter/main.js", "w").write(COUNTER)
+    open(f"{HOME}/mods/regress-counter/mod.json", "w").write('{ "place": "none" }\n')
+    time.sleep(1.5)
+    a, b, other = ids["shown"][0], ids["working"][0], ids["blocked"][0]
+    left = lambda: (shared().get("orbit.places", {}).get("left-tabs") or {}).get("width", 0)
+    def still():
+        """The left pane's width once it holds still (a drag settles)."""
+        last = None
+        for _ in range(10):
+            now = left()
+            if now == last:
+                return now
+            last = now
+            time.sleep(1)
+        return last
+    def drag_by(dx):
+        pl = shared().get("orbit.places", {})
+        l, r = pl.get("left-tabs"), pl.get("right-tabs")
+        if not l or not r:
+            return False
+        gx = (l["x"] + l["width"] + r["x"]) / 2
+        y = l["y"] - 120
+        to = gx + dx
+        x("mousemove", "--window", win(), int(gx), int(y), "mousedown", 1)
+        for i in range(1, 9):
+            x("mousemove", "--window", win(), int(gx + (to - gx) * i / 8), int(y))
+            time.sleep(0.05)
+        x("mouseup", 1)
+        away()
+        return True
+    for sp, tag in [(a, "A"), (b, "B"), (other, "C")]:
+        do("space.select", {"id": sp})
+        time.sleep(1)
+        sb("do", "orbit.new-mod " + json.dumps({"space": sp, "side": "right", "title": "split", "mod": "regress-counter", "props": {"tag": "split" + tag}}))
+        time.sleep(1.5)
+    do("space.select", {"id": a})
+    time.sleep(1.5)
+    base = left()
+    check("split", "both panes shown", wait(lambda: drag_by(60), 3), str(shared().get("orbit.places")))
+    wait(lambda: left() > base + 40, 6)
+    wide = still()
+    near = lambda want: wait(lambda: abs(left() - want) <= 2, 6)
+    do("space.select", {"id": b})
+    check("split", "a space never resized has the split it had", near(base), f"{left()} vs {base}")
+    time.sleep(1)  # the switch settled before the drag
+    drag_by(-60)
+    wait(lambda: left() < base - 40, 6)
+    narrow = still()
+    nodes = lambda: json.load(open(f"{HOME}/layouts/.state/orbit.json")).get("nodes", {})
+    kept = lambda sp: (shared().get("orbit.splits") or {}).get("spaces", {}).get(sp)
+    at_b = (nodes().get("left-frame"), nodes().get("right-frame"), kept(b))
+    check("split", "the drags took (A wide, B narrow)", wide > base + 40 and narrow < base - 40, f"base {base} A {wide} B {narrow}")
+    # The sandbox's software-drawn window is slow: each switch is waited for.
+    seen = []
+    for sp, want in [(a, wide), (b, narrow), (a, wide)]:
+        do("space.select", {"id": sp})
+        seen.append((bool(near(want)), left(), want, nodes().get("left-frame"), kept(sp)))
+    check("split", "A -> B -> A: each keeps its own", all(v[0] for v in seen), f"{seen} B after its drag: {at_b}")
+    do("space.select", {"id": other})
+    check("split", "another space, never resized: the split it had", near(base), f"{left()} vs {base}")
+    do("space.select", {"id": a})
+    time.sleep(1.5)
+    shot("split")
+
+
+def symbols(ids):
+    """Each card's symbol against the sidebar's, per state. The idle case: an
+    agent that reports idle, as a finished one is once seen (the sandbox's
+    window never has the focus herdr counts a look by), in the shown space so
+    it has a card."""
+    ansi = json.load(open(f"{HOME}/themes/tokyo-night.json"))["ansi"]
+    cases = [("working", "working", ansi[3]), ("blocked", "blocked", ansi[1]), ("done", "done (finished, not seen)", ansi[2]),
+             ("shown", "no agent", None), ("idle", "idle (finished and seen)", None)]
+    sb("hc", "send", ids["idle"][1], "printf '\\033]7501;state=idle\\007'")
+    time.sleep(1)
+    for name, what, fill in cases:
+        if name == "idle":
+            do("space.select", {"id": ids["idle"][0]})
+            time.sleep(2)
+        sid = ids[name][0]
+        syms = shared().get("orbit.probe.symbols", {})
+        bar, side = syms.get(f"taskbar:{sid}"), syms.get(f"sidebar:{sid}")
+        check("symbols", f"{what}: the card's symbol is the sidebar's", bar is not None and bar == side, f"taskbar {bar} sidebar {side}")
+        got = (bar or {}).get("fill")
+        ok = got is None if fill is None else (got or "").lower()[:7] == fill.lower()[:7]
+        check("symbols", f"{what}: {'empty' if fill is None else 'filled ' + fill}", bar is not None and ok, f"{bar}")
+    shot("symbols")
+    do("space.select", {"id": ids["shown"][0]})
+    time.sleep(1)
+
+
+def tabs(ids):
+    """The shown space's accent (a band of its colour behind the sidebar's row
+    and the taskbar's card) and white text (those two and the panes' shown
+    tabs), for two spaces of different colours, back and forth."""
+    colors = lambda: shared().get("orbit.probe.colors", {})
+    fg = json.load(open(f"{HOME}/themes/tokyo-night.json"))["foreground"].lower()[:7]
+    seen = {}
+    for name in ["shown", "blocked"]:
+        sid = ids[name][0]
+        do("space.select", {"id": sid})
+        time.sleep(1)
+        sb("do", "orbit.new-mod " + json.dumps({"space": sid, "side": "right", "title": "memory", "mod": "orbit-dialogs",
+                                                 "props": {"dialog": "stat", "stat": "ram"}}))
+        time.sleep(1.5)
+    for name in ["shown", "blocked", "shown", "blocked"]:
+        do("space.select", {"id": ids[name][0]})
+        time.sleep(1.5)
+        c = {k: (v or "").lower() for k, v in colors().items()}
+        band = c.get("space", "")[:7] + "29"
+        check("tabs", f"{name}: the sidebar's and the taskbar's accent is the space's colour",
+              c.get("space") and c.get("sidebar-band") == band and c.get("taskbar-band") == band, str(c))
+        texts = {k: c.get(k, "")[:7] for k in ["sidebar-text", "taskbar-text", "left-text", "right-text"]}
+        check("tabs", f"{name}: the text stays white", all(v == fg for v in texts.values()), f"{texts} want {fg}")
+        seen[name] = c.get("space")
+    check("tabs", "the two spaces' colours differ (the test means something)", seen["shown"] != seen["blocked"], str(seen))
+    shot("tabs")
+    do("space.select", {"id": ids["shown"][0]})
+    time.sleep(1)
+
+
+def identity(ids):
+    base = f"{ROOT}/repos"
+    subprocess.run(["rm", "-rf", base])
+    os.makedirs(base)
+    g = lambda *a, cwd=None: subprocess.run(["git", *a], cwd=cwd, capture_output=True, text=True)
+    def repo(path, origin=None):
+        os.makedirs(path)
+        g("init", "-q", "-b", "main", cwd=path)
+        g("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "start", cwd=path)
+        if origin:
+            g("remote", "add", "origin", origin, cwd=path)
+    repo(f"{base}/app", "git@github.com:me/app.git")
+    repo(f"{base}/elsewhere/app-clone", "https://github.com/me/app")  # the same repo, another place
+    g("worktree", "add", "-q", "-b", "fix", f"{base}/app-fix", cwd=f"{base}/app")
+    repo(f"{base}/notes")  # no origin
+    g("worktree", "add", "-q", "-b", "draft", f"{base}/notes-draft", cwd=f"{base}/notes")
+    repo(f"{base}/other", "git@github.com:me/other.git")
+    made = {}
+    for name, folder in [("app here", "app"), ("app there", "elsewhere/app-clone"), ("app fix", "app-fix"),
+                         ("notes", "notes"), ("notes draft", "notes-draft"), ("other", "other")]:
+        made[name] = do("space.new", {"name": name, "folder": f"{base}/{folder}"}).get("space")
+    look = lambda: shared().get("orbit.identity", {})
+    have = lambda: all("origin" in (shared().get("orbit.git", {}).get(sid) or {}) for sid in made.values())
+    check("identity", "every new space's repo looked up", wait(have, 15), json.dumps({k: shared().get("orbit.git", {}).get(v) for k, v in made.items()}))
+    time.sleep(1)
+    idt = {k: look().get(v) for k, v in made.items()}
+    same = lambda a, b: idt[a] is not None and idt[a] == idt[b]
+    check("identity", "same repo, another place (another machine): same colour and symbol", same("app here", "app there"), str(idt))
+    check("identity", "a worktree and its main checkout: same", same("app here", "app fix"), str(idt))
+    check("identity", "without an origin, a worktree and its main checkout: same", same("notes", "notes draft"), str(idt))
+    check("identity", "another repo: its own", idt["other"] is not None and idt["other"] != idt["app here"], str(idt))
+    for sid in made.values():
+        do("space.close", {"id": sid})
+    time.sleep(1)
+
+
+SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("keep", keep), ("split", split)]
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-k", default="")
+    ap.add_argument("--down", action="store_true")
+    a = ap.parse_args()
+    ids = setup()
+    try:
+        for name, f in SCENARIOS:
+            if a.k in name:
+                try:
+                    f(ids)
+                except Exception as e:
+                    check(name, "ran", False, repr(e))
+    finally:
+        if a.down:
+            sb("down")
+    failed = [r for r in results if not r[2]]
+    print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()

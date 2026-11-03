@@ -7,9 +7,9 @@ This is an unofficial layout. It is not affiliated with or endorsed by Herdr.
 It uses only what herdr-app offers to everyone (a layout, mods and a theme)
 and doesn't change the app. Made for herdr-app 0.1.11.
 
-**Version 3**. See [Updating](#updating).
+**Version 4**. See [Updating](#updating).
 
-![Orbit: the sidebar, two panes, the picker open in the right one](preview.png)
+![Orbit: the sidebar, two panes with the picker open in the right one, the taskbar with a pinned space](preview.png)
 
 ## Add it
 
@@ -27,7 +27,11 @@ section (those keys apply only while the orbit layout shows; see Keys), and
 pick the **orbit** layout in herdr-app's settings (or `ctrl-shift-l`).
 `ctrl-shift-l` switches back to your own layout; deleting the files removes it.
 Check a name isn't taken first: the layout is `orbit`, the mods are `orbit` and
-`orbit-*`, the themes are `orbit` and `orbit-*`.
+`orbit-*`, the themes are named by their palettes: `tokyo-night`,
+`catppuccin-mocha`, `everforest`, `gruvbox-dark`, `kanagawa`, `nord`,
+`rose-pine`.
+A theme of yours under one of those names is moved aside by `./install.sh`
+(to its backup folder), never overwritten.
 
 The picker's own list is `orbit-windows.json` in herdr-app's home (see the
 picker below). Without the file the list is empty; to start one, copy
@@ -49,9 +53,10 @@ Herdr's add flow never overwrites: adding this repo again would make a second
 copy (`orbit-2`, ...). To update, either:
 
 - tell your agent: "replace my orbit layout, the orbit-* mods and the
-  orbit themes with the latest from github.com/Calonca/herdr-orbit-look"
+  orbit look's themes with the latest from github.com/Calonca/herdr-orbit-look"
   (it removes `layouts/orbit.json`, `layouts/orbit.svg`, `mods/orbit`, every
-  `mods/orbit-*` and `themes/orbit*.json` first, then copies the new ones and
+  `mods/orbit-*`, the look's themes (`themes/orbit*.json` from before, and
+  the files in the repo's `themes/`) first, then copies the new ones and
   replaces the `layout:orbit` section of `keys.json`; your other files and
   keys, `orbit-windows.json` and the pictures in `backgrounds/` stay as they
   are); or
@@ -61,6 +66,20 @@ copy (`orbit-2`, ...). To update, either:
 Your clicks (sizes, what's shown) stay in `layouts/.state/`, your settings
 (`"orbit.settings"` in `shared.json`) stay, and your `orbit-windows.json` is
 never replaced.
+
+The themes were called `orbit` and `orbit-*` before; they're named by their
+palettes now (`orbit` is `tokyo-night`). `./install.sh` picks your theme
+again under its new name, so the colours stay; by hand, pick it again in the
+look settings.
+
+Version 4 adds the taskbar to the status bar (a card for each pinned, shown,
+waiting or working space; right-click to pin, drag to move), cpu, ram and
+disk as bars that open a popup, the look settings in the right pane (`ctrl-,`)
+and a split for each space (the panes' sizes and the side panel's width). The
+status bar's side panel button, `?` and agent counts are gone: the
+`orbit.side-panel` command opens the side panel. The themes are renamed (see
+above). A space's colour and symbol now come from its repository, so some
+spaces change theirs once.
 
 Version 3 adds the settings, the six themes and the `ctrl-,` key. Its
 corners and gap start on "auto", the density's (16 and 14 at comfortable):
@@ -77,8 +96,9 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
   A picture of your own can replace it (settings); the glass over it is the
   plain see-through surface, without the blur.
 - **Space colours**: every space gets one of six colours and one of 8 symbols
-  from a hash of its name; a git worktree and the main checkout it belongs to
-  share their repo's. The pane's outline, its tab row and the space's row in
+  from a hash of its repository's name (its origin's, else its main
+  checkout's folder), so the same repo on another machine and every worktree
+  of it look the same; a space outside a repo goes by its own name. The pane's outline, its tab row and the space's row in
   the sidebar use that colour.
 - **Sidebar** (`orbit-spaces`, a restyled clone of herdr-app's `spaces`, and
   `orbit-sidebar-footer`): a header per machine; each space with its symbol
@@ -91,10 +111,14 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
   that outline, the shown tab a folder tab open into the content. Each tab has
   its program's icon and its agent's state (working yellow, blocked red, done
   green).
-  - The left pane shows the space's own tabs, led by the space's symbol and
-    name. The right pane, beside it, holds terminals and views of its own,
+  - The left pane shows the space's own tabs (the space's symbol and name
+    are in the status bar's taskbar). The right pane, beside it, holds terminals and views of its own,
     per space; the split toggle at the left row's right end shows it or puts
     it away (nothing closes).
+  - Each space keeps its own split: drag the divider between the panes (or
+    the side panel's edge) in one space, and the others keep theirs;
+    switching back gives that space's again. A space never resized, and a
+    new one, has the split the layout had before any space kept one.
   - Click shows a tab; double-click renames it; drag moves it; middle-click
     closes it (a terminal asks first: Enter or the same close again confirms);
     right-click opens its menu (Rename, then herdr's pane items: split, zoom,
@@ -118,26 +142,41 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
 - **Side panel** (its tab row is `orbit-tabs` too): herdr's files and changes to start
   with, framed as the panes are, with a tab each. `+ ⠿` picks another view
   for it; tabs rename, move and close like the panes' (right-click: Rename,
-  Close, Hide the panel). The status bar's right-most button opens and closes
+  Close, Hide the panel). The `orbit.side-panel` command opens and closes
   it; dragged narrower than half its smallest width, it closes. Clicking in
   the panel moves the coloured outline there.
 - **Menus and dialogs** (`orbit-dialogs`): the sidebar's "menu" (search,
   settings, add machine, new space, the space's rename, worktrees and close,
   keybinds), a tab's menu, the close dialog, the switcher of recent spaces,
-  the "make tab N" prompt, and the settings.
-- **Settings** (`ctrl-,`, or "settings" in the picker): the theme, density
+  the "make tab N" prompt, and the look settings.
+- **Orbit look settings** (`ctrl-,`, or "Orbit look settings" in the
+  picker), a view in the right pane like the picker's others (a second
+  `ctrl-,` shows the one already open): the theme, density
   (compact, default, comfortable), corners, the gap between the panels, the
   tab rows at the bottom or on top, and the background picture. Corners and
   gap start on "auto", the density's own. They apply
   at once and are kept in `shared.json` (`"orbit.settings"`).
-- **Status bar** (`orbit-status`): the sidebar toggle, "herdr offline" while
-  the core can't be reached, folded tabs and an update pill on the left; on
-  the right cpu (with a 20 s sparkline), ram and disk use (yellow from 70%,
-  red from 90%, details on hover), `?` for the shortcuts, what needs you /
-  runs / is done, the clock and the side panel toggle.
-- **Themes**: `orbit` (Tokyo Night colours), and six variants: Catppuccin
+- **Status bar** (`orbit-status`): on the left the sidebar toggle, then
+  after a thin line the taskbar, then "herdr offline" while the core can't be
+  reached, folded tabs and an update pill; on the right cpu, ram and disk
+  use as small bars (blue, yellow from 70%, red from
+  90%) and the clock.
+  - The taskbar: a card per space that is pinned (in pin order), shown, or
+    has agents that finished or wait for you, then those at work (each group
+    most recent first). A card is the space's symbol, drawn as the sidebar draws it (filled in
+    its agents' state colour while one is blocked, working or done, else
+    empty; outlined in the space's colour when shown), and its name.
+    Click shows the space; right-click pins or unpins it; drag a card onto
+    another to move it there (it's pinned then). A pinned card has a pin after
+    its name. An unpinned space leaves once
+    its agents are idle. Pins are kept in `shared.json` (`"orbit.pinned"`).
+  - cpu, ram and disk open a popup with the details above them (each core,
+    the load; used, available, swap; the filesystem); a second click closes
+    it, and "open in pane ⇥" opens the same view in the right pane.
+- **Themes**: Tokyo Night (`tokyo-night`, the layout's own), Catppuccin
   Mocha, Everforest, Gruvbox Dark, Kanagawa, Nord and Rosé Pine
-  (`themes/orbit-*.json`), each with its own six space colours. Pick one in
+  (`themes/*.json`, each palette as it is), each with its own six space
+  colours. Pick one in
   the settings or in herdr-app's (any other theme works too: the space
   colours are then its ANSI colours). JetBrains Mono in terminals.
 
@@ -156,7 +195,7 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
 | `alt-shift-h`, `alt-shift-l` | move the shown terminal tab to the other pane |
 | `ctrl-tab` | back to the space shown before this one |
 | `ctrl-shift-space` | the recent spaces, most recent first (↑/↓ or Tab, 1-9 or Enter, Esc) |
-| `ctrl-,` | the settings |
+| `ctrl-,` | Orbit look settings, in the right pane |
 
 They are commands of the `orbit` mod (`orbit.<name>`); its header lists the
 rest (`orbit.split`, `orbit.side-panel`, `orbit.add`, `orbit.window`).
@@ -206,19 +245,26 @@ sidebar, `ctrl-shift-l` the layout).
   the copies are the same file. What every mod would otherwise work out
   again (each space's colour and symbol, the look, where the tab rows sit)
   the `orbit` mod works out once and shares.
-- `themes/orbit.json` and the six `themes/orbit-*.json`
+- `themes/`: Tokyo Night and the six others
 - `keys.json`: the keys, to merge into herdr-app's
 - `defaults/orbit-windows.json`: an empty list for the picker, to copy into
   herdr-app's home when you have none
 - `scripts/space.py` and `scripts/blur.py` make the background and its blurred
   copy; `scripts/glyphs.py` the symbols. Only needed to change them.
+- `scripts/sandbox`: a throwaway herdr-app on its own core, home and display
+  (headless, or a private Xvfb with `SANDBOX_X11=1`), to try changes in.
+  `tools/regress.py` clicks through the status bar there (its popups and
+  menus where they open, the taskbar's order, pins and drag, the look
+  settings), by default on a HiDPI screen (scale 2) at zoom 1.2; `node tools/taskbar-test.mjs` and
+  `node tools/identity-test.mjs` check the taskbar's order and what a space's
+  colour is keyed on, without a window.
 
 ## Credits
 
-- The `orbit` theme's colours are the Tokyo Night palette by Enkia
+- The `tokyo-night` theme's colours are the Tokyo Night palette by Enkia
   ([tokyo-night-vscode-theme](https://github.com/tokyo-night/tokyo-night-vscode-theme),
   MIT).
-- The six variants' colours are each palette's own:
+- The six others' colours are each palette's own:
   - Catppuccin Mocha by Catppuccin, [catppuccin/catppuccin](https://github.com/catppuccin/catppuccin)
     ([MIT](https://github.com/catppuccin/catppuccin/blob/main/LICENSE));
   - Everforest by sainnhe, [sainnhe/everforest](https://github.com/sainnhe/everforest)

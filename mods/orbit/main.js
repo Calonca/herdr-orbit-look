@@ -23,27 +23,56 @@
 //   orbit.recent     the space shown before this one
 //   orbit.switcher   the recent spaces, most recent first, to pick from
 //   orbit.add        what a new tab should show (the picker, as a dialog)
-//   orbit.settings   the look settings (orbit-dialogs' settings dialog)
+//   orbit.settings   the look settings ("Orbit look settings", in the right pane)
 // - The other orbit mods' asks (look.js ask): the only writer of
 //   "orbit.sides", "orbit.settings" and the layout file is this mod.
 // Put it in the layout as a small block:
 //   { "id": "orbit", "type": "block", "size": { "px": 4 }, "content": { "mod": "orbit" } }
 
 import { View, div } from "gpui-kit";
-import { spaces, run, shared, setShared, nextCommand, openOverlay, watchFolder, appHome, theme, layout, focused, panes } from "herdr";
+import { spaces, run, shared, setShared, nextCommand, openOverlay, watchFolder, appHome, theme, layout, focused, panes, readTextFile } from "herdr";
 import { state, leftTabs, rightEntries, entries, shownEntry, LEFT_TAB, FRAME } from "./sides.js";
 import { save, show, showRight, close, closeAsked, cancelAsk, newTerminal, newMod, openPending, dropPending, move, toggleSplit, toggleSidePanel, renameEntry, reorderRight } from "./actions.js";
 import { apply, closePanelView, renamePanelView, movePanelView, addPanelView, share } from "./layout.js";
 import { find } from "./look.js";
+import { follow } from "./split.js";
 import { identity, spaceKey, lookUpRepos, publish } from "./identity.js";
 
-export const openSettings = () => openOverlay({ mod: "orbit-dialogs", kind: "dialog", frame: "none", width: 700, height: 470, props: { dialog: "settings" } });
+// The look settings (orbit-dialogs' "settings"), in the shown space's right
+// pane, as other views open there: shown again if that space has it already.
+export const SETTINGS_TITLE = "Orbit look settings";
+export async function openSettings(cx) {
+  const space = spaces().find((s) => s.active);
+  if (!space) return;
+  const had = state().mods.find((m) => m.space === space.id && m.mod === "orbit-dialogs" && m.props?.dialog === "settings");
+  if (had) { showRight(space, had.id); return; }
+  await newMod(cx, space, "right", SETTINGS_TITLE, "orbit-dialogs", { dialog: "settings" });
+}
 
 // This build's version, also in shared "orbit.version" (shared.json in
 // herdr-app's home), so you can see which one you have.
-export const VERSION = 3;
+export const VERSION = 4;
 
 const RECENT = "orbit.recent";
+
+// The shipped themes' old names (before they were called by their palettes),
+// and their names now.
+const OLD_THEMES = { orbit: "tokyo-night", ...Object.fromEntries(["catppuccin-mocha", "everforest", "gruvbox-dark",
+  "kanagawa", "nord", "rose-pine"].map((t) => [`orbit-${t}`, t])) };
+
+// A theme picked for this layout under an old name is picked again under its
+// new one (install.sh does it too, when it can).
+async function renameTheme(cx) {
+  // A moment first: herdr-app takes up newly copied theme files.
+  await cx.sleep(3);
+  const text = await readTextFile(`${appHome()}/layouts/.state/orbit.json`);
+  if (!text) return;
+  let picks = null;
+  try { picks = JSON.parse(text).theme; } catch (_) { return; }
+  for (const v of new Set(Object.values(picks ?? {}))) {
+    if (OLD_THEMES[v]) run("app.theme", { name: OLD_THEMES[v] });
+  }
+}
 
 // Space ids, most recently shown first.
 export function recent() {
@@ -54,6 +83,7 @@ export function recent() {
 export default class Orbit extends View {
   init(_props, cx) {
     if (shared("orbit.version") !== VERSION) setShared("orbit.version", VERSION);
+    cx.spawn(async (cx) => { try { await renameTheme(cx); } catch (e) { console.log(`orbit: ${e}`); } });
     this.focus = null; // the outline colour last written
     // Both loops use cx each time round: herdr ends a loop at its next cx use
     // once this block is gone (another layout shown), and without one they
@@ -108,6 +138,8 @@ export default class Orbit extends View {
     if (!find(L, "left") || !find(L, "right")) return;
     const space = spaces().find((s) => s.active);
     if (!space) return;
+    // The shown space's split (split.js).
+    follow(L, space.id, new Set(spaces().map((s) => s.id)), Date.now() - this.born > 10000);
     const ps = panes();
     let st = state();
     // Each space keeps its pane with the keys: leaving one notes it, coming
@@ -218,7 +250,7 @@ export default class Orbit extends View {
     } else if (name === "switcher") {
       openOverlay({ mod: "orbit-dialogs", kind: "dialog", frame: "none", width: 560, props: { dialog: "switcher" } });
     } else if (name === "settings") {
-      openSettings();
+      await openSettings(cx);
     } else if (name === "add") {
       openOverlay({ mod: "orbit-add", kind: "dialog", frame: "none", width: 640, height: 480, props: { space: active?.id } });
     }

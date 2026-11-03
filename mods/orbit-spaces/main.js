@@ -10,7 +10,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { look, glass, spaceLook, glyphPath, statusColor } from "./look.js";
+import { look, glass, spaceLook, spaceSymbol, probeColor, accentBand } from "./look.js";
 import { backdrop, orbitPlace, orbitRadius } from "./glass.js";
 import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window } from "herdr";
 
@@ -272,13 +272,12 @@ export default class Spaces extends View {
 
   // A space's row: the symbol (grey, filled by its agents' state) and
   // the name; under it the branch and how far it is ahead or behind. The shown
-  // space's row takes its identity colour: a band behind it, its name bold in
-  // it. A worktree is one line, hung from its repo's symbol.
+  // space's row takes its identity colour: a band behind it (look.js
+  // accentBand, as the taskbar's card), its name bold in white. A worktree is one line, hung from its repo's symbol.
   row({ w, i, g, tree, kids, last }, t) {
     const on = w.active;
     const nested = Boolean(tree);
-    const { color, glyph: kind } = spaceLook(w);
-    const fill = statusColor(w.status);
+    const { color } = spaceLook(w);
     const two = !nested && Boolean(g);
     const h = nested ? LINE - 3 : two ? LINE + SUB - 2 : LINE;
     const r = nested ? 12 : 14; // the symbol's box
@@ -287,16 +286,15 @@ export default class Spaces extends View {
     const folded = this.foldedRepos.has(g?.repo);
     const stub = last ? DOT_X + 4 : DOT_X;
     const symbol = div().absolute().left(dotX - r / 2).top((nested ? h : LINE) / 2 - r / 2).size(r)
-      .when(Boolean(fill), (el) => el.child(svg(glyphPath(kind, true)).absolute().size(r).text_color(fill)))
-      .child(svg(glyphPath(kind, false)).absolute().size(r).text_color(on ? (t.idle ?? t.foreground) : t.muted));
-    const ident = color.slice(0, 7);
+      .child(spaceSymbol(w, r, on ? (t.idle ?? t.foreground) : t.muted, "sidebar"));
+    if (on) { probeColor("sidebar-band", accentBand(color)); probeColor("sidebar-text", t.foreground); probeColor("space", color); }
     return div()
       .relative()
       .id(`space-${w.id}`)
       .h(h)
       .flex_none()
       .rounded(R)
-      .when(on, (el) => el.bg(ident + "29"))
+      .when(on, (el) => el.bg(accentBand(color)))
       .when(!on, (el) => el.hover((s) => s.bg(t.foreground.slice(0, 7) + "1a")))
       .when(this.pressed !== null && this.over === i && this.pressed !== i, (el) => el.border_t(2).border_color(t.accent))
       .on_mouse_down("left", () => {
@@ -319,10 +317,10 @@ export default class Spaces extends View {
         .child(div().absolute().left(stub).top(h / 2).h(1).w(dotX - r / 2 - 2 - stub).bg(lineColor)))
       .child(symbol)
       .child(h_flex().absolute().left(dotX + GAP).right(kids > 0 ? 28 : 8).top(0).h(nested ? h : LINE).items_center()
-        .text_size(sz(nested ? 15 : 16)).text_color(on ? ident : t.ansi7).when(on, (el) => el.font_bold())
+        .text_size(sz(nested ? 15 : 16)).text_color(on ? t.foreground : t.ansi7).when(on, (el) => el.font_bold())
         .child(div().min_w(0).truncate().child(w.name)))
       .when(two, (el) => el.child(h_flex().absolute().left(dotX + GAP).right(8).top(LINE - 3).h(SUB).items_center().gap(5)
-        .text_size(sz(14)).text_color(on ? t.ansi5 : t.muted.slice(0, 7) + "9e")
+        .text_size(sz(14)).text_color(on ? t.foreground : t.muted.slice(0, 7) + "9e")
         .child(div().min_w(0).truncate().child(g.branch ?? "detached"))
         .when(g.ahead > 0, (el) => el.child(div().flex_none().text_color(t.ansi2).child(`↑${g.ahead}`)))
         .when(g.behind > 0, (el) => el.child(div().flex_none().text_color(t.ansi1).child(`↓${g.behind}`)))))

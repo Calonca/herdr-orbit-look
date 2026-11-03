@@ -7,13 +7,13 @@
 // window" tab with the picker), and at the left row's right end the split
 // toggle. Click shows a tab, double-click renames it, drag moves it,
 // middle-click closes it (a terminal asks first), right-click opens its menu
-// (orbit-dialogs' menu). The space's symbol and name lead the left row when
-// it holds a terminal.
+// (orbit-dialogs' menu). The space's symbol and name are the status bar's
+// taskbar's, not the row's.
 
 import { div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { panes, spaces, props, run, theme, openOverlay, layout } from "herdr";
-import { look, glass, find, ask, spaceLook, glyphPath, statusColor } from "./look.js";
+import { look, glass, find, ask, spaceLook, statusColor, probeColor } from "./look.js";
 import { mark, main, WIDGET } from "./labels.js";
 import { state, LEFT_TAB, entries, entryLabel, isSplit } from "./sides.js";
 import { rowKit, muted, rowGlass, track, remember, dragKit, editKit, inColumn } from "./rowframe.js";
@@ -38,7 +38,7 @@ export class PaneRow {
     const st = state();
     const ps = panes();
     const list = entries(space, side, st, ps);
-    const { color: ident, glyph } = spaceLook(space);
+    const { color: ident } = spaceLook(space);
     const focused = st.focus === side;
     const line = focused ? ident : t.border;
     const stop = (_e, cx) => cx.stop_propagation();
@@ -55,13 +55,7 @@ export class PaneRow {
       ? (e.kind === "pick" ? stack.active === e.id : stack.active === LEFT_TAB && e.tab.active)
       : stack.active === e.id;
 
-    const terminal = list.some((e) => e.kind === "term" || (e.kind === "tab" && ps.some((p) => p.tab === e.tab.id && p.terminal)));
-    const lead = side === "left" && terminal
-      ? seg(h_flex().flex_shrink_1().min_w(48).overflow_hidden().pl(18).pr(12).gap(9).items_center()
-        .child(svg(glyphPath(glyph, false)).size(13).flex_none().text_color(ident))
-        .child(div().min_w(0).max_w(220).truncate().text_size(14).font_bold().text_color(t.foreground).child(space.name)), { first: true })
-        .flex_shrink_1().min_w(48)
-      : seg(div().w(12), { first: true });
+    const lead = seg(div().w(12), { first: true });
 
     // Drag a tab onto another to move it there (rowframe.js dragKit): on
     // the left herdr's tab order (tab.move, as herdr's tab bar), on the right
@@ -88,12 +82,15 @@ export class PaneRow {
       const status = e.kind === "tab" ? e.tab.status : pane?.status ?? null;
       const m = e.kind === "mod" || e.kind === "pick" ? { icon: WIDGET, tint: true } : mark(pane);
       const dot = statusColor(status);
-      const color = shown ? (focused ? ident : t.foreground) : t.ansi7;
+      // Text stays white (the shown tab's) or quiet; the colour is the
+      // outline's, on the pane with the keys.
+      const color = shown ? t.foreground : t.ansi7;
+      if (shown) probeColor(`${side}-text`, color);
       const inner = h_flex().id(`d-tab-${side}-${i}`).h(26).px(10).items_center().text_size(12).text_color(color)
         .when(Boolean(dot), (el) => el.child(div().size(6).mr(4).flex_none().rounded(3).bg(dot)))
         .when(!dot && Boolean(pane?.program?.agent), (el) => el.child(div().size(6).mr(4).flex_none().rounded(3).border(1).border_color(t.muted)))
         .when(Boolean(m), (el) => el.child(m.tint
-          ? svg(m.icon).size(12).mr(5).flex_none().text_color(e.kind === "pick" ? ident : shown && focused ? ident : t.muted)
+          ? svg(m.icon).size(12).mr(5).flex_none().text_color(shown ? t.foreground : t.muted)
           : image(m.icon).w(12).h(12).mr(5).flex_none()))
         .child(editing ? edit.field(t, entryLabel(e)) : div().min_w(0).truncate().child(entryLabel(e)))
         .when(!editing, (el) => el.tooltip(e.kind === "pick" ? "pick what this window shows · middle-click: put it away"

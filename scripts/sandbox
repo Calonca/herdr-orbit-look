@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+# A throwaway herdr-app on its own core, home and headless display, so the
+# layouts, themes and mods here get tried without touching the real app, its
+# config or the desktop. Adapted from herdr-app's own scripts/sandbox, but it
+# runs the installed herdr-app (no build) and never sends telemetry.
+#
+#   scripts/sandbox up            start the display, the core and the window, install this repo
+#   scripts/sandbox restart       restart the window (terminals live on)
+#   scripts/sandbox do <action> [json] | status | ls | check <dir>   drive it
+#   scripts/sandbox shot [file]   the window's own last frame (herdr-app shot)
+#   scripts/sandbox log           the window's log
+#   scripts/sandbox hc <args>     hc against the sandbox core
+#   scripts/sandbox x <args>      xdotool on the sandbox's own display (X11 only)
+#   scripts/sandbox down          stop everything and delete it
+#
+# SANDBOX_X11=1: an X11 window on a private Xvfb display instead of headless
+# weston, with a HOME of its own (the WASM host and modules linked in), so
+# real clicks and keys can be sent with `scripts/sandbox x` (xdotool). Every
+# command for that sandbox needs SANDBOX_X11=1 too.
+set -euo pipefail
+
+here=$(cd "$(dirname "$0")" && pwd)
+repo=$(cd "$here/.." && pwd)
+name=${HERDR_APP_SANDBOX:-mods}
+root=/var/tmp/herdr-app-$name
+bin=${HERDR_APP_BIN:-$(command -v herdr-app)}
+export HC_SESSION=herdr-app-$name HERDR_APP_HOME=$root/home XDG_STATE_HOME=$root/state
+export HERDR_APP_NO_SOUND=1 DO_NOT_TRACK=1 HERDR_TELEMETRY=0
+# A runtime dir of its own: the display's socket lives there, and without the
+# user's systemd the core runs as a plain child instead of a user service.
+export XDG_RUNTIME_DIR=$root/run WAYLAND_DISPLAY=herdr-app-$name
+unset DISPLAY
+width=${SANDBOX_WIDTH:-1600} height=${SANDBOX_HEIGHT:-1000}
+x11=${SANDBOX_X11:-}
+if [[ -n $x11 ]]; then
+  # A display number of its own, from the name (never :0, the person's).
+  xnum=$((100 + $(printf '%s' "$name" | cksum | cut -d' ' -f1) % 400))
+  export DISPLAY=:$xnum
+  unset WAYLAND_DISPLAY
+fi
+
+ours() { { tr '\0' '\n' <"/proc/$1/environ"; } 2>/dev/null | grep -qx "HERDR_APP_HOME=$HERDR_APP_HOME"; }
+
+start_xvfb() {
+  mkdir -p "$root"
+  if [[ -f $root/xpid ]] && kill -0 "$(cat "$root/xpid")" 2>/dev/null; then return 0; fi
+  # A display of ours that ended leaves its socket and lock behind (never :0
+  # or :1: the number is 100 or more).
+  rm -f "/tmp/.X11-unix/X$xnum" "/tmp/.X$xnum-lock"
+  Xvfb "$DISPLAY" -screen 0 "${width}x${height}x24" -nolisten tcp >"$root/xvfb.log" 2>&1 &
+  echo $! >"$root/xpid"
+  for _ in $(seq 50); do
+    [[ -S /tmp/.X11-unix/X$xnum ]] && return 0
+    sleep 0.1
+  done
+  echo "the sandbox X display did not start; see $root/xvfb.log" >&2
+  return 1
+}
+
+# Its own HOME: the WASM host and its modules are linked in (read only).
+make_home() {
+  local h=$root/userhome
+  mkdir -p "$h/.local/bin" "$h/.config" "$h/.cache"
+  [[ -e $h/.zshrc ]] || echo "# sandbox" >"$h/.zshrc"
+  [[ -e $HOME/.local/bin/wasm-mods-host ]] && ln -sfn "$HOME/.local/bin/wasm-mods-host" "$h/.local/bin/wasm-mods-host"
+  [[ -d $HOME/.config/wasm-mods && ! -e $h/.config/wasm-mods ]] && cp -r "$HOME/.config/wasm-mods" "$h/.config/wasm-mods"
+  # The modules, copied: a module's own data then stays in the sandbox.
+  if [[ -d $HOME/.local/share/wasm-mods/modules && ! -e $h/.local/share/wasm-mods/modules ]]; then
+    mkdir -p "$h/.local/share/wasm-mods"
+    cp -r "$HOME/.local/share/wasm-mods/modules" "$h/.local/share/wasm-mods/modules"
+  fi
+  return 0
+}
+
+start_display() {
+  if [[ -n $x11 ]]; then start_xvfb; return; fi
+  mkdir -p "$root"
+  mkdir -p -m 700 "$XDG_RUNTIME_DIR"
+  if [[ -f $root/xpid ]] && kill -0 "$(cat "$root/xpid")" 2>/dev/null; then return 0; fi
+  rm -f "$root/weston.log"
+  weston --backend=headless --renderer=gl --fake-seat --idle-time=0 --socket="$WAYLAND_DISPLAY" --width="$width" --height="$height" \
+    --log="$root/weston.log" >/dev/null 2>&1 &
+  echo $! >"$root/xpid"
+  for _ in $(seq 50); do
+    [[ -S $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY ]] && return 0
+    sleep 0.1
+  done
+  echo "the sandbox display did not start; see $root/weston.log" >&2
+  return 1
+}
+
+stop_window() {
+  [[ -f $root/pid ]] || return 0
+  local pid
+  pid=$(cat "$root/pid")
+  if ours "$pid"; then
+    kill "$pid"
+    for _ in $(seq 50); do ours "$pid" || break; sleep 0.1; done
+  fi
+  rm -f "$root/pid"
+}
+
+start_window() {
+  start_display
+  mkdir -p "$HERDR_APP_HOME" "$root/bin"
+  # Opening a link would reach the real browser: log it instead.
+  for opener in xdg-open open; do
+    printf '#!/bin/sh\nprintf "%%s\\n" "$*" >>%q\n' "$root/opened" >"$root/bin/$opener"
+    chmod +x "$root/bin/$opener"
+  done
+  HERDR_APP_HOME=$HERDR_APP_HOME "$repo/install.sh" >/dev/null
+  # Skip the first-run welcome: it would cover every screenshot.
+  [[ -f $HERDR_APP_HOME/shared.json ]] || echo '{"frame.welcomed":"skipped","layout":"orbit"}' >"$HERDR_APP_HOME/shared.json"
+  local env=()
+  if [[ -n $x11 ]]; then make_home; env=(HOME="$root/userhome"); fi
+  env "${env[@]}" PATH="$root/bin:$PATH" setsid "$bin" >"$root/app.log" 2>&1 </dev/null &
+  echo $! >"$root/pid"
+  for _ in $(seq 100); do
+    "$bin" status >/dev/null 2>&1 && { echo "sandbox $name is up on ${WAYLAND_DISPLAY:-$DISPLAY} (home: $HERDR_APP_HOME)"; return 0; }
+    ours "$(cat "$root/pid")" || { cat "$root/app.log"; echo "sandbox $name died" >&2; return 1; }
+    sleep 0.2
+  done
+  echo "sandbox $name did not answer; see $root/app.log" >&2
+  return 1
+}
+
+case ${1:-} in
+  up | restart) stop_window; start_window ;;
+  down)
+    stop_window
+    hc server stop >/dev/null 2>&1 || true
+    if [[ -f $root/xpid ]]; then
+      xp=$(cat "$root/xpid")
+      kill "$xp" 2>/dev/null || true
+      for _ in $(seq 50); do kill -0 "$xp" 2>/dev/null || break; sleep 0.1; done
+    fi
+    rm -rf "$root"
+    echo "sandbox $name is gone"
+    ;;
+  do | status | ls | check | commands) exec "$bin" "$@" ;;
+  shot) exec "$bin" shot "${2:-$root/shot.png}" ;;
+  log) cat "$root/app.log" ;;
+  hc) shift; exec hc "$@" ;;
+  x)
+    [[ -n $x11 ]] || { echo "x needs SANDBOX_X11=1" >&2; exit 2; }
+    [[ $DISPLAY != ":0" && $DISPLAY != ":1" ]] || { echo "refusing display $DISPLAY" >&2; exit 2; }
+    shift; exec xdotool "$@" ;;
+  *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+esac

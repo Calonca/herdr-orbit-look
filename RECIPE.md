@@ -14,7 +14,7 @@ next to it are one build of it, for herdr-app 0.1.11.
 ## What you see
 
 Left to right, then the status bar along the bottom (the system draws the
-title bar: `"titlebar": "system"`). Theme `orbit` (Tokyo Night colours:
+title bar: `"titlebar": "system"`). Theme `tokyo-night` (Tokyo Night colours:
 background `#161622`, surface `#161622`, border `#414868`, foreground
 `#c0caf5`, muted `#9aa5ce`, accent `#7aa2f7`). Terminals in JetBrains Mono
 14px, padding `[18, 16]`, fully see-through (`terminal_opacity: 0`).
@@ -32,18 +32,18 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   `#7dcfff` cyan, `#9ece6a` green, `#e0af68` yellow, `#ff9e64` orange,
   `#f7768e` red) and one of 8 symbols (hexagon, triangle, square, circle, star,
   plus, cross, diamond, 16px SVGs, outlined and filled).
-- **Themes**: `orbit` above, and six variants with their own identity
+- **Themes**: `tokyo-night` above, and six others with their own identity
   colours (purple, cyan, green, yellow, orange, red), each known by its
   accent:
 
   | Theme | Accent | Identity colours |
   |---|---|---|
-  | `orbit-catppuccin-mocha` | `#89b4fa` | `#cba6f7 #89dceb #a6e3a1 #f9e2af #fab387 #f38ba8` |
-  | `orbit-everforest` | `#a7c080` | `#d699b6 #83c092 #a7c080 #dbbc7f #e69875 #e67e80` |
-  | `orbit-gruvbox-dark` | `#83a598` | `#d3869b #8ec07c #b8bb26 #fabd2f #fe8019 #fb4934` |
-  | `orbit-kanagawa` | `#7e9cd8` | `#957fb8 #7fb4ca #98bb6c #e6c384 #ffa066 #e82424` |
-  | `orbit-nord` | `#88c0d0` | `#b48ead #8fbcbb #a3be8c #ebcb8b #d08770 #bf616a` |
-  | `orbit-rose-pine` | `#c4a7e7` | `#c4a7e7 #9ccfd8 #31748f #f6c177 #ebbcba #eb6f92` |
+  | `catppuccin-mocha` | `#89b4fa` | `#cba6f7 #89dceb #a6e3a1 #f9e2af #fab387 #f38ba8` |
+  | `everforest` | `#a7c080` | `#d699b6 #83c092 #a7c080 #dbbc7f #e69875 #e67e80` |
+  | `gruvbox-dark` | `#83a598` | `#d3869b #8ec07c #b8bb26 #fabd2f #fe8019 #fb4934` |
+  | `kanagawa` | `#7e9cd8` | `#957fb8 #7fb4ca #98bb6c #e6c384 #ffa066 #e82424` |
+  | `nord` | `#88c0d0` | `#b48ead #8fbcbb #a3be8c #ebcb8b #d08770 #bf616a` |
+  | `rose-pine` | `#c4a7e7` | `#c4a7e7 #9ccfd8 #31748f #f6c177 #ebbcba #eb6f92` |
 
   Any other theme: its ANSI 5, 6, 2, 3, 11, 1.
 - **Sidebar**, 400px wide (44–560), glass, corners of radius 16:
@@ -81,12 +81,11 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
     from the border, then 60% of the way to its own grey (`#676579` for
     purple); else the border colour. The outline's sides go on past the tab
     line to that edge (a T).
-  - First the space: its symbol (13px, identity colour) and name (14px bold,
-    foreground, at most 220px), 18px in.
-  - Then the pane's tabs, 26px tall, 12px text, 10px padding: a 6px dot in
+  - The pane's tabs, 12px in (the space's symbol and name are the
+    taskbar's), 26px tall, 12px text, 10px padding: a 6px dot in
     the agent's state colour (an agent with no state: a 6px muted ring), the
     program's 12px icon (a view: the ⠿ mark), the name. Others are `#a9b1d6`,
-    lighter on hover. The right row has no space name, only its tabs.
+    lighter on hover.
   - After the tabs, `+ >_` and `+ ⠿` (12px, muted, 26px tall).
   - At the left row's right end, the split toggle: an 18×14 icon of two
     panes, the right one filled while the right pane shows.
@@ -98,9 +97,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   (herdr's files and changes to start with), framed like the panes, with a
   tab each in a row like theirs (an 11px ⠿ before each name), then `+ ⠿`.
 - **Dialogs and menus**, on the theme's surface at 95% with a 2px border and
-  the corner radius: the settings (700×470: a 104px label column, then
-  32px toggles, the chosen one in accent; "orbit settings" and "esc close"
-  at the foot), the close dialog (380×150: "close <name>?", "close" in red,
+  the corner radius: the close dialog (380×150: "close <name>?", "close" in red,
   "keep"), the switcher (560 wide: "projects · N", then a 42px row per space
   with its symbol, name, machine and state), the "make tab N" prompt
   (420×250: a name field and a command field), and menus (240 wide on the
@@ -108,14 +105,21 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - **Sidebar foot**: "menu" at the right of "open folder", with an accent dot
   while an update is ready.
 - **Status bar**, 40px, glass, corners of radius 16, 13px text, 14px in from each side:
-  - Left: the sidebar toggle (an 18px panel icon), "herdr offline" in red
-    while the core can't be reached, "N folded" (muted) for settled tabs, and
-    an accent "update ready · restart" pill.
-  - Right: cpu % with a sparkline (20 bars 2px wide, 14px tall, one a second),
-    ram %, disk % (each with a 14px icon; plain, yellow `#e0af68` from 70%,
-    red `#f7768e` from 90%), `?` in accent, three counts with a dot (to handle:
-    red, or muted at 0; in progress: yellow; done: green), the clock (HH:MM),
-    and the side panel toggle (the sidebar icon mirrored).
+  - Left: the sidebar toggle (an 18px panel icon), a 1px line 18px tall in
+    the border colour, the taskbar, then "herdr offline" in red while the core
+    can't be reached, "N folded" (muted) for settled tabs, and an accent
+    "update ready · restart" pill.
+  - The taskbar: cards 26px tall, 8px in, 4px apart, corners of 5, 12.5px
+    text; each the space's symbol (14px, as the sidebar's: the filled glyph in
+    its agents' state colour while one is blocked, working or done, none
+    otherwise; the outline glyph over it, muted, or on the shown space in the
+    space's colour, and the card a faint foreground band; look.js
+    `spaceSymbol` draws both) and its name (at
+    most 150px, cut short); a pinned card then an 11px pin (muted). Cards
+    past the bar's room are cut.
+  - Right: cpu, ram and disk, each a 14px icon and a bar 34×6 (corners of 3,
+    on the muted colour at 25%; blue `#7aa2f7`, yellow `#e0af68` from 70%, red
+    `#f7768e` from 90%); the clock (HH:MM).
 - **The gap**: the sidebar, the panes, the side panel and the status bar
   stand 14px apart and 14px from the window's edges; under the status bar,
   a 14px block (the `orbit` mod, which draws nothing).
@@ -142,14 +146,16 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 ## How it behaves
 
 - **Agent states**: blocked `#f7768e`, working `#e0af68`, done `#9ece6a`; idle
-  has no colour. They fill the space's symbol in the sidebar and colour a tab's
-  dot. The status bar counts blocked and done agents as "to handle", working
-  as "in progress", idle as "done"; clicking a non-zero count focuses its
-  first agent.
-- **Identity**: FNV-1a (32-bit) of the space's name as UTF-8 bytes; colour =
-  hash % 6, symbol = (hash >>> 9) % 8. A git worktree and the main checkout it
-  belongs to use their repo's common git dir instead of the name, so they
-  match. With another theme than `orbit`, the colours are its ANSI 5, 6, 2, 3,
+  has no colour. They fill the space's symbol in the sidebar and the taskbar and
+  colour a tab's dot.
+- **Identity**: FNV-1a (32-bit) of a name as UTF-8 bytes; colour =
+  hash % 6, symbol = (hash >>> 9) % 8. The name hashed is the space's
+  repository's, the same on every machine and for each worktree
+  (`mods/orbit/repokey.js`): its `remote.origin.url`'s last part (the URL
+  normalised: no scheme, user, port or `.git`, `host:path` as `host/path`),
+  else its main checkout's folder (`git rev-parse --git-common-dir`'s
+  parent); a space outside a repo hashes its own name. Each space's repo is
+  looked up once, on its machine, and kept in shared `"orbit.git"`. match. With another theme than these seven, the colours are its ANSI 5, 6, 2, 3,
   11 and 1.
 - **The pane with the keys**: clicking into the side panel moves the coloured
   outline (and the bright lines of its tab row) there; clicking a terminal, a
@@ -190,13 +196,25 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   right pane (its tabs, or the picker when it has none) or puts it away
   without ending anything. An agent shown from herdr's agents list or an
   alert that lives on the right shows there.
-- **Side panel**: the status bar's right-most button opens it (on what it
+- **Each space's split**: the left and right panes' sizes and the side
+  panel's width are the shown space's own. A drag in one space is kept for it
+  (shared `"orbit.splits"`: `{ default, spaces: { [space id]: { "left-frame",
+  "right-frame": weight, panel: px } } }`); a space switch gives the new
+  space's back with `layout.resize` (herdr's clicks, as a drag: the layout
+  file isn't written, nothing restarts). A space without one, and a new
+  space, gets `default`: the sizes when the first space kept its own. A
+  closed space's go.
+- **Side panel**: the `orbit.side-panel` command opens it (on what it
   showed, else its first view) and closes it; `+ ⠿` picks a view (files,
   changes, agents), which becomes a tab; right-click a view's tab: Rename,
   Close, Hide the panel; middle-click `+ ⠿` hides the panel. Dragged narrower
   than 140px it closes and opens again at 280px; between 140 and 280 it
   springs back to 280px.
-- **Settings** (`ctrl-,`, or "settings" in the picker): each click applies at
+- **Orbit look settings**, a view in the right pane (a tab "Orbit look
+  settings"; a 104px label column, then 32px toggles, the chosen one in
+  accent; its title at the foot), opened by `ctrl-,` (which shows it again
+  when the space has it already) or "Orbit look settings" in the picker (in
+  that pane). Each click applies at
   once: the theme (herdr-app's `app.theme`, any window), density, corners,
   gap, tab rows. "background…" opens a file dialog (KDE's `kdialog`, else
   GNOME's `zenity`; from a toolbox or flatpak the host's through
@@ -221,13 +239,34 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   `ctrl-,` the settings.
 - **The pane with the keys** follows clicks and herdr's focus; each space
   remembers its own, and a pane that's put away gives the keys to the left.
-- **Status bar**: the left button toggles the sidebar; hovering cpu, ram or
-  disk shows details (load and each core; used, available and swap; the
-  filesystem's sizes); `?` opens herdr's shortcuts.
+- **Status bar**: the left button toggles the sidebar. A click on cpu, ram or
+  disk opens a popup 300px wide above it, its left edge at the widget's (kept
+  in the window): the details, live (load and each core as a bar; used,
+  available and swap; the filesystem's sizes). The widget keeps its hover
+  band and no tooltip while it's open; a second click, Esc or a click beside
+  closes it. Its "open in pane ⇥" opens the same view in the right pane and
+  closes the popup. Any popup the bar opens gets `props.pin` (its title),
+  `props.pinCommand` (`orbit.new-mod <args as JSON>`, opening the same mod in
+  the right pane) and `props.height`. herdr-app takes a popup's `at` in
+  window pixels but zooms its width and height, so the bar places it at the
+  element's own (unzoomed) position, minus the zoomed height. The cpu popup is
+  as tall as its cores need (three columns, 22px a row), cut to the room
+  above the bar (then the cores scroll). The popup says when it opens and
+  closes (shared `"orbit.popup"`), and the bar decides at the press whether
+  its popup was open, so a second click closes it even when the press itself
+  dismissed it.
+- **Taskbar**: the cards in order: pinned (pin order), the shown space,
+  spaces whose agents are done or blocked, then working, each group by the
+  last change in its tabs, newest first; an unpinned space with only idle
+  agents isn't there. Click shows the space (the card keeps its size).
+  Right-click: a one-item menu above the card, Pin or Unpin
+  (`"orbit.pinned"`). Drag a card onto another: it takes that card's place
+  and is pinned; dropped past the pinned cards it ends them. A 2px accent bar
+  shows where it lands.
 
 ## Built from
 
-- **Layout** `layouts/orbit.json`, a root column (`theme: "orbit"`,
+- **Layout** `layouts/orbit.json`, a root column (`theme: "tokyo-night"`,
   `font: "JetBrains Mono"`, `font_size: 14`, the background, `terminal_padding`,
   `terminal_opacity: 0`, `preview: "layouts/orbit.svg"`):
   - `body`, a row:
@@ -279,16 +318,16 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   - `defaults/orbit-windows.json`: `{ "windows": [] }`.
   - `orbit-dialogs`, opened with `props.dialog`: `menu` (derived from
     herdr-app's `menu` mod; icons from herdr's shipped `workspace-chrome`),
-    `confirm`, `switcher`, `new-tab`, `settings` (each change asked of the
-    `orbit` mod as `run("orbit.settings <JSON>")`; `orbit.settings` alone
-    opens it).
+    `confirm`, `switcher`, `new-tab`, `settings` (in a pane: the orbit mod's
+    new-mod; each change asked of the `orbit` mod as
+    `run("orbit.settings <JSON>")`; `orbit.settings` alone opens it).
   - `orbit-spaces`: a restyled clone of herdr-app's `spaces` mod.
   - `orbit-tabs`: the panes' rows (`pane.js`, `props.stack` `left` /
     `right`) and the side panel's (`panel.js`, `props.stack: "panel-body"`).
   - `orbit-sidebar-footer`, `orbit-status`, `orbit-edge` (the cap with
     `props.pane`, rounded at its top, or its bottom with the rows on top;
     with no props it draws nothing).
-  - `themes/orbit-*.json`: the six variants, the same keys as `orbit.json`.
+  - `themes/*.json`: the six others, the same keys as `tokyo-night.json`.
   - The settings in shared `"orbit.settings"`: `{ density, rounding, gap,
     tabs, background, views }` (`null`: the density's). The `orbit` mod's
     `layout.js` writes them into the layout (root `background`,
@@ -299,7 +338,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   - Only in `orbit`: `actions.js` (show, new, close, move, split, rename,
     reorder, the panel toggle), `layout.js` (the layout writer, the panel's
     views in shared `"orbit.settings".views`, the look and the tab rows'
-    places it shares) and `identity.js` (each space's colour and symbol, the
+    places it shares), `split.js` (each space's split, shared
+    `"orbit.splits"`) and `identity.js` (each space's colour and symbol, the
     repo lookup: shared `"orbit.git"`). The orbit mod works these out once
     and shares them: `"orbit.identity"` (`{ [space id]: { color, glyph } }`),
     `"orbit.look"` (the sizes and the background picture), `"orbit.places"`
@@ -343,9 +383,14 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 
 ## Watch out
 
-- **Copy `themes/` too.** The layout names the theme `orbit`; without
-  `themes/orbit.json` herdr-app doesn't apply the layout at all ("theme
-  "orbit" is not one of graphite, ink, moss, paper").
+- **Copy `themes/` too.** The layout names the theme `tokyo-night`; without
+  `themes/tokyo-night.json` herdr-app doesn't apply the layout at all ("theme
+  "tokyo-night" is not one of graphite, ink, moss, paper").
+- **A layout's own theme changing** (the themes were `orbit`, `orbit-*`)
+  makes herdr-app drop that layout's theme pick, and its saved clicks too
+  unless `layouts/.state/<layout>.json` names the new theme already.
+  `install.sh` renames them there first and picks the theme again after; the
+  `orbit` mod picks it again when the saved clicks still name an old one.
 - The `orbit` mod rewrites `layouts/orbit.json` (glass and outline colours):
   edit those there and they come back. It must be in the layout for the
   outline to follow the space.
@@ -371,10 +416,10 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   in `look.js` (`GENERATED`). A picture of the person's has no blurred copy:
   the glass over it is the plain fill (`backdrop()` falls back, with the
   same square and round corners).
-- The layout's root says `"theme": "orbit"`, but herdr-app's `app.theme`
+- The layout's root says `"theme": "tokyo-night"`, but herdr-app's `app.theme`
   wins: the settings' theme buttons and herdr's own settings both work, and
   the space colours follow the theme's accent. A theme opened while a dialog
-  is open takes the keys: the settings dialog takes them back (Esc).
+  is open takes the keys: the settings view takes them back.
 - The background's file dialog runs on the person's desktop (from a
   toolbox, the host's through `flatpak-spawn --host`), apart from herdr-app
   (its `exec` stops a command after 30 s): the dialog writes its answer to a
@@ -406,11 +451,11 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - **Updating**: copies don't update themselves, and the add flow never
   overwrites (it would make `orbit-2`). To update, remove `layouts/orbit.json`,
   `layouts/orbit.svg`, `mods/orbit`, every `mods/orbit-*` (an older copy may
-  have more of them: `orbit-panel-tabs`, `orbit-nothing`: all go) and
-  `themes/orbit*.json`, then copy the new ones in, and replace the
+  have more of them: `orbit-panel-tabs`, `orbit-nothing`: all go), the
+  old `themes/orbit*.json` and the files in `themes/`, then copy the new ones in, and replace the
   `layout:orbit` section of `keys.json` with the new one; leave the person's
   other files and keys alone, the settings in `shared.json` and the
-  pictures in `backgrounds/`. This build is version 3 (`VERSION` in
+  pictures in `backgrounds/`. This build is version 4 (`VERSION` in
   `mods/orbit/main.js`, shared `"orbit.version"`).
 
 ## Done when
@@ -425,8 +470,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - The tab row's line is open under the shown tab, whose sides curve out of
   it; the row's edge below is muted, with rounded corners.
 - An agent reporting working, blocked or done fills its space's symbol and
-  its tab's dot yellow, red or green, and the status bar's counts change.
-- The status bar's right button opens the side panel with files and changes;
+  its tab's dot yellow, red or green, and its taskbar card appears.
+- `orbit.side-panel` opens the side panel with files and changes;
   clicking in it moves the coloured outline there, clicking the terminal moves
   it back.
 - cpu, ram and disk update every second (disk every 30 s) and turn yellow and
@@ -446,7 +491,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - An entry added to `orbit-windows.json` shows in the picker the next time it
   opens, and opens in that pane; "configure windows…" copies the prompt and
   shows the toast.
-- `ctrl-,` opens the settings. "top" puts every tab row on top, the shown
+- `ctrl-,` opens Orbit look settings in the right pane. "top" puts every tab row on top, the shown
   tab open downwards; gap "none" joins the sidebar, panes, panel and status
   bar with square corners, their glass still lined up with the picture; "compact" makes the rows and bar smaller; each applies at once
   and stays after a restart.
