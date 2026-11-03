@@ -7,9 +7,9 @@ This is an unofficial layout. It is not affiliated with or endorsed by Herdr.
 It uses only what herdr-app offers to everyone (a layout, mods and a theme)
 and doesn't change the app. Made for herdr-app 0.1.11.
 
-**Version 3**. See [Updating](#updating).
+**Version 4**. See [Updating](#updating).
 
-![Orbit: the sidebar, two panes, the picker open in the right one](preview.png)
+![Orbit: the sidebar, two panes with the picker open in the right one, the taskbar with a pinned space](preview.png)
 
 ## Add it
 
@@ -71,6 +71,15 @@ The themes were called `orbit` and `orbit-*` before; they're named by their
 palettes now (`orbit` is `tokyo-night`). `./install.sh` picks your theme
 again under its new name, so the colours stay; by hand, pick it again in the
 look settings.
+
+Version 4 adds the taskbar to the status bar (a card for each pinned, shown,
+waiting or working space; right-click to pin, drag to move), cpu, ram and
+disk as bars that open a popup, the look settings in the right pane (`ctrl-,`)
+and a split for each space (the panes' sizes and the side panel's width). The
+status bar's side panel button, `?` and agent counts are gone: the
+`orbit.side-panel` command opens the side panel. The themes are renamed (see
+above). A space's colour and symbol now come from its repository, so some
+spaces change theirs once.
 
 Version 3 adds the settings, the six themes and the `ctrl-,` key. Its
 corners and gap start on "auto", the density's (16 and 14 at comfortable):

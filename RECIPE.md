@@ -455,7 +455,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   old `themes/orbit*.json` and the files in `themes/`, then copy the new ones in, and replace the
   `layout:orbit` section of `keys.json` with the new one; leave the person's
   other files and keys alone, the settings in `shared.json` and the
-  pictures in `backgrounds/`. This build is version 3 (`VERSION` in
+  pictures in `backgrounds/`. This build is version 4 (`VERSION` in
   `mods/orbit/main.js`, shared `"orbit.version"`).
 
 ## Done when

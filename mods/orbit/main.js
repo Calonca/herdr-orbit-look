@@ -51,7 +51,7 @@ export async function openSettings(cx) {
 
 // This build's version, also in shared "orbit.version" (shared.json in
 // herdr-app's home), so you can see which one you have.
-export const VERSION = 3;
+export const VERSION = 4;
 
 const RECENT = "orbit.recent";
 
