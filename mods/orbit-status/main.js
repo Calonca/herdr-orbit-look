@@ -31,7 +31,6 @@ import { order, drop, landing } from "./taskbar.js";
 const ICONS = "mods/orbit-status/icons";
 const PINNED = "orbit.pinned";
 
-// The popups the widgets open: orbit-dialogs' "stat", this size.
 // The popups the widgets open: orbit-dialogs' "stat", this size (its rows
 // have fixed heights, stat.js).
 const POPUPS = {

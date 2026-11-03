@@ -287,7 +287,6 @@ export default class Spaces extends View {
     const stub = last ? DOT_X + 4 : DOT_X;
     const symbol = div().absolute().left(dotX - r / 2).top((nested ? h : LINE) / 2 - r / 2).size(r)
       .child(spaceSymbol(w, r, on ? (t.idle ?? t.foreground) : t.muted, "sidebar"));
-    const ident = color.slice(0, 7);
     if (on) { probeColor("sidebar-band", accentBand(color)); probeColor("sidebar-text", t.foreground); probeColor("space", color); }
     return div()
       .relative()

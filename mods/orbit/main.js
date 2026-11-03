@@ -44,7 +44,7 @@ export async function openSettings(cx) {
   const space = spaces().find((s) => s.active);
   if (!space) return;
   const had = state().mods.find((m) => m.space === space.id && m.mod === "orbit-dialogs" && m.props?.dialog === "settings");
-  if (had) { save({ focus: "right" }); showRight(space, had.id); return; }
+  if (had) { showRight(space, had.id); return; }
   await newMod(cx, space, "right", SETTINGS_TITLE, "orbit-dialogs", { dialog: "settings" });
 }
 

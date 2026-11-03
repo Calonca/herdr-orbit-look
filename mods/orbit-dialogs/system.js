@@ -8,9 +8,6 @@
 
 import { readTextFile, exec, home, shared } from "herdr";
 
-// Samples kept for cpu's sparkline, one a second.
-export const HISTORY = 20;
-
 // `17G`, `7.1G`, `512M`: binary units, one decimal under 10.
 export function bytes(n) {
   const units = ["B", "K", "M", "G", "T", "P"];
@@ -31,7 +28,6 @@ export class System {
     this.cpu = null; // 0..1
     this.cores = []; // 0..1 each
     this.load = null; // [1, 5, 15 min]
-    this.history = []; // the last HISTORY cpu samples
     this.mem = null; // { used, total, available, swapUsed, swapTotal }
     this.disk = null; // { used, free, total, path }
     this.prev = null; // last /proc/stat totals: [{ idle, total }], all cpus then each core
@@ -57,10 +53,7 @@ export class System {
         const use = (n, p) => (p && n.total > p.total ? 1 - (n.idle - p.idle) / (n.total - p.total) : null);
         if (this.prev && now.length) {
           const all = use(now[0], this.prev[0]);
-          if (all !== null) {
-            this.cpu = all;
-            this.history = [...this.history, all].slice(-HISTORY);
-          }
+          if (all !== null) this.cpu = all;
           this.cores = now.slice(1).map((c, i) => use(c, this.prev[i + 1]) ?? 0);
           // tools/regress.py: a machine with this many cores (the rest idle).
           const fake = shared("orbit.probe") === true ? shared("orbit.probe.cores") : null;
@@ -94,8 +87,7 @@ export class System {
     });
   }
 
-  // How full each is, 0..1, or null while unknown.
-  ram() { return this.mem ? this.mem.used / this.mem.total : null; }
+  // How full the disk is, 0..1, or null while unknown.
   full() {
     const d = this.disk, room = d ? d.used + d.free : 0;
     return room ? d.used / room : null;
