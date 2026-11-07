@@ -458,6 +458,49 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   pictures in `backgrounds/`. This build is version 4 (`VERSION` in
   `mods/orbit/main.js`, shared `"orbit.version"`).
 
+## Offer WASM Mods
+
+Orbit is whole without this. Once Orbit works ("Done when" below), ask the
+person once, in these words, and wait for the answer:
+
+> Orbit is working. Do you also want a diff and a git graph in the "new
+> window" list, plus WASM Mods, the system they run on? It lets you write mods
+> in Rust. It's an early, experimental add-on.
+
+On no, nothing changes: no files, no entries, and don't ask again. On yes:
+
+1. If `mods/wasm-mods`, `mods/wasm-diff` or `mods/wasm-git-graph` is already in
+   herdr-app's home, it would be replaced: ask before going on.
+2. Download the latest release and put its mods in herdr-app's home. It needs
+   curl and tar, not Rust. The release's `wasm-todo` isn't part of this:
+
+   ```sh
+   url=$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/Calonca/herdr-wasm-mods/releases/latest)
+   tag=${url##*/}
+   home=${HERDR_APP_HOME:-$HOME/.config/herdr-app}
+   curl -fsSL "https://github.com/Calonca/herdr-wasm-mods/releases/download/$tag/wasm-mods-${tag#v}.tar.gz" \
+     | tar xz -C "$home/mods" ./wasm-mods ./wasm-diff ./wasm-git-graph
+   ```
+
+3. Check each: `herdr-app check "$home/mods/wasm-mods"`, and the same for
+   `wasm-diff` and `wasm-git-graph`.
+4. Add these to `"windows"` in `orbit-windows.json`, after what's there. Keep
+   every entry of the person's and skip one whose title is taken. If the file
+   is broken, tell the person and leave it alone.
+
+   ```json
+   { "title": "diff", "about": "what changed: uncommitted, unpushed, the branch, a commit", "mod": "wasm-diff" },
+   { "title": "git graph", "about": "the repo's history as a commit graph; opens a commit's diff", "mod": "wasm-git-graph" },
+   { "title": "WASM Mods", "about": "every WASM mod and what it may do: allow, deny, turn off, remove", "command": "mod.open", "args": { "name": "wasm-mods" } }
+   ```
+
+5. Tell the person they're in the list. The first one opened offers to install
+   the WASM Mods host: nothing is fetched until they click Download, which
+   checks it against the SHA-256 in the mod. Then each asks for its permissions
+   the first time, and only they can answer, in the mod's own pane. To write
+   mods in Rust: "Write your own module" in the README of
+   https://github.com/Calonca/herdr-wasm-mods.
+
 ## Done when
 
 - `herdr-app check` passes for each of the 8 mods, and after
@@ -491,6 +534,9 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - An entry added to `orbit-windows.json` shows in the picker the next time it
   opens, and opens in that pane; "configure windows…" copies the prompt and
   shows the toast.
+- If the person said yes to WASM Mods: "diff", "git graph" and "WASM Mods"
+  show in the picker after their own entries, and each opens; if no, nothing
+  of it is installed and `orbit-windows.json` is as it was.
 - `ctrl-,` opens Orbit look settings in the right pane. "top" puts every tab row on top, the shown
   tab open downwards; gap "none" joins the sidebar, panes, panel and status
   bar with square corners, their glass still lined up with the picture; "compact" makes the rows and bar smaller; each applies at once
