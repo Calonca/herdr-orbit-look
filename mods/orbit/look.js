@@ -15,7 +15,7 @@
 // other mods ask it, through a command.
 
 import { div, svg } from "gpui-kit";
-import { theme, shared, setShared, run } from "herdr";
+import { theme, shared, setShared, run, spaces } from "herdr";
 
 // The width of a pane's outline and of the lines in its tab row.
 export const LINE = 2;
@@ -42,9 +42,15 @@ export function glass(t = theme()) {
 }
 
 // Which pane has the keys: "left", "right" or "panel" (shared "orbit.sides").
-// Its outline and its tab row's lines take the shown space's colour.
+// Its outline and its tab row's lines take the shown space's colour. Right
+// after a space switch, before the orbit mod has given that space its keys
+// back, it's the pane that space had them in: so the outline moves with the
+// space's colour, in the same frame.
 export function keysIn() {
-  const f = shared("orbit.sides")?.focus;
+  const st = shared("orbit.sides");
+  let f = st?.focus;
+  const space = spaces().find((s) => s.active);
+  if (st?.keysSpace && space && st.keysSpace !== space.id) f = st.keysBy?.[space.id];
   return f === "right" || f === "panel" ? f : "left";
 }
 

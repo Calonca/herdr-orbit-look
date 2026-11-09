@@ -22,6 +22,9 @@
 //   focus:   "left" | "right" | "panel"  the pane with the keys (its outline
 //                                        and row's lines in the space's colour)
 //   keysBy:  { [space id]: focus }       each space's, given back on return
+//   keysSpace: space id                  the space `focus` was saved for (a
+//                                        switch away: look.js keysIn reads
+//                                        keysBy until it's given back)
 //   folded:  { [space id]: true }        the split put away (the right pane
 //                                        hidden though it has entries)
 //   names:   { [child id]: name }        a right terminal's name, as renamed

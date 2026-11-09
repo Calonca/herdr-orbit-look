@@ -278,9 +278,9 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
       (86px, `orbit-sidebar-footer`).
     - `work`, a row of three frames. Each frame is a column: `<x>-cap` (18px,
       `orbit-edge` with `props.pane`), `<x>-mid` (a row, `resizable: false`,
-      `divider` 2px in the outline colour, holding a zero-wide `orbit-edge`
-      block with no props (draws nothing), the content, another zero-wide block: the divider draws the
-      outline's sides), `<x>-tabs` (64px, the tab row mod).
+      no divider: a 2px `orbit-edge` block with `props: { pane, side: true }`
+      (one of the outline's sides), the content, another such block),
+      `<x>-tabs` (64px, the tab row mod).
       - `left-frame` (min 240): content the stack `left` with the block
         `left-tab` (`{ "tab": "active" }`, pane frame gap 0, radius 0,
         transparent, no border) and `left-pick` (`orbit-add`,
@@ -300,13 +300,14 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
   padding `[14, 0]` are the gap; the `orbit` mod writes these sizes from the
   settings.
 - **Mods** (all `place: "none"`):
-  - `orbit`: keeps the layout file in step. On start, when `layouts/` changes,
-    when the theme or the shown space changes and when the keys move, it
-    writes into `layouts/orbit.json` the glass colour (`surface` + `9e`) on
-    `sidebar`, `left`, `right` and `panel-body`, the `left-mid` / `right-mid`
-    / `panel-mid` divider colours (the space's identity on the pane with the
-    keys, the border on the others), the right pane's children and the
-    panel's views. Every 250 ms it keeps the panes in step (the shown space's
+  - `orbit`: keeps the layout file in step. On start, when `layouts/` changes
+    and when the theme changes, it writes into `layouts/orbit.json` the glass
+    colour (`surface` + `9e`) on `sidebar`, `left`, `right` and `panel-body`,
+    the side blocks of `left-mid` / `right-mid` / `panel-mid`, the right
+    pane's children and the panel's views. The outline's colour isn't in the
+    file: `orbit-edge` and the tab rows draw it from shared `"orbit.sides"`
+    and `"orbit.identity"`, so a keys move or a space switch recolours the
+    whole outline in one frame, with no file write. Every 250 ms it keeps the panes in step (the shown space's
     right pane shown or hidden, its pick selected, the pane with the keys). It
     takes the keys' commands (`nextCommand`) and keeps the recent spaces
     (shared `"orbit.recent"`). It is the only writer of the layout file,
@@ -403,7 +404,9 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
   means changing those paths in every copy.
 - herdr-app clips a pane's content inside its frame and has one focus colour
   per layout, so the outline isn't a pane frame: it's the cap block, the
-  middle row's divider around zero-wide blocks, and the tab row. The tab
+  middle row's two side blocks, and the tab row, all mods reading the same
+  shared state (a layout divider's colour would need a file write, landing
+  later than the mods). The tab
   block's own pane frame stays invisible.
 - herdr has no backdrop blur: each glass block draws the blurred picture as
   its bottom layer, placed with the root's cover maths from the window size

@@ -1,7 +1,7 @@
 // What the orbit mod writes into layouts/orbit.json: the look settings
 // (density, corners, gap, the tab rows on top or at the bottom, the
-// background picture), the theme's glass, the outline colours (the pane with
-// the keys in the shown space's colour), the right pane's children and the
+// background picture), the theme's glass, the outline's side blocks (their
+// colour is orbit-edge's, from shared state), the right pane's children and the
 // side panel's views. Only the orbit mod has
 // this file: the other mods ask it for a change (look.js ask).
 //
@@ -13,8 +13,7 @@
 
 import { shared, setShared, theme, appHome, readTextFile, writeTextFile, layout, run, panes, spaces, settings as appSettings } from "herdr";
 import { state as sidesState, termChild, PICK } from "./sides.js";
-import { identity, spaceKey } from "./identity.js";
-import { glass, keysIn, find, LINE, PANEL_DRAG_MIN, GENERATED } from "./look.js";
+import { glass, find, LINE, PANEL_DRAG_MIN, GENERATED } from "./look.js";
 
 export const LAYOUT = "orbit";
 export const KEY = "orbit.settings";
@@ -52,7 +51,7 @@ export function viewId(v) {
   return `panel-v${h.toString(36)}`;
 }
 
-// The layout with the theme's glass, the outline colours, the right pane's
+// The layout with the theme's glass, the outline's sides, the right pane's
 // children and the panel's views in it. A layout can't give a theme colour an
 // alpha, so colours are written as hex. What this writes is left out of the
 // look's hash (update.py layout_digest): keep the two in step.
@@ -90,10 +89,7 @@ export function shape(root, s, colors) {
     row.size = { px: L.header + radius + LINE };
     frame.children = [...(top ? [row, mid, cap] : [cap, mid, row]), ...kids.filter((c) => c !== cap && c !== mid && c !== row)];
   }
-  const edge = colors.border.slice(0, 7);
   const space = spaces().find((x) => x.active);
-  const ring = (space ? identity(spaceKey(space)) : colors.accent).slice(0, 7);
-  const keys = keysIn();
   const sidebar = find(root, "sidebar");
   if (sidebar) {
     sidebar.background = glassy;
@@ -102,11 +98,21 @@ export function shape(root, s, colors) {
   }
   const sidePanel = find(root, "panel");
   if (sidePanel) sidePanel.min = PANEL_DRAG_MIN;
-  for (const [stack, mid, side] of [["left", "left-mid", "left"], ["right", "right-mid", "right"], ["panel-body", "panel-mid", "panel"]]) {
+  // The outline's sides: a line-wide orbit-edge on each side of the content,
+  // in its colour from shared state like the cap and the tab row (no
+  // divider: its colour would need this file written on every keys move).
+  for (const [stack, pane] of [["left", "left"], ["right", "right"], ["panel-body", "panel"]]) {
     const st = find(root, stack);
     if (st) st.background = glassy;
-    const m = find(root, mid);
-    if (m) m.divider = { width: LINE, color: keys === side ? ring : edge };
+    const m = find(root, `${pane}-mid`);
+    if (!m) continue;
+    delete m.divider;
+    for (const c of m.children ?? []) {
+      if (c.id.endsWith("-s1") || c.id.endsWith("-s2")) {
+        c.size = { px: LINE };
+        c.content = { mod: "orbit-edge", props: { pane, side: true } };
+      }
+    }
   }
   // The right pane: every space's terminals and mods, the shown space's pick
   // shown (written with its children: a select sent before the window has
@@ -250,8 +256,8 @@ export function share() {
 // out: each row/column's padding and gap, its shown children's px sizes and
 // weights (shares of what px siblings leave), min/max, every length zoomed
 // and rounded to whole pixels. null without a viewport or that block. Rows
-// and columns with a divider (a pane's middle) aren't walked into: the tab
-// rows (`<pane>-tabs`) are found without.
+// and columns with a divider aren't walked into: the tab rows
+// (`<pane>-tabs`) are found without.
 export function blockPlace(L, id) {
   const view = viewport();
   if (!view || !L) return null;

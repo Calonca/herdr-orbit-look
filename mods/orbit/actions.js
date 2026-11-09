@@ -8,8 +8,11 @@ import { apply } from "./layout.js";
 import { find } from "./look.js";
 import { state, leftTabs, rightEntries, entries, isSplit, entryLabel, movable, termChild, inLayout, LEFT_TAB, PICK, FRAME, frameOf } from "./sides.js";
 
+// A change of the keys' pane notes the space it's for (keysSpace: look.js
+// keysIn).
 export function save(change) {
-  setShared("orbit.sides", { ...state(), ...change });
+  const space = "focus" in change ? spaces().find((s) => s.active) : null;
+  setShared("orbit.sides", { ...state(), ...change, ...(space ? { keysSpace: space.id } : {}) });
 }
 
 // A mod's child id in the right pane.
