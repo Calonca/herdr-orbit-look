@@ -18,7 +18,8 @@ title bar: `"titlebar": "system"`). Theme `tokyo-night` (Tokyo Night colours:
 background `#161622`, surface `#161622`, border `#414868`, foreground
 `#c0caf5`, muted `#9aa5ce`, accent `#7aa2f7`). Terminals in herdr-app's
 font and size (the layout names none: settings.json's, else JetBrains Mono
-14px), padding `[18, 16]`, fully see-through (`terminal_opacity: 0`).
+14px), padding `[8, 6]` (horizontal, vertical), fully see-through
+(`terminal_opacity: 0`).
 
 - **Background**: `mods/orbit/backgrounds/space.png` (2560×1600) behind the
   whole window, `fit: "cover"`: a night sky with a pale Milky-Way band across
@@ -130,9 +131,9 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
 
   | | corners | gap | tab row text | status bar | terminal padding | sidebar foot | sidebar scale |
   |---|---|---|---|---|---|---|---|
-  | compact | 4 | 6 | 30 | 28 | `[8, 6]` | 67 | 0.9/1.15 |
-  | default | 12 | 10 | 38 | 34 | `[14, 12]` | 75 | 1/1.15 |
-  | comfortable | 16 | 14 | 46 | 40 | `[18, 16]` | 86 | 1 |
+  | compact | 4 | 6 | 30 | 28 | `[2, 2]` | 67 | 0.9/1.15 |
+  | default | 12 | 10 | 38 | 34 | `[4, 4]` | 75 | 1/1.15 |
+  | comfortable | 16 | 14 | 46 | 40 | `[8, 6]` | 86 | 1 |
 
   Corners (auto: the density's, or 0, 4, 8, 12) round the pane outlines,
   their tab rows and, with a gap, the sidebar and status bar. The gap (auto,
