@@ -107,8 +107,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 - **Status bar**, 40px, glass, corners of radius 16, 13px text, 14px in from each side:
   - Left: the sidebar toggle (an 18px panel icon), a 1px line 18px tall in
     the border colour, the taskbar, then "herdr offline" in red while the core
-    can't be reached, "N folded" (muted) for settled tabs, and an accent
-    "update ready · restart" pill.
+    can't be reached and "N folded" (muted) for settled tabs. (No update
+    pill: Herdr shows its own update notice.)
   - The taskbar: cards 26px tall, 8px in, 4px apart, corners of 5, 12.5px
     text; each the space's symbol (14px, as the sidebar's: the filled glyph in
     its agents' state colour while one is blocked, working or done, none
@@ -448,15 +448,22 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   into herdr-app's home only when there's none, and never replace it (on an
   update too). Its entries run what they name (a mod, a herdr-app command):
   tell the person, and add entries only when they ask.
-- **Updating**: copies don't update themselves, and the add flow never
-  overwrites (it would make `orbit-2`). To update, remove `layouts/orbit.json`,
+- **Updating**: the add flow never overwrites (it would make `orbit-2`). The
+  look updates itself from its card's "update" button (`mods/orbit/update.py`),
+  only when its files hash to what `mods/orbit/VERSION` records. To update by
+  hand, remove `layouts/orbit.json`,
   `layouts/orbit.svg`, `mods/orbit`, every `mods/orbit-*` (an older copy may
   have more of them: `orbit-panel-tabs`, `orbit-nothing`: all go), the
   old `themes/orbit*.json` and the files in `themes/`, then copy the new ones in, and replace the
   `layout:orbit` section of `keys.json` with the new one; leave the person's
   other files and keys alone, the settings in `shared.json` and the
-  pictures in `backgrounds/`. This build is version 4 (`VERSION` in
-  `mods/orbit/main.js`, shared `"orbit.version"`).
+  pictures in `backgrounds/`. Copy `mods/orbit/VERSION` as it is: a copy
+  someone changed afterwards (keeping their own edits) no longer matches it,
+  and the card then offers a prompt instead of replacing it. This build is
+  version 0.5.0 (`mods/orbit/VERSION`'s first line, shared `"orbit.version"`).
+- **Update notices**: ask the person once whether the look should check for
+  its own updates and show their card, and run `./install.sh --updates on`
+  or `off` with the answer (by hand: "update notices" in the look settings).
 
 ## Offer WASM Mods
 
