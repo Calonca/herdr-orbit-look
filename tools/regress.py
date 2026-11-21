@@ -767,6 +767,9 @@ def installed_ok():
 
 
 FAKE = FakeGitHub()
+# update.py downloads only this repo's archives on GitHub; the fake's address
+# is allowed by its test switch (the sandbox's herdr-app passes it on).
+ENV["HERDR_ORBIT_UPDATE_TEST_ARCHIVE"] = FAKE.url.split("/repos/")[0] + "/archive/"
 INSTALLED = open(f"{REPO}/mods/orbit/VERSION").read().split("\n")[0].strip()
 MAJOR, MINOR, PATCH = (int(v) for v in INSTALLED.split("."))
 

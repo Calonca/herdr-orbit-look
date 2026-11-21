@@ -209,6 +209,10 @@ class Replace(Base):
         U.atomic_write(f"{self.release}/{U.VERSION}", U.version_text("0.6.0", U.tree_items(self.release), self.release))
         self.url = self.archive(self.release)
         self.before = snapshot(self.home)
+        # The fake release (a file here) is allowed by the test switch only.
+        env = mock.patch.dict(os.environ, {U.TEST_ARCHIVE: f"file://{self.tmp}/"})
+        env.start()
+        self.addCleanup(env.stop)
 
     def apply(self, url=None, tag="v0.6.0"):
         return U.run(self.home, "apply", lambda: U.apply(self.home, url or self.url, tag), tag)
@@ -338,6 +342,69 @@ class Replace(Base):
             out = self.apply()
         self.assertEqual(out.get("error"), "failed", out)
         self.unchanged()
+
+    def test_refused_addresses(self):
+        good = ["https://api.github.com/repos/Calonca/herdr-orbit-look/tarball/v0.6.0",
+                "https://codeload.github.com/Calonca/herdr-orbit-look/legacy.tar.gz/refs/tags/v0.6.0"]
+        bad = ["https://evil.example/herdr-orbit-look.tar.gz",
+               "http://api.github.com/repos/Calonca/herdr-orbit-look/tarball/v0.6.0",
+               "https://api.github.com/repos/Someone/other/tarball/v0.6.0",
+               "https://api.github.com/repos/Calonca/herdr-orbit-look/../../Someone/other/tarball/v1",
+               "https://api.github.com/repos/Calonca/herdr-orbit-look/tarball/%2e%2e/x",
+               "https://api.github.com@evil.example/repos/Calonca/herdr-orbit-look/tarball/v0.6.0",
+               "https://api.github.com:8443/repos/Calonca/herdr-orbit-look/tarball/v0.6.0",
+               "https://github.com/Calonca/herdr-orbit-look/archive/v0.6.0.tar.gz",
+               self.url]
+        with mock.patch.dict(os.environ, {U.TEST_ARCHIVE: ""}):
+            self.assertEqual([u for u in good if not U.allowed(u)], [])
+            with mock.patch.object(U.urllib.request, "build_opener", side_effect=AssertionError("asked")):
+                for url in bad:
+                    with self.subTest(url):
+                        self.assertFalse(U.allowed(url))
+                        out = self.apply(url)
+                        self.assertEqual(out.get("error"), "download", out)
+                        self.assertIn("not this repo's release archive", out.get("message", ""))
+                        self.unchanged()
+        # The test switch takes a local prefix only.
+        with mock.patch.dict(os.environ, {U.TEST_ARCHIVE: "https://evil.example/"}):
+            self.assertFalse(U.allowed("https://evil.example/x.tar.gz"))
+
+    def test_redirects(self):
+        import threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        data = open(self.url[len("file://"):], "rb").read()
+        where = {}
+
+        class H(BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == "/archive.tar.gz":
+                    self.send_response(200)
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+                self.send_response(302)
+                self.send_header("Location", where[self.path])
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+        server = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.shutdown)
+        base = f"http://127.0.0.1:{server.server_address[1]}/"
+        where["/away"] = "https://evil.example/x.tar.gz"
+        where["/port"] = f"http://127.0.0.1:{server.server_address[1] + 1}/archive.tar.gz"
+        where["/here"] = base + "archive.tar.gz"
+        with mock.patch.dict(os.environ, {U.TEST_ARCHIVE: base}):
+            for path in ("away", "port"):
+                with self.subTest(path):
+                    out = self.apply(base + path)
+                    self.assertEqual(out.get("error"), "download", out)
+                    self.assertIn("a redirect to an address", out.get("message", ""))
+                    self.unchanged()
+            out = self.apply(base + "here")  # a redirect to an allowed address is followed
+            self.assertTrue(out.get("ok"), out)
 
     def test_busy(self):
         import fcntl

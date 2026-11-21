@@ -42,7 +42,7 @@ way moves everything back. keys.json's sections from the release
 ones kept with the previous copy. install.sh's manifest, when there is one,
 gets the new list.
 """
-import hashlib, json, os, shutil, signal, sys, tarfile, time, urllib.request
+import hashlib, json, os, re, shutil, signal, sys, tarfile, time, urllib.parse, urllib.request
 
 try:
     import fcntl
@@ -263,11 +263,48 @@ def swap(home, src, old_items, new_items, keys, prev):
 # ---------------------------------------------------------------- download
 
 
+# Where a release archive may come from: this repo's archives on GitHub, over
+# https (the API's tarball_url redirects to codeload). Checked before the
+# request and on every redirect. TEST_ARCHIVE (an environment variable, unset
+# by default; tools/test_update.py and tools/regress.py set it) allows one more
+# prefix, and only a local one: a file:// path or http://127.0.0.1:<port>/.
+ALLOWED = {"api.github.com": "/repos/Calonca/herdr-orbit-look/tarball/", "codeload.github.com": "/Calonca/herdr-orbit-look/"}
+TEST_ARCHIVE = "HERDR_ORBIT_UPDATE_TEST_ARCHIVE"
+
+
+def allowed(url):
+    test = os.environ.get(TEST_ARCHIVE, "")
+    if test and (test.startswith("file:///") or re.match(r"^http://127\.0\.0\.1:\d+/", test)) and url.startswith(test):
+        return ".." not in url[len(test):].split("/")
+    try:
+        u = urllib.parse.urlsplit(url)
+        port = u.port
+    except ValueError:
+        return False
+    path = u.path
+    return (u.scheme == "https" and u.hostname in ALLOWED and u.netloc == u.hostname and port is None
+            and path.startswith(ALLOWED[u.hostname]) and "%" not in path and "\\" not in path
+            and ".." not in path.split("/"))
+
+
+class Redirects(urllib.request.HTTPRedirectHandler):
+    """Follows a redirect only to an allowed address."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not allowed(newurl):
+            raise ValueError(f"a redirect to an address that isn't this repo's release archive: {newurl}")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def download(url, dest):
+    if not allowed(url):
+        raise ValueError(f"not this repo's release archive: {url}")
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/octet-stream"})
+    opener = urllib.request.build_opener(Redirects)
     tmp = dest + ".part"
     got = 0
-    with urllib.request.urlopen(req, timeout=60) as r, open(tmp, "wb") as f:
+    with opener.open(req, timeout=60) as r, open(tmp, "wb") as f:
+        if not allowed(r.geturl()):
+            raise ValueError(f"answered from an address that isn't this repo's release archive: {r.geturl()}")
         while True:
             chunk = r.read(1 << 16)
             if not chunk:

@@ -41,9 +41,9 @@ import { settings, lookOf, apply } from "./layout.js";
 
 export const REPO = "https://github.com/Calonca/herdr-orbit-look";
 const API = "https://api.github.com/repos/Calonca/herdr-orbit-look/releases/latest";
-// Where a release's archive may come from (the answer's tarball_url).
-const ARCHIVES = ["https://api.github.com/repos/Calonca/herdr-orbit-look/", "https://codeload.github.com/Calonca/herdr-orbit-look/",
-  "https://github.com/Calonca/herdr-orbit-look/"];
+// Where a release's archive may come from (the answer's tarball_url);
+// update.py checks it again, and every redirect (ALLOWED there).
+const ARCHIVES = ["https://api.github.com/repos/Calonca/herdr-orbit-look/tarball/", "https://codeload.github.com/Calonca/herdr-orbit-look/"];
 const CARD = "orbit.update.card";
 const DAY = 24 * 60 * 60 * 1000;
 const WIDTH = 280;
