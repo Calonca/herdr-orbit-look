@@ -21,7 +21,8 @@ export const KEY = "orbit.settings";
 
 // The look settings (orbit-dialogs' settings dialog changes them), saved in
 // shared "orbit.settings" with the side panel's views. null: the density's.
-export const DEFAULTS = { density: "comfortable", rounding: null, gap: null, tabs: "bottom", background: null, views: null };
+// notify: "all" notifications, or "errors" only (orbit-toast).
+export const DEFAULTS = { density: "comfortable", rounding: null, gap: null, tabs: "bottom", background: null, notify: "all", views: null };
 
 // The densities. The mods were drawn at comfortable; `scale` is relative to it.
 export const DENSITIES = {
@@ -220,7 +221,7 @@ export function lookOf(s = settings()) {
   const background = s.background ? { image: s.background, blur: null } : GENERATED;
   return { ...d, radius, gap: s.gap ?? d.gap, small: Math.min(4, radius), top: s.tabs === "top", background,
     // What's set (null: the density's), for the settings dialog.
-    density: s.density, rounding: s.rounding, gapSet: s.gap, tabs: s.tabs, picked: s.background };
+    density: s.density, rounding: s.rounding, gapSet: s.gap, tabs: s.tabs, picked: s.background, notify: s.notify };
 }
 
 // The blocks whose place a mod needs before an event tells it its own (the

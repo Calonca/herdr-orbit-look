@@ -3,6 +3,7 @@
   "type": "column",
   "preview": "layouts/orbit.svg",
   "titlebar": "system",
+  "toast": "orbit-toast",
   "theme": "tokyo-night",
   "font": "JetBrains Mono",
   "font_size": 14,

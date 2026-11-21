@@ -153,7 +153,8 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
   picker), a view in the right pane like the picker's others (a second
   `ctrl-,` shows the one already open): the theme, density
   (compact, default, comfortable), corners, the gap between the panels, the
-  tab rows at the bottom or on top, and the background picture. Corners and
+  tab rows at the bottom or on top, notifications (all, or errors only:
+  the others close at once), and the background picture. Corners and
   gap start on "auto", the density's own. They apply
   at once and are kept in `shared.json` (`"orbit.settings"`).
 - **Status bar** (`orbit-status`): on the left the sidebar toggle, then
