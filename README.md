@@ -7,7 +7,7 @@ This is an unofficial layout. It is not affiliated with or endorsed by Herdr.
 It uses only what herdr-app offers to everyone (a layout, mods and a theme)
 and doesn't change the app. Made for herdr-app 0.1.11.
 
-**Version 4**. See [Updating](#updating).
+**Version 0.5.0**. See [Updating](#updating).
 
 ![Orbit: the sidebar, two panes with the picker open in the right one, the taskbar with a pinned space](preview.png)
 
@@ -45,9 +45,21 @@ needs it.
 
 ## Updating
 
-Installed copies don't update by themselves. To see which version you have:
-`"orbit.version"` in `shared.json` in herdr-app's home (the `orbit` mod writes
-it), or `VERSION` at the top of `mods/orbit/main.js`.
+When a newer release is out, a small card at the bottom right says so (the
+look asks GitHub once a day, without a login and with nothing about you). Its
+**update** button downloads the release and replaces the look's files with it:
+`layouts/orbit.json` and `orbit.svg`, the `mods/orbit*` folders and the
+look's themes, and the `layout:orbit` section of `keys.json`. Nothing is
+replaced before you click it. It does that only when those files are as they
+were installed: `mods/orbit/VERSION` records the version, the files and their
+hash, and if you or an agent changed them, the card says so and offers
+**copy update prompt** instead (a line to give an agent). The copy you had is
+kept in `data/orbit-updates/previous/`, and the card's **undo** puts it back.
+**stop notifications** turns the check and the card off; "update notices" in
+the look settings turns them on again.
+
+To see which version you have: the first line of `mods/orbit/VERSION`, or
+`"orbit.version"` in `shared.json` in herdr-app's home.
 
 Herdr's add flow never overwrites: adding this repo again would make a second
 copy (`orbit-2`, ...). To update, either:
@@ -71,6 +83,10 @@ The themes were called `orbit` and `orbit-*` before; they're named by their
 palettes now (`orbit` is `tokyo-night`). `./install.sh` picks your theme
 again under its new name, so the colours stay; by hand, pick it again in the
 look settings.
+
+Version 0.5.0 (after 4: versions have three numbers now) adds the update
+card above, and drops the status bar's "update ready" pill: Herdr shows its
+own update notice.
 
 Version 4 adds the taskbar to the status bar (a card for each pinned, shown,
 waiting or working space; right-click to pin, drag to move), cpu, ram and
@@ -159,7 +175,7 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
   at once and are kept in `shared.json` (`"orbit.settings"`).
 - **Status bar** (`orbit-status`): on the left the sidebar toggle, then
   after a thin line the taskbar, then "herdr offline" while the core can't be
-  reached, folded tabs and an update pill; on the right cpu, ram and disk
+  reached and folded tabs; on the right cpu, ram and disk
   use as small bars (blue, yellow from 70%, red from
   90%) and the clock.
   - The taskbar: a card per space that is pinned (in pin order), shown, or

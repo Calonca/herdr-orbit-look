@@ -24,6 +24,8 @@
 //   orbit.switcher   the recent spaces, most recent first, to pick from
 //   orbit.add        what a new tab should show (the picker, as a dialog)
 //   orbit.settings   the look settings ("Orbit look settings", in the right pane)
+// - Update notices for the look itself (updates.js): the daily check and the
+//   card at the bottom right.
 // - The other orbit mods' asks (look.js ask): the only writer of
 //   "orbit.sides", "orbit.settings" and the layout file is this mod.
 // Put it in the layout as a small block:
@@ -37,6 +39,7 @@ import { apply, closePanelView, renamePanelView, movePanelView, addPanelView, sh
 import { find } from "./look.js";
 import { follow } from "./split.js";
 import { identity, spaceKey, lookUpRepos, publish } from "./identity.js";
+import { Updates } from "./updates.js";
 
 // The look settings (orbit-dialogs' "settings"), in the shown space's right
 // pane, as other views open there: shown again if that space has it already.
@@ -48,10 +51,6 @@ export async function openSettings(cx) {
   if (had) { showRight(space, had.id); return; }
   await newMod(cx, space, "right", SETTINGS_TITLE, "orbit-dialogs", { dialog: "settings" });
 }
-
-// This build's version, also in shared "orbit.version" (shared.json in
-// herdr-app's home), so you can see which one you have.
-export const VERSION = 4;
 
 const RECENT = "orbit.recent";
 
@@ -82,7 +81,10 @@ export function recent() {
 
 export default class Orbit extends View {
   init(_props, cx) {
-    if (shared("orbit.version") !== VERSION) setShared("orbit.version", VERSION);
+    // This copy's version (mods/orbit/VERSION) goes into shared "orbit.version"
+    // (updates.js), so you can see which one you have.
+    this.updates = new Updates();
+    cx.spawn(async (cx) => { try { await this.updates.start(cx); } catch (e) { console.log(`orbit updates: ${e}`); } });
     cx.spawn(async (cx) => { try { await renameTheme(cx); } catch (e) { console.log(`orbit: ${e}`); } });
     this.focus = null; // the outline colour last written
     // Both loops use cx each time round: herdr ends a loop at its next cx use
@@ -294,6 +296,12 @@ export default class Orbit extends View {
   // picker, the dialogs. `a.space` is a space id (else the shown space),
   // `a.side` "left" | "right", `a.id` an entry of that side's row (sides.js).
   async asked(what, a, cx) {
+    // The update card's (orbit-dialogs' update.js), and a check now (tools/regress.py).
+    if (what === "update-close") return this.updates.close(a.tag);
+    if (what === "update-stop") return this.updates.stop(a.tag);
+    if (what === "update-apply") return this.updates.update(a.tag);
+    if (what === "update-undo") return this.updates.undo();
+    if (what === "update-check") return this.updates.check(true);
     const space = spaces().find((s) => s.id === a.space) ?? spaces().find((s) => s.active);
     if (!space) return;
     const entry = () => entries(space, a.side).find((e) => e.id === a.id);
@@ -316,7 +324,7 @@ export default class Orbit extends View {
       case "view-add": return addPanelView(cx, { title: a.title, mod: a.mod, props: a.props ?? null });
       // The look settings only (the settings dialog): the panel's views are
       // its tab row's to change.
-      case "settings": return apply(Object.fromEntries(Object.entries(a).filter(([k]) => ["density", "rounding", "gap", "tabs", "background", "notify"].includes(k))));
+      case "settings": return apply(Object.fromEntries(Object.entries(a).filter(([k]) => ["density", "rounding", "gap", "tabs", "background", "notify", "updates"].includes(k))));
     }
   }
 

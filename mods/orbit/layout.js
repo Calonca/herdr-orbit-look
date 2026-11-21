@@ -21,8 +21,9 @@ export const KEY = "orbit.settings";
 
 // The look settings (orbit-dialogs' settings dialog changes them), saved in
 // shared "orbit.settings" with the side panel's views. null: the density's.
-// notify: "all" notifications, or "errors" only (orbit-toast).
-export const DEFAULTS = { density: "comfortable", rounding: null, gap: null, tabs: "bottom", background: null, notify: "all", views: null };
+// notify: "all" notifications, or "errors" only (orbit-toast). updates: the
+// look's own update notices and their daily check (updates.js), on or off.
+export const DEFAULTS = { density: "comfortable", rounding: null, gap: null, tabs: "bottom", background: null, notify: "all", updates: true, views: null };
 
 // The densities. The mods were drawn at comfortable; `scale` is relative to it.
 export const DENSITIES = {
@@ -51,7 +52,8 @@ export function viewId(v) {
 
 // The layout with the theme's glass, the outline colours, the right pane's
 // children and the panel's views in it. A layout can't give a theme colour an
-// alpha, so colours are written as hex.
+// alpha, so colours are written as hex. What this writes is left out of the
+// look's hash (update.py layout_digest): keep the two in step.
 export function shape(root, s, colors) {
   const L = lookOf(s);
   const { radius, gap, top } = L;
@@ -221,7 +223,7 @@ export function lookOf(s = settings()) {
   const background = s.background ? { image: s.background, blur: null } : GENERATED;
   return { ...d, radius, gap: s.gap ?? d.gap, small: Math.min(4, radius), top: s.tabs === "top", background,
     // What's set (null: the density's), for the settings dialog.
-    density: s.density, rounding: s.rounding, gapSet: s.gap, tabs: s.tabs, picked: s.background, notify: s.notify };
+    density: s.density, rounding: s.rounding, gapSet: s.gap, tabs: s.tabs, picked: s.background, notify: s.notify, updates: s.updates !== false };
 }
 
 // The blocks whose place a mod needs before an event tells it its own (the

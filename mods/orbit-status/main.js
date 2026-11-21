@@ -1,7 +1,7 @@
 // The status bar: on the left, the sidebar toggle, a thin line and the
 // taskbar (taskbar.js: a card per space that's pinned, shown, waiting for you
-// or at work), then "herdr offline" while the core can't be reached, how many
-// tabs are folded away (settled) and an update pill; on the right, cpu, ram
+// or at work), then "herdr offline" while the core can't be reached and how
+// many tabs are folded away (settled); on the right, cpu, ram
 // and disk use as small bars (blue,
 // yellow from 70%, red from 90%), and the clock.
 //
@@ -22,7 +22,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { run, theme, layout, spaces, machines, updates, shared, setShared, openOverlay, closeOverlay } from "herdr";
+import { run, theme, layout, spaces, machines, shared, setShared, openOverlay, closeOverlay } from "herdr";
 import { look, glass, spaceLook, spaceSymbol, accentBand, probeColor } from "./look.js";
 import { backdrop, orbitPlace, orbitRadius, zoom, viewport } from "./glass.js";
 import { System, bytes, pct, level } from "./system.js";
@@ -160,11 +160,6 @@ export default class OrbitStatus extends View {
     if (machines().find((m) => m.name === null)?.layout === "unavailable") after.push(text("herdr offline", t.ansi1));
     const settled = spaces().reduce((n, s) => n + s.tabs.filter((tb) => tb.settled).length, 0);
     if (settled) after.push(text(`${settled} folded`, t.muted));
-    const up = updates();
-    if (up.app.ready) {
-      after.push(h_flex().id("update").h(24).px(10).flex_none().items_center().rounded(12).bg(t.accent).text_color(t.accent_foreground)
-        .on_click(() => run("app.update")).child(`update ready · restart`));
-    }
     const right = [];
     if (sys.cpu !== null) {
       const tip = [`total ${pct(sys.cpu)}`];

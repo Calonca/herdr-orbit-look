@@ -48,8 +48,21 @@ Scenarios:
           notifications "all" each shows (orbit-toast, the layout's "toast");
           with "errors only" (asked of the orbit mod as the settings dialog
           does) only the error shows, the others close at once
+  update  the look's own update card, against a local fake of GitHub's
+          latest-release answer and of its archive (never GitHub): the
+          installed copy still hashes as installed after the other scenarios
+          (the layout the orbit mod rewrites included); no card for the same
+          or an older release, the card for a newer one (its notes the first
+          bullets), above the status bar and clear of Herdr's update pill and
+          of a toast; × remembers the release; "update" replaces the look
+          (settings kept) and the card says "Updated to"; "undo" puts the old
+          copy back; a changed copy is left alone, the card says so in one
+          line and "copy update prompt" copies the prompt; "stop
+          notifications" turns the setting off: no card, no request; the
+          status bar's update pill is gone
 """
-import argparse, json, os, subprocess, sys, time
+import argparse, json, os, subprocess, sys, threading, time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NAME = os.environ.get("HERDR_APP_SANDBOX", "regress")
@@ -184,7 +197,8 @@ def centre(b):
 def setup():
     sb("down")
     os.makedirs(HOME, exist_ok=True)
-    json.dump({"frame.welcomed": "skipped", "layout": "orbit", "orbit.probe": True, "orbit.probe.cores": CORES},
+    json.dump({"frame.welcomed": "skipped", "layout": "orbit", "orbit.probe": True, "orbit.probe.cores": CORES,
+               "orbit.update.api": FAKE.url},
               open(f"{HOME}/shared.json", "w"))
     json.dump({"zoom": ZOOM, "telemetry": False}, open(f"{HOME}/settings.json", "w"))
     sb("up", check=True)
@@ -685,7 +699,306 @@ def identity(ids):
     time.sleep(1)
 
 
-SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("toast", toast), ("keep", keep), ("split", split)]
+# ---------------------------------------------------------------- update
+
+class FakeGitHub:
+    """GitHub's latest-release answer, served locally: `release` is what it
+    answers (None: 404, as before the first release); `hits` the requests'
+    headers."""
+    def __init__(self):
+        fake = self
+        self.release, self.hits, self.downloads = None, [], []
+        class H(BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path.startswith("/archive/"):
+                    # This repo's look as release <tag>: stamped, and a mark in orbit-status.
+                    data = release_archive(self.path[len("/archive/"):-len(".tar.gz")])
+                    fake.downloads.append(self.path)
+                    self.send_response(200)
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+                fake.hits.append({k.lower(): v for k, v in self.headers.items()})
+                body = json.dumps(fake.release or {"message": "Not Found"}).encode()
+                self.send_response(200 if fake.release else 404)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            def log_message(self, *a):
+                pass
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        self.url = f"http://127.0.0.1:{self.server.server_address[1]}/repos/Calonca/herdr-orbit-look/releases/latest"
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def answer(self, tag, bullets=("one", "two", "three", "four")):
+        base = self.url.split("/repos/")[0]
+        self.release = {"tag_name": tag, "draft": False, "prerelease": False, "html_url": "https://example.invalid",
+                        "tarball_url": f"{base}/archive/{tag}.tar.gz",
+                        "body": f"## {tag}\n\n" + "\n".join(f"- **{b}.** detail {b}" for b in bullets)}
+
+
+def release_archive(tag):
+    """A release archive as GitHub's (one top folder): this repo's look,
+    marked "// release <tag>" in orbit-status, stamped <tag>."""
+    import io, shutil, tarfile, tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        tree = f"{tmp}/Calonca-herdr-orbit-look-0000000"
+        for sub in ("themes", "mods", "layouts"):
+            shutil.copytree(f"{REPO}/{sub}", f"{tree}/{sub}", ignore=shutil.ignore_patterns("jsconfig.json", "*.d.ts", "__pycache__"))
+        shutil.copy(f"{REPO}/keys.json", tree)
+        with open(f"{tree}/mods/orbit-status/main.js", "a") as f:
+            f.write(f"\n// release {tag}\n")
+        subprocess.run([sys.executable, f"{REPO}/mods/orbit/update.py", "stamp", tree, "--version", tag.lstrip("v")], check=True)
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            tar.add(tree, arcname=os.path.basename(tree))
+        return buf.getvalue()
+
+
+def installed_ok():
+    """The sandbox's look hashes as its VERSION records: (ok, version)."""
+    r = subprocess.run([sys.executable, "-c", "import importlib.util,sys; s=importlib.util.spec_from_file_location('u', sys.argv[1]); "
+                        "u=importlib.util.module_from_spec(s); s.loader.exec_module(u); print(u.installed(sys.argv[2])[0])",
+                        f"{HOME}/mods/orbit/update.py", HOME], capture_output=True, text=True,
+                       env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+    return r.returncode == 0, (r.stdout.strip() or r.stderr.strip().splitlines()[-1:])
+
+
+FAKE = FakeGitHub()
+# update.py downloads only this repo's archives on GitHub; the fake's address
+# is allowed by its test switch (the sandbox's herdr-app passes it on).
+ENV["HERDR_ORBIT_UPDATE_TEST_ARCHIVE"] = FAKE.url.split("/repos/")[0] + "/archive/"
+INSTALLED = open(f"{REPO}/mods/orbit/VERSION").read().split("\n")[0].strip()
+MAJOR, MINOR, PATCH = (int(v) for v in INSTALLED.split("."))
+
+
+def card():
+    return shared().get("orbit.probe.update")
+
+
+def update_state():
+    try:
+        return json.load(open(f"{HOME}/data/orbit-updates/state.json"))
+    except Exception:
+        return {}
+
+
+def check_now(tag=None):
+    """The fake answers `tag`; the orbit mod looks now (orbit.update-check)."""
+    n = len(FAKE.hits)
+    if tag:
+        FAKE.answer(tag)
+    sb("do", "orbit.update-check {}")
+    wait(lambda: len(FAKE.hits) > n, 5)
+    # Then the answer is saved (data/orbit-updates/state.json) and the card placed.
+    want = FAKE.release and FAKE.release["tag_name"]
+    wait(lambda: len(FAKE.hits) > n and (update_state().get("latest") or {}).get("tag") == want, 5)
+    time.sleep(1)
+    return len(FAKE.hits) > n
+
+
+def card_point(r, what):
+    """Where on the card (orbit-dialogs update.js' lengths) to click: "close",
+    the first button ("first": update, undo, copy update prompt) or the
+    second ("second": stop notifications)."""
+    z = ZOOM
+    if what == "close":
+        return r["x"] + (280 - 1 - 16 - 10) * z, r["y"] + (14 + 10) * z
+    if what == "second":
+        return r["x"] + (1 + 16 + 16 + 74 + 6 + 40) * z, r["y"] + (r["h"] - 14 - 14) * z
+    return r["x"] + (1 + 16 + 16 + 20) * z, r["y"] + (r["h"] - 14 - 14) * z
+
+
+def clipboard():
+    num = 100 + int(subprocess.run(["cksum"], input=NAME, capture_output=True, text=True).stdout.split()[0]) % 400
+    r = subprocess.run(["xsel", "-o", "-b"], env={**os.environ, "DISPLAY": f":{num}"}, capture_output=True, text=True, timeout=5)
+    return r.stdout
+
+
+def set_updates(on):
+    sb("do", "orbit.settings " + json.dumps({"updates": on}))
+    return wait(lambda: shared().get("orbit.settings", {}).get("updates") is on)
+
+
+def herdr_pill():
+    """Herdr's update pill (its frame: 16 px from the right and the bottom,
+    34 px tall), in logical window pixels: its top."""
+    return H - (16 + 34) * ZOOM
+
+
+def update(ids):
+    newer = lambda d: f"v{MAJOR}.{MINOR + d}.0"
+    ok, v = installed_ok()
+    check("update", "after the other scenarios the look hashes as installed (the layout the orbit mod rewrote too)", ok and v == INSTALLED, f"{ok} {v}")
+    src = open(f"{REPO}/mods/orbit-status/main.js").read()
+    check("update", "the status bar has no update pill", "update ready" not in src and "updates()" not in src)
+    do("space.select", {"id": ids["shown"][0]})
+    time.sleep(0.8)
+
+    hit = check_now(f"v{INSTALLED}")
+    check("update", "it asks the (fake) API", hit, f"{len(FAKE.hits)} requests")
+    h = FAKE.hits[-1] if FAKE.hits else {}
+    check("update", "a generic User-Agent, nothing else of the person's", h.get("user-agent") == "herdr-orbit-look"
+          and not any(k in h for k in ("authorization", "cookie", "x-github-api-version")), json.dumps(h))
+    check("update", f"the same release (v{INSTALLED}): no card", not card(), str(card()))
+    check_now(f"v{MAJOR}.{max(0, MINOR - 1)}.0")
+    check("update", "an older release: no card", not card(), str(card()))
+
+    check_now(newer(1))
+    r = wait(lambda: (card() or {}).get("tag") == newer(1) and card(), 5)
+    check("update", f"a newer release ({newer(1)}): the card shows", r and r.get("tag") == newer(1) and "orbit-dialogs" in (overlays() or []),
+          f"{r} {overlays()}")
+    time.sleep(1)
+    shot("update-card")
+    st = update_state()
+    check("update", "its notes: the first three bullets, plain", (st.get("latest") or {}).get("notes") == ["one. detail one", "two. detail two", "three. detail three"], json.dumps(st))
+    if r:
+        bottom = r["y"] + r["h"] * ZOOM
+        bar_top = bar_y() - 20 * ZOOM
+        check("update", "above the status bar, at the right edge", bottom <= bar_top + 1 and r["x"] + 280 * ZOOM <= W, f"{r} bar top {bar_top}")
+        check("update", "clear of Herdr's update pill", bottom <= herdr_pill() - 4, f"bottom {bottom} pill top {herdr_pill()}")
+
+    # A toast: the card moves up, clear of it.
+    os.makedirs(f"{HOME}/mods/regress-notify", exist_ok=True)
+    open(f"{HOME}/mods/regress-notify/main.js", "w").write(NOTIFIER)
+    open(f"{HOME}/mods/regress-notify/mod.json", "w").write('{ "place": "none" }')
+    time.sleep(0.5)
+    t = do("tab.new", {"mod": "regress-notify", "props": {"level": "info"}})
+    moved = wait(lambda: card() and r and card()["y"] < r["y"] - 70 * ZOOM, 3)
+    top_toast = H - (16 + 34 + 8 + 72) * ZOOM
+    check("update", "a toast: the card moves up, clear of it", moved and card()["y"] + card()["h"] * ZOOM <= top_toast - 4,
+          f"{card()} toast top {top_toast}")
+    time.sleep(1)
+    shot("update-card-toast")
+    if t.get("tab"):
+        do("tab.close", {"id": t["tab"], "confirmed": True})
+    back = wait(lambda: card() and r and abs(card()["y"] - r["y"]) < 2, 12)
+    check("update", "the toast gone: the card back in its place", back, f"{card()} was {r}")
+
+    # Herdr's own pill showing ("Updated to …" after a start on a new version), compact.
+    sb("do", "orbit.settings " + json.dumps({"density": "compact"}))
+    time.sleep(1.5)
+    shot("update-card-compact")
+    c = card()
+    check("update", "compact: still clear of Herdr's pill", c and c["y"] + c["h"] * ZOOM <= herdr_pill() - 4, f"{c} pill top {herdr_pill()}")
+    sb("do", "orbit.settings " + json.dumps({"density": "comfortable"}))
+    # (Clicked once it's back in its place.)
+    c = wait(lambda: card() and r and abs(card()["y"] - r["y"]) < 2 and card(), 5)
+    time.sleep(0.5)
+
+    # ×: gone, and not again for that release.
+    if c:
+        click(*card_point(c, "close"))
+    check("update", "× closes it", wait(lambda: "orbit-dialogs" not in (overlays() or []), 3), str(overlays()))
+    check("update", "× remembers the release", wait(lambda: update_state().get("closed") == newer(1) and not card(), 6), json.dumps(update_state()))
+    check_now()
+    check("update", "the same release again: no card", not card(), str(card()))
+
+    # "update": the look replaced by the release, the settings kept.
+    settings_before = json.dumps(shared().get("orbit.settings"), sort_keys=True)
+    check_now(newer(2))
+    c = wait(lambda: (card() or {}).get("tag") == newer(2) and card(), 5)
+    check("update", f"{newer(2)}: the card", c and c.get("tag") == newer(2), str(c))
+    n = len(FAKE.downloads)
+    if c:
+        click(*card_point(c, "first"))
+    done = wait(lambda: (card() or {}).get("mode") == "updated", 20)
+    check("update", "\"update\" downloads the release once", len(FAKE.downloads) == n + 1, str(FAKE.downloads))
+    time.sleep(2)
+    shot("update-updated")
+    ok, v = installed_ok()
+    check("update", "\"update\" replaces the look: the new version, as recorded", ok and v == newer(2).lstrip("v")
+          and f"// release {newer(2)}" in open(f"{HOME}/mods/orbit-status/main.js").read(), f"{ok} {v}")
+    check("update", "then the card says \"Updated to\"", done, str(card()))
+    check("update", "one card only (the one from before the reload is gone)", wait(lambda: (overlays() or []).count("orbit-dialogs") == 1, 5), str(overlays()))
+    check("update", "the settings stay", json.dumps(shared().get("orbit.settings"), sort_keys=True) == settings_before,
+          f"{shared().get('orbit.settings')} was {settings_before}")
+    check("update", "the previous copy is kept", os.path.isfile(f"{HOME}/data/orbit-updates/previous/mods/orbit/VERSION"))
+    check("update", "the status bar runs the new copy", wait(lambda: bar_y() is not None, 5), "")
+
+    # "undo": the copy from before back, and no card for that release.
+    c = card()
+    if c:
+        click(*card_point(c, "first"))
+    back = wait(lambda: installed_ok() == (True, INSTALLED), 20)
+    check("update", "\"undo\" puts the old copy back", back and "// release" not in open(f"{HOME}/mods/orbit-status/main.js").read(), str(installed_ok()))
+    time.sleep(3)
+    check("update", "after undo: no card for that release", wait(lambda: not card(), 5), str(card()))
+    shot("update-undone")
+
+    # A changed copy: left alone, one line, "copy update prompt".
+    path = f"{HOME}/mods/orbit-tabs/main.js"
+    original = open(path).read()
+    open(path, "a").write("\n// my own change\n")
+    check_now(newer(3))
+    c = wait(lambda: (card() or {}).get("tag") == newer(3) and card(), 5)
+    n = len(FAKE.downloads)
+    if c:
+        click(*card_point(c, "first"))
+    err = wait(lambda: (card() or {}).get("mode") == "error" and card(), 10)
+    check("update", "a changed copy: the card says so, nothing replaced, nothing downloaded",
+          err and installed_ok()[1] != newer(3).lstrip("v") and "// my own change" in open(path).read() and len(FAKE.downloads) == n,
+          f"{card()} {installed_ok()} {FAKE.downloads}")
+    time.sleep(1)
+    shot("update-changed")
+    if err:
+        click(*card_point(err, "first"))
+    got = wait(lambda: newer(3) in clipboard() and clipboard(), 5) or clipboard()
+    check("update", "\"copy update prompt\" copies the prompt", newer(3) in got and got.startswith("Read ~/.config/herdr-app/AGENTS.md")
+          and "keep those changes" in got, repr(got))
+    time.sleep(0.5)
+    shot("update-copied")
+    open(path, "w").write(original)
+    c = card()
+    if c:
+        click(*card_point(c, "close"))
+    check("update", "× closes the error card", wait(lambda: not card(), 3), str(card()))
+
+    # "stop notifications": the setting off, no card, no request; on again: back.
+    check_now(newer(4))
+    c = wait(lambda: (card() or {}).get("tag") == newer(4) and card(), 5)
+    check("update", f"{newer(4)}: the card", c, str(card()))
+    if c:
+        click(*card_point(c, "second"))
+    check("update", "\"stop notifications\": the card goes, the setting is off",
+          wait(lambda: not card() and shared().get("orbit.settings", {}).get("updates") is False, 4),
+          f"{card()} {shared().get('orbit.settings')}")
+    check("update", "off: no request", not check_now(newer(5)), f"{len(FAKE.hits)} requests")
+    check("update", "off: still no card", not card(), str(card()))
+    set_updates(True)
+    check("update", "on again (the settings row): it asks, and the card is back", check_now() and wait(card, 3), str(card()))
+    # The settings row.
+    sb("do", "orbit.settings")
+    time.sleep(1.5)
+    shot("update-settings")
+    c = card()
+    if c:
+        click(*card_point(c, "close"))
+    wait(lambda: not card(), 3)
+    ok, v = installed_ok()
+    check("update", "at the end: the look hashes as installed", ok and v == INSTALLED, f"{ok} {v}")
+
+
+def update_pill(ids):
+    """Herdr's own pill shows ("Updated to …", after a start on a new
+    version): the card is above it. A restart of the window, so it's last."""
+    nxt = f"v{MAJOR}.{MINOR + 9}.0"
+    json.dump({"last_run": "0.0.1", "presented": []}, open(f"{HOME}/update-notes.json", "w"))
+    sb("restart", check=True)
+    time.sleep(4)
+    # The orbit mod takes commands once it has started again.
+    for _ in range(4):
+        if check_now(nxt):
+            break
+    c = wait(lambda: (card() or {}).get("tag") == nxt and card(), 8)
+    time.sleep(1.5)
+    shot("update-pill")
+    check("update", "Herdr's pill showing: the card above it", c and c["y"] + c["h"] * ZOOM <= herdr_pill() - 4, f"{c} pill top {herdr_pill()}")
+
+
+SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("toast", toast), ("keep", keep), ("split", split), ("update", update), ("update-pill", update_pill)]
 
 
 def main():

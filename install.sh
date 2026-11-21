@@ -12,9 +12,30 @@
 # layout shows) is merged into the home's keys.json; the rest of it stays as
 # it is, and it's backed up before the first change.
 #
-#   ./install.sh            install or update
-#   ./install.sh --remove   remove what this script installed (backups stay)
+# mods/orbit/VERSION in the home gets this copy's version, the list of what
+# it installed and the hash of those files (mods/orbit/update.py), so the look
+# can tell later whether anyone changed them.
+#
+# The look checks once a day whether a newer release of it is out and shows a
+# small card then (Orbit look settings: "update notices"). Its "update" button
+# replaces these files with the release's, only if they are as installed.
+# --updates on|off sets that setting (the orbit mod takes it up when it next
+# starts or within ten minutes); without it the setting stays as it is (on for
+# a new install).
+#
+#   ./install.sh                   install or update
+#   ./install.sh --updates off     the same, and update notices off (or on)
+#   ./install.sh --remove          remove what this script installed (backups stay)
 set -euo pipefail
+
+updates=
+if [[ ${1:-} == --updates ]]; then
+  case ${2:-} in
+    on | off) updates=$2 ;;
+    *) echo "--updates takes on or off" >&2; exit 2 ;;
+  esac
+  shift 2
+fi
 
 repo=$(cd "$(dirname "$0")" && pwd)
 home=${HERDR_APP_HOME:-$HOME/.config/herdr-app}
@@ -113,7 +134,8 @@ items | while read -r rel; do
     echo "backed up $dst to $backup/$rel"
   fi
   ours "$rel" || echo "$rel" >>"$manifest"
-  if [[ -e $dst ]] && diff -rq -x jsconfig.json -x "*.d.ts" "$src" "$dst" >/dev/null 2>&1; then continue; fi
+  # (VERSION: written below, from this repo's files.)
+  if [[ -e $dst ]] && diff -rq -x jsconfig.json -x "*.d.ts" -x VERSION -x __pycache__ "$src" "$dst" >/dev/null 2>&1; then continue; fi
   if [[ -d $src ]]; then
     # Folders are replaced whole, so a file deleted here goes there too.
     tmp=$(mktemp -d "$home/.herdr-orbit-tmp.XXXXXX")
@@ -153,6 +175,18 @@ for rel in "${gone[@]}"; do
 done
 
 keys
+
+# The version, the list and the hash of what's installed: the same as a
+# release ships (the files here are the ones copied).
+python3 "$repo/mods/orbit/update.py" stamp "$repo" --version "$(head -n1 "$repo/mods/orbit/VERSION")" --out "$home/mods/orbit/VERSION"
+
+# The answer to "check for updates and show their card?", for the orbit mod
+# (mods/orbit/updates.js) to take up.
+if [[ -n $updates ]]; then
+  mkdir -p "$home/data/orbit-updates"
+  printf '%s\n' "$updates" >"$home/data/orbit-updates/ask"
+  echo "update notices: $updates"
+fi
 
 # orbit-windows.json: what the "new window" picker lists besides a terminal,
 # the agents and herdr's own views (mods/orbit-add/windows.js). It's the
