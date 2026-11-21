@@ -6,6 +6,7 @@
 //   "switcher"  the recent spaces, to pick from (switcher.js)
 //   "settings"  the look: density, corners, gap, tab rows, background (settings.js)
 //   "stat"      the status bar's cpu, ram or disk in detail (stat.js); also in a pane
+//   "update"    the look's own update notice, a card at the bottom right (update.js)
 
 import { View, div } from "gpui-kit";
 import { props, shared, setShared } from "herdr";
@@ -15,8 +16,9 @@ import { NewTab } from "./new-tab.js";
 import { Switcher } from "./switcher.js";
 import { Settings } from "./settings.js";
 import { Stat } from "./stat.js";
+import { Update } from "./update.js";
 
-const DIALOGS = { menu: Menu, confirm: Confirm, "new-tab": NewTab, switcher: Switcher, settings: Settings, stat: Stat };
+const DIALOGS = { menu: Menu, confirm: Confirm, "new-tab": NewTab, switcher: Switcher, settings: Settings, stat: Stat, update: Update };
 
 // A popup the status bar opened (props.bar) says it's open in shared
 // "orbit.popup" (its overlay id) and takes that back when it closes, so the

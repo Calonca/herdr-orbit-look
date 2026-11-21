@@ -2,7 +2,9 @@
 // others shipped in themes/, herdr-app's app.theme; any other is in herdr-app's settings, as
 // the UI font: "herdr settings…" opens them), density, corners, gap, the tab
 // rows on top or at the bottom, the background picture and which
-// notifications show (all, or errors only: orbit-toast). Each change is asked of the orbit mod (look.js ask),
+// notifications show (all, or errors only: orbit-toast) and whether the look
+// checks for its own updates and shows their card (the orbit mod's
+// updates.js). Each change is asked of the orbit mod (look.js ask),
 // which saves it in shared "orbit.settings" and writes it into the layout at
 // once. Opened in the right pane ("Orbit look settings", the orbit mod's
 // openSettings), as other views are. Props: { dialog: "settings" }.
@@ -25,7 +27,7 @@ const THEMES = [["tokyo night", "#7aa2f7", "tokyo-night"], ["catppuccin mocha", 
   ["rosé pine", "#c4a7e7", "rose-pine"]];
 const CORNERS = ["auto", 0, 4, 8, 12];
 const GAPS = ["auto", "none", 4, 8, 12, 16];
-const LABEL = 104;
+const LABEL = 124;
 const WAIT = 15 * 60 * 1000; // how long an open file dialog is waited for
 const PICTURES = /\.(png|jpe?g|webp)$/i;
 
@@ -177,6 +179,8 @@ export class Settings {
         .child(line("tab rows", ["bottom", "top"].map((v) => toggle(`tabs-${v}`, v, (L.tabs ?? "bottom") === v, () => this.set({ tabs: v })))))
         .child(line("notifications", [["all", "all"], ["errors only", "errors"]].map(([text, v]) =>
           toggle(`notify-${v}`, text, (L.notify ?? "all") === v, () => this.set({ notify: v })))))
+        .child(line("update notices", [["on", true], ["off", false]].map(([text, v]) =>
+          toggle(`updates-${text}`, text, (L.updates !== false) === v, () => this.set({ updates: v })))))
         .child(line("background", background))
         .when(found.length > 0, (el) => el.child(line("", found)))
         .when(Boolean(this.error), (el) => el.child(div().ml(LABEL + 6).text_size(13).text_color(t.ansi1).child(this.error ?? ""))))
