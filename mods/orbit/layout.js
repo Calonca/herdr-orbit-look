@@ -29,9 +29,9 @@ export const DEFAULTS = { density: "comfortable", rounding: null, gap: null, tab
 
 // The densities. The mods were drawn at comfortable; `scale` is relative to it.
 export const DENSITIES = {
-  compact: { radius: 4, gap: 6, header: 30, status: 28, padding: [8, 6], footer: 67, scale: 0.9 / 1.15 },
-  default: { radius: 12, gap: 10, header: 38, status: 34, padding: [14, 12], footer: 75, scale: 1 / 1.15 },
-  comfortable: { radius: 16, gap: 14, header: 46, status: 40, padding: [18, 16], footer: 86, scale: 1 },
+  compact: { radius: 4, gap: 6, header: 30, status: 28, padding: [2, 2], footer: 67, scale: 0.9 / 1.15 },
+  default: { radius: 12, gap: 10, header: 38, status: 34, padding: [4, 4], footer: 75, scale: 1 / 1.15 },
+  comfortable: { radius: 16, gap: 14, header: 46, status: 40, padding: [8, 6], footer: 86, scale: 1 },
 };
 
 export function settings() {

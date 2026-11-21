@@ -48,6 +48,10 @@ Scenarios:
           (JetBrains Mono 14 there looks as the default); the look settings'
           terminal background is written into the layout,
           show, and the copy still hashes as installed
+  padding a terminal's cells near its pane's outline at each density: the
+          line and the padding on the left (compact [2, 2] < default [4, 4]
+          < comfortable [8, 6], all below the old [8, 6] [14, 12] [18, 16]),
+          less than a cell more on the right, half a row at the bottom
   toast   a notify() of each level (info, success, warning, error): with
           notifications "all" each shows (orbit-toast, the layout's "toast");
           with "errors only" (asked of the orbit mod as the settings dialog
@@ -441,6 +445,75 @@ def settings(ids):
     do("orbit.settings")
     time.sleep(1.5)
     check("settings", "again: still one", len(mine()) == 1, str(mine()))
+
+
+# The terminal padding per density (mods/orbit/layout.js), and what it was
+# before: [horizontal, vertical] at zoom 1.
+PADDING = {"compact": (2, 2), "default": (4, 4), "comfortable": (8, 6)}
+OLD_PADDING = {"compact": (8, 6), "default": (14, 12), "comfortable": (18, 16)}
+
+
+def cell_gaps(name):
+    """A shot's green terminal (tools/fill-cells.sh) against its pane's outline,
+    found from the left tab row's place (shared "orbit.places": the outline's
+    left and right edges and its tab line): {left, right, bottom} in logical
+    pixels, or None while the green doesn't fill its pane yet (its program
+    redraws on a resize)."""
+    img = grab(name)
+    px = img.load()
+    green = lambda p: p[1] > 200 and p[0] < 60 and p[2] < 60
+    xs = [x for x in range(img.width) if green(px[x, img.height // 2])]
+    tabs = shared().get("orbit.places", {}).get("left-tabs")
+    if len(xs) < 100 or not tabs:
+        return None
+    ys = [y for y in range(img.height) if green(px[(xs[0] + xs[-1]) // 2, y])]
+    return {"left": xs[0] / SCALE - tabs["x"], "right": tabs["x"] + tabs["width"] - (xs[-1] + 1) / SCALE,
+            "bottom": tabs["y"] - (ys[-1] + 1) / SCALE}
+
+
+def padding(ids):
+    """A terminal's cells sit close to its pane's outline, a little further at
+    each step from compact to comfortable, and closer than before the padding
+    was reduced. Left: the outline's line and the padding (herdr puts the
+    columns' leftover on the right, the rows' half above and half below), so
+    it grows with the padding; right and bottom add less than a cell and less
+    than half a row."""
+    r = do("space.new", {"name": "padding", "folder": "/tmp", "argv": [f"{REPO}/tools/fill-cells.sh"]})
+    sid = r.get("space")
+    line = 2 * ZOOM
+    cell_w, cell_h = 0.65 * 14 * ZOOM, 1.15 * 1.3 * 14 * ZOOM
+    gaps = {}
+    try:
+        time.sleep(2)
+        for d in ["compact", "default", "comfortable"]:
+            do(f'orbit.settings {json.dumps({"density": d})}')
+            # The orbit mod took it (its shared look), then the window drew it.
+            wait(lambda: shared().get("orbit.look", {}).get("padding") == list(PADDING[d]), 5)
+            time.sleep(1.5)
+            pad_x = PADDING[d][0] * ZOOM
+            # Settled: the green reaches its pane (less than a cell short) and
+            # the tab row's place is the new one (the green inside it).
+            settled = lambda g: g if g and min(g.values()) >= 0 and g["right"] <= line + pad_x + cell_w + 1 else None
+            g = wait(lambda: settled(cell_gaps(f"padding-{d}")), 8) or cell_gaps(f"padding-{d}")
+            gaps[d] = g
+    finally:
+        do(f'orbit.settings {json.dumps({"density": "comfortable"})}')
+        if sid:
+            do("space.close", {"id": sid, "confirmed": True})
+        time.sleep(1)
+    said = json.dumps({d: g and {k: round(v, 1) for k, v in g.items()} for d, g in gaps.items()}) + f" (zoom {ZOOM})"
+    check("padding", "the filled terminal shows at every density", all(gaps.values()), said)
+    if not all(gaps.values()):
+        return
+    for d, g in gaps.items():
+        (pad_x, pad_y), (old_x, _) = (v * ZOOM for v in PADDING[d]), OLD_PADDING[d]
+        check("padding", f"{d}: left is the line and the padding", abs(g["left"] - (line + pad_x)) <= 1.5, said)
+        check("padding", f"{d}: closer than before ({old_x} at zoom 1)", g["left"] < line + old_x * ZOOM - 1, said)
+        check("padding", f"{d}: right under a cell more", 0 <= g["right"] <= line + pad_x + cell_w + 1, said)
+        check("padding", f"{d}: bottom under half a row more", 0 <= g["bottom"] <= pad_y + cell_h / 2 + 1, said)
+    left = [gaps[d]["left"] for d in ["compact", "default", "comfortable"]]
+    check("padding", "it grows from compact to default to comfortable", left[0] < left[1] < left[2], said)
+    print(f"      gaps: {said}", flush=True)
 
 
 COUNTER = """import { View, div } from "gpui-kit";
@@ -1121,7 +1194,7 @@ def update_pill(ids):
     check("update", "Herdr's pill showing: the card above it", c and c["y"] + c["h"] * ZOOM <= herdr_pill() - 4, f"{c} pill top {herdr_pill()}")
 
 
-SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("terminal", terminal), ("toast", toast), ("keep", keep), ("split", split), ("update", update), ("update-pill", update_pill)]
+SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("terminal", terminal), ("padding", padding), ("toast", toast), ("keep", keep), ("split", split), ("update", update), ("update-pill", update_pill)]
 
 
 def main():

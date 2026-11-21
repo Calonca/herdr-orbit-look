@@ -3,6 +3,11 @@
 The top entry's bullets are the release notes: `tools/release.sh` publishes
 them, and the look's update card shows them.
 
+## 0.5.3
+
+- **Terminals closer to their border.** Less padding between a terminal and its pane's outline: at the sides 2px at compact, 4px at default, 8px at comfortable (was 8, 14 and 18).
+- **Still by density.** The padding steps up from compact to comfortable, as before.
+
 ## 0.5.2
 
 - **The update button downloads again.** In 0.5.0 and 0.5.1 GitHub refused its download ("HTTP Error 415"). Those copies can't update themselves: run `./install.sh` from a fresh clone once, or give an agent the update prompt from the README.

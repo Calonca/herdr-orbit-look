@@ -10,8 +10,8 @@
     "fit": "cover"
   },
   "terminal_padding": [
-    18,
-    16
+    8,
+    6
   ],
   "terminal_opacity": 0,
   "children": [
