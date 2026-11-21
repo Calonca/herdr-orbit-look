@@ -16,8 +16,9 @@ next to it are one build of it, for herdr-app 0.1.11.
 Left to right, then the status bar along the bottom (the system draws the
 title bar: `"titlebar": "system"`). Theme `tokyo-night` (Tokyo Night colours:
 background `#161622`, surface `#161622`, border `#414868`, foreground
-`#c0caf5`, muted `#9aa5ce`, accent `#7aa2f7`). Terminals in JetBrains Mono
-14px, padding `[18, 16]`, fully see-through (`terminal_opacity: 0`).
+`#c0caf5`, muted `#9aa5ce`, accent `#7aa2f7`). Terminals in herdr-app's
+font and size (the layout names none: settings.json's, else JetBrains Mono
+14px), padding `[18, 16]`, fully see-through (`terminal_opacity: 0`).
 
 - **Background**: `mods/orbit/backgrounds/space.png` (2560×1600) behind the
   whole window, `fit: "cover"`: a night sky with a pale Milky-Way band across
@@ -216,7 +217,8 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
   when the space has it already) or "Orbit look settings" in the picker (in
   that pane). Each click applies at
   once: the theme (herdr-app's `app.theme`, any window), density, corners,
-  gap, tab rows. "background…" opens a file dialog (KDE's `kdialog`, else
+  gap, tab rows, the terminals' background (clear 0, tinted 0.5, solid 1:
+  `terminal_opacity`), "font, size" (opens herdr-app's settings). "background…" opens a file dialog (KDE's `kdialog`, else
   GNOME's `zenity`; from a toolbox or flatpak the host's through
   `flatpak-spawn --host`; with neither, herdr-app's folder picker and the
   folder's pictures as buttons); the picture is copied into
@@ -267,7 +269,7 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
 ## Built from
 
 - **Layout** `layouts/orbit.json`, a root column (`theme: "tokyo-night"`,
-  `font: "JetBrains Mono"`, `font_size: 14`, the background, `terminal_padding`,
+  no `font` or `font_size` (settings.json's apply), the background, `terminal_padding`,
   `terminal_opacity: 0`, `preview: "layouts/orbit.svg"`):
   - `body`, a row:
     - `sidebar`, a column (400px, 44–560, `resizable: false`): `spaces`
@@ -329,9 +331,9 @@ background `#161622`, surface `#161622`, border `#414868`, foreground
     with no props it draws nothing).
   - `themes/*.json`: the six others, the same keys as `tokyo-night.json`.
   - The settings in shared `"orbit.settings"`: `{ density, rounding, gap,
-    tabs, background, views }` (`null`: the density's). The `orbit` mod's
+    tabs, background, opacity, views }` (`null`: the density's). The `orbit` mod's
     `layout.js` writes them into the layout (root `background`,
-    `terminal_padding`, `padding`; `body` gap and padding; `work` gap; the
+    `terminal_padding`, `terminal_opacity`, `padding`; `body` gap and padding; `work` gap; the
     `orbit` block's size; `status`, `sidebar-footer`; each frame's cap and
     tab row sizes and order; the sidebar's radius with a gap) and shares the
     look.
