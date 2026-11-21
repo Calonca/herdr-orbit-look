@@ -1,7 +1,13 @@
 # Changelog
 
 The top entry's bullets are the release notes: `tools/release.sh` publishes
-them, and the look's update card shows the first three.
+them, and the look's update card shows them.
+
+## 0.5.2
+
+- **The update button downloads again.** In 0.5.0 and 0.5.1 GitHub refused its download ("HTTP Error 415"). Those copies can't update themselves: run `./install.sh` from a fresh clone once, or give an agent the update prompt from the README.
+- **All the release notes.** The update card shows every note, wrapped; long ones scroll inside the card.
+- **Readable errors.** An error on the card wraps over up to three lines, and a failed update offers "copy update prompt" too.
 
 ## 0.5.1
 
