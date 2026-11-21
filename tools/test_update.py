@@ -136,6 +136,7 @@ class Hash(Base):
             # layout.js shape(): settings, glass, outlines, right pane, panel views, tabs on top.
             root["background"] = {"image": "backgrounds/me.png", "fit": "cover"}
             root["terminal_padding"] = [8, 6]
+            root["terminal_opacity"] = 1
             root.pop("padding", None)
             find("body")["gap"] = 4
             find("work").pop("gap", None)

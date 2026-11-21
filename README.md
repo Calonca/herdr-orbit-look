@@ -58,6 +58,11 @@ kept in `data/orbit-updates/previous/`, and the card's **undo** puts it back.
 **stop notifications** turns the check and the card off; "update notices" in
 the look settings turns them on again.
 
+So change the look through its settings (`ctrl-,`) and Herdr's Settings (the
+terminals' font and text size, the zoom), not by editing `layouts/orbit.json`:
+an edited layout counts as a changed copy. A layout with another structure is
+your own copy, and its updates come as a prompt for an agent.
+
 To see which version you have: the first line of `mods/orbit/VERSION`, or
 `"orbit.version"` in `shared.json` in herdr-app's home.
 
@@ -170,7 +175,8 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
   `ctrl-,` shows the one already open): the theme, density
   (compact, default, comfortable), corners, the gap between the panels, the
   tab rows at the bottom or on top, notifications (all, or errors only:
-  the others close at once), and the background picture. Corners and
+  the others close at once), the terminals' background (clear: the glass
+  shows through; tinted; solid) and the background picture. Corners and
   gap start on "auto", the density's own. They apply
   at once and are kept in `shared.json` (`"orbit.settings"`).
 - **Status bar** (`orbit-status`): on the left the sidebar toggle, then
@@ -195,7 +201,8 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
   (`themes/*.json`, each palette as it is), each with its own six space
   colours. Pick one in
   the settings or in herdr-app's (any other theme works too: the space
-  colours are then its ANSI colours). JetBrains Mono in terminals.
+  colours are then its ANSI colours). The terminals' font and text size are
+  Herdr's own (its Settings; JetBrains Mono 14 unless you pick others).
 
 ## Keys
 

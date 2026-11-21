@@ -1,7 +1,8 @@
 // The orbit layout's own settings: the theme (Tokyo Night or one of the six
 // others shipped in themes/, herdr-app's app.theme; any other is in herdr-app's settings, as
 // the UI font: "herdr settings…" opens them), density, corners, gap, the tab
-// rows on top or at the bottom, the background picture and which
+// rows on top or at the bottom, the terminals' background (see-through to
+// solid), the background picture and which
 // notifications show (all, or errors only: orbit-toast) and whether the look
 // checks for its own updates and shows their card (the orbit mod's
 // updates.js). Each change is asked of the orbit mod (look.js ask),
@@ -27,6 +28,7 @@ const THEMES = [["tokyo night", "#7aa2f7", "tokyo-night"], ["catppuccin mocha", 
   ["rosé pine", "#c4a7e7", "rose-pine"]];
 const CORNERS = ["auto", 0, 4, 8, 12];
 const GAPS = ["auto", "none", 4, 8, 12, 16];
+const OPACITIES = [["clear", 0], ["tinted", 0.5], ["solid", 1]];
 const LABEL = 124;
 const WAIT = 15 * 60 * 1000; // how long an open file dialog is waited for
 const PICTURES = /\.(png|jpe?g|webp)$/i;
@@ -172,10 +174,11 @@ export class Settings {
             // A new theme takes the keys from the dialog: Esc closes it again.
             cx.timer.after(300, () => this.handle.focus());
           }))))
-        .child(line("font, others", [toggle("theme", "herdr settings…", false, () => { this.close(); run("app.settings", { section: "look" }); })]))
+        .child(line("font, size", [toggle("theme", "herdr settings…", false, () => { this.close(); run("app.settings", { section: "look" }); })]))
         .child(line("density", choices("density", PRESETS, L.density)))
         .child(line("corners", choices("rounding", CORNERS, L.rounding ?? null)))
         .child(line("gap", choices("gap", GAPS, L.gapSet ?? null)))
+        .child(line("terminal", OPACITIES.map(([text, v]) => toggle(`opacity-${text}`, text, (L.opacity ?? 0) === v, () => this.set({ opacity: v })))))
         .child(line("tab rows", ["bottom", "top"].map((v) => toggle(`tabs-${v}`, v, (L.tabs ?? "bottom") === v, () => this.set({ tabs: v })))))
         .child(line("notifications", [["all", "all"], ["errors only", "errors"]].map(([text, v]) =>
           toggle(`notify-${v}`, text, (L.notify ?? "all") === v, () => this.set({ notify: v })))))

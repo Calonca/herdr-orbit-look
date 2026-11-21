@@ -44,6 +44,10 @@ Scenarios:
           it had
   settings  orbit.settings (ctrl-,) opens Orbit look settings in the right
           pane, not an overlay; again, it shows that one (no second copy)
+  terminal  the layout names no font: settings.json's font and size apply
+          (JetBrains Mono 14 there looks as the default); the look settings'
+          terminal background is written into the layout,
+          show, and the copy still hashes as installed
   toast   a notify() of each level (info, success, warning, error): with
           notifications "all" each shows (orbit-toast, the layout's "toast");
           with "errors only" (asked of the orbit mod as the settings dialog
@@ -468,6 +472,67 @@ export default class Notifier extends View {
 """
 
 LEVELS = ["info", "success", "warning", "error"]
+
+
+SETTER = """import { View, div } from "gpui-kit";
+import { props, run } from "herdr";
+// tools/regress.py: changes the look settings as the settings dialog does.
+export default class Setter extends View {
+  init() { run(`orbit.settings ${JSON.stringify(props()?.change ?? {})}`); }
+  render() { return div().size_full().child("setter"); }
+}
+"""
+
+
+def terminal(ids):
+    """The terminals' font and size come from settings.json (the layout names
+    none); their background from the look settings, written into
+    the layout and left out of the update hash."""
+    os.makedirs(f"{HOME}/mods/regress-set", exist_ok=True)
+    open(f"{HOME}/mods/regress-set/main.js", "w").write(SETTER)
+    open(f"{HOME}/mods/regress-set/mod.json", "w").write('{ "place": "none" }')
+    do("space.select", {"id": ids["shown"][0]})
+    time.sleep(0.8)
+    root = lambda: json.load(open(f"{HOME}/layouts/orbit.json"))
+    check("terminal", "the layout names no font or size", not {"font", "font_size"} & set(root()), str(sorted(root())))
+
+    def change(c):
+        r = do("tab.new", {"mod": "regress-set", "props": {"change": c}})
+        time.sleep(0.5)
+        if r.get("tab"):
+            do("tab.close", {"id": r["tab"], "confirmed": True})
+        time.sleep(0.8)
+
+    def terms(name):
+        time.sleep(1.2)
+        return grab(name).crop((int(420 * ZOOM * SCALE), 0, int(W * SCALE), int((H - 60 * ZOOM) * SCALE)))
+
+    def same(a, b):
+        from PIL import ImageChops
+        return ImageChops.difference(a, b).getbbox() is None
+
+    for i in range(4):
+        sb("hc", "send", ids["shown"][1], f"echo line {i} of the regression suite's terminal text")
+    default = terms("terminal-default")
+    for op in [1, 0]:
+        c = {"opacity": op}
+        change(c)
+        got = lambda: root().get("terminal_opacity")
+        check("terminal", f"{json.dumps(c)}: written", wait(lambda: got() == op), str(got()))
+        ok, v = installed_ok()
+        check("terminal", f"{json.dumps(c)}: still hashes as installed", ok and v == INSTALLED, str(v))
+        img = terms(f"terminal-opacity-{op}")
+        check("terminal", f"{json.dumps(c)}: {'as before' if op == 0 else 'shows'}", same(img, default) == (op == 0))
+
+    base = json.load(open(f"{HOME}/settings.json"))
+    def fonts(extra, name):
+        json.dump({**base, **extra}, open(f"{HOME}/settings.json", "w"))
+        return terms(name)
+    check("terminal", "settings.json JetBrains Mono 14: as the default (0.5.0's)",
+          same(fonts({"font": "JetBrains Mono", "font_size": 14}, "terminal-font-14"), default))
+    check("terminal", "settings.json Geist Mono 20: applies",
+          not same(fonts({"font": "Geist Mono", "font_size": 20}, "terminal-font-20"), default))
+    json.dump(base, open(f"{HOME}/settings.json", "w"))
 
 
 def toast(ids):
@@ -998,7 +1063,7 @@ def update_pill(ids):
     check("update", "Herdr's pill showing: the card above it", c and c["y"] + c["h"] * ZOOM <= herdr_pill() - 4, f"{c} pill top {herdr_pill()}")
 
 
-SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("toast", toast), ("keep", keep), ("split", split), ("update", update), ("update-pill", update_pill)]
+SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("terminal", terminal), ("toast", toast), ("keep", keep), ("split", split), ("update", update), ("update-pill", update_pill)]
 
 
 def main():

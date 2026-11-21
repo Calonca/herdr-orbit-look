@@ -63,7 +63,7 @@ def layout_digest(data):
     """layouts/orbit.json with what the orbit mod writes taken out (layout.js
     shape(); keep the two in step)."""
     root = json.loads(data)
-    for k in ("background", "terminal_padding", "padding"):
+    for k in ("background", "terminal_padding", "terminal_opacity", "padding"):
         root.pop(k, None)
     strip = {
         "body": ("gap", "padding"), "work": ("gap",), "orbit": ("size",), "status": ("size",),

@@ -23,7 +23,9 @@ export const KEY = "orbit.settings";
 // shared "orbit.settings" with the side panel's views. null: the density's.
 // notify: "all" notifications, or "errors" only (orbit-toast). updates: the
 // look's own update notices and their daily check (updates.js), on or off.
-export const DEFAULTS = { density: "comfortable", rounding: null, gap: null, tabs: "bottom", background: null, notify: "all", updates: true, views: null };
+// opacity: the terminals' own background, 0 (the glass shows) to 1 (solid).
+// The terminals' font and size are herdr-app's settings: the layout names none.
+export const DEFAULTS = { density: "comfortable", rounding: null, gap: null, tabs: "bottom", background: null, notify: "all", updates: true, opacity: 0, views: null };
 
 // The densities. The mods were drawn at comfortable; `scale` is relative to it.
 export const DENSITIES = {
@@ -61,6 +63,7 @@ export function shape(root, s, colors) {
   // The background picture, and the space around the terminals.
   root.background = { image: L.background.image, fit: "cover" };
   root.terminal_padding = L.padding;
+  root.terminal_opacity = L.opacity;
   // The gap: between the sidebar, the panes and the panel, and around them
   // all and the status bar (the window pads the sides, the body its top and
   // bottom; the orbit block under the bar grows to it, 4px at least).
@@ -221,7 +224,8 @@ export function lookOf(s = settings()) {
   const d = DENSITIES[s.density] ?? DENSITIES.comfortable;
   const radius = s.rounding ?? d.radius;
   const background = s.background ? { image: s.background, blur: null } : GENERATED;
-  return { ...d, radius, gap: s.gap ?? d.gap, small: Math.min(4, radius), top: s.tabs === "top", background,
+  const opacity = typeof s.opacity === "number" ? Math.min(1, Math.max(0, s.opacity)) : 0;
+  return { ...d, radius, gap: s.gap ?? d.gap, small: Math.min(4, radius), top: s.tabs === "top", background, opacity,
     // What's set (null: the density's), for the settings dialog.
     density: s.density, rounding: s.rounding, gapSet: s.gap, tabs: s.tabs, picked: s.background, notify: s.notify, updates: s.updates !== false };
 }
