@@ -298,7 +298,9 @@ class Redirects(urllib.request.HTTPRedirectHandler):
 def download(url, dest):
     if not allowed(url):
         raise ValueError(f"not this repo's release archive: {url}")
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/octet-stream"})
+    # The API's tarball address answers 415 to "Accept: application/octet-stream"
+    # and redirects to codeload for its own media type (or */*).
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/vnd.github+json"})
     opener = urllib.request.build_opener(Redirects)
     tmp = dest + ".part"
     got = 0

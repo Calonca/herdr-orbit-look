@@ -58,6 +58,12 @@ kept in `data/orbit-updates/previous/`, and the card's **undo** puts it back.
 **stop notifications** turns the check and the card off; "update notices" in
 the look settings turns them on again.
 
+If the update fails (a download error, say), the card shows why and offers
+**update** again and **copy update prompt**. In 0.5.0 and 0.5.1 the button
+can't download any release ("HTTP Error 415: Unsupported Media Type"): update
+those once by hand, with `./install.sh` from a fresh clone or the agent
+prompt below, and the button works from 0.5.2 on.
+
 So change the look through its settings (`ctrl-,`) and Herdr's Settings (the
 terminals' font and text size, the zoom), not by editing `layouts/orbit.json`:
 an edited layout counts as a changed copy. A layout with another structure is

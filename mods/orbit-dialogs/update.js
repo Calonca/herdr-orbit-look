@@ -1,19 +1,22 @@
 // "Orbit 0.6.0 is out": the look's own update notice, a card at the bottom
 // right (the orbit mod's updates.js opens it, places it clear of Herdr's own
 // notices, moves it, and does what its buttons ask). A dot, the title, a ×,
-// up to three lines from the release notes, and its buttons:
+// the release notes (wrapped; past six rows they scroll inside the card), and
+// its buttons:
 //
 //   due      "update" (its tooltip says what it does) · "stop notifications"
 //   working  "updating…"
 //   updated  "Updated to Orbit 0.6.0" · "undo" (the previous copy back)
-//   error    one line; for a copy someone changed (code "changed"), "copy
-//            update prompt" (a line for an agent); else "update" again
+//   error    the error, wrapped over up to three rows; for a copy someone
+//            changed (code "changed"), "copy update prompt" (a line for an
+//            agent); else "update" again and "copy update prompt"
 //
 // Nothing is replaced before the click on "update", and only by the orbit
 // mod's update.py, which leaves a changed copy alone.
 //
-// Its heights are fixed: updates.js sizes the window from them (height()).
-// Props: { dialog: "update", mode, tag, version, from, notes: [line], code, error, prompt }.
+// Its heights are fixed: updates.js sizes the window from them (height())
+// and says how many 18 px rows the notes or the error get (`rows`).
+// Props: { dialog: "update", mode, tag, version, from, notes: [line], rows, code, error, prompt }.
 
 import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
@@ -37,7 +40,8 @@ export class Update {
     const p = props() ?? {};
     const version = p.version ?? p.tag;
     const mode = p.mode ?? "due";
-    const lines = mode === "due" || mode === "working" ? (p.notes ?? []).slice(0, 3) : [];
+    const lines = mode === "due" || mode === "working" ? (p.notes ?? []) : [];
+    const rows = Math.max(0, p.rows ?? 0);
 
     const primary = (id, text, tip, click) => div().id(id).h(28).px(14).flex().items_center().flex_none().rounded(6)
       .bg(t.accent).text_color(t.accent_foreground).text_size(13).font_semibold().cursor_pointer()
@@ -66,19 +70,21 @@ export class Update {
     } else if (mode === "updated") {
       title = `Updated to Orbit ${version}`;
       buttons = [quiet("orbit-update-undo", "undo", `Put Orbit ${p.from ?? "as it was"} back.`, () => { if (p.overlay) closeOverlay(p.overlay); ask("update-undo"); })];
-    } else if (p.code === "changed") {
-      buttons = [this.copied ? said("prompt copied: paste it to an agent")
-        : primary("orbit-update-copy", "copy update prompt", "A one-line prompt for an agent, to update the look and keep your changes.", (cx) => {
-          cx.write_to_clipboard(p.prompt ?? "");
-          this.copied = true;
-          cx.notify();
-        })];
     } else {
-      buttons = [primary("orbit-update-go", "update", "Try again.", () => ask("update-apply", { tag: p.tag }))];
+      const changed = p.code === "changed";
+      const copy = (make) => this.copied ? said(changed ? "prompt copied: paste it to an agent" : "prompt copied")
+        : make("orbit-update-copy", "copy update prompt",
+          changed ? "A one-line prompt for an agent, to update the look and keep your changes."
+            : "A one-line prompt for an agent, to update the look for you. Or run install.sh again from a fresh copy of the repo.",
+          (cx) => {
+            cx.write_to_clipboard(p.prompt ?? "");
+            this.copied = true;
+            cx.notify();
+          });
+      buttons = changed ? [copy(primary)]
+        : [primary("orbit-update-go", "update", "Try again.", () => ask("update-apply", { tag: p.tag })), copy(quiet)];
     }
-    const error = mode === "error"
-      ? (p.code === "changed" ? "Not replaced: your copy was changed." : `Not updated: ${p.error ?? "it failed"}.`)
-      : null;
+    const error = mode === "error" ? (p.error ?? "Not updated.") : null;
 
     return v_flex().id("orbit-update").size_full().px(16).py(13).bg(t.popover).border(1).border_color(t.border).rounded(12)
       .text_color(t.foreground)
@@ -91,10 +97,14 @@ export class Update {
           .text_size(14).text_color(t.muted).cursor_pointer().hover((st) => st.bg(t.hover).text_color(t.foreground))
           .on_click(() => this.close())
           .child("×")))
-      .when(lines.length > 0, (el) => el.child(v_flex().pt(4).pl(16)
-        .children(lines.map((line) => div().h(18).truncate().text_size(13).text_color(t.muted).child(line)))))
-      .when(Boolean(error), (el) => el.child(v_flex().pt(4).pl(16)
-        .child(div().id("orbit-update-error").h(18).truncate().text_size(13).text_color(t.ansi1).tooltip(error ?? "").child(error ?? ""))))
+      // All the notes, wrapped; past `rows` rows they scroll here.
+      .when(lines.length > 0 && rows > 0, (el) => el.child(div().mt(4).pl(16).h(18 * rows).flex_none()
+        .child(v_flex().id("orbit-update-notes").size_full().overflow_y_scrollbar()
+          .children(lines.map((line) => h_flex().w_full().flex_none().items_start().text_size(13).line_height("18px").text_color(t.muted)
+            .child(div().w(12).flex_none().child("•"))
+            .child(div().flex_1().min_w(0).whitespace_normal().child(line)))))))
+      .when(Boolean(error), (el) => el.child(div().mt(4).pl(16).h(18 * Math.max(1, rows)).flex_none().overflow_hidden()
+        .child(div().id("orbit-update-error").w_full().whitespace_normal().line_height("18px").text_size(13).text_color(t.ansi1).tooltip(error ?? "").child(error ?? ""))))
       .child(h_flex().mt(12).pl(16).h(28).gap(6).items_center().children(buttons));
   }
 }

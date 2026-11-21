@@ -67,21 +67,47 @@ export function newer(a, b) {
   return false;
 }
 
-// The note lines: the release's first bullets (its CHANGELOG entry), plain
-// text, at most three.
+// The note lines: the release's bullets (its CHANGELOG entry), plain text,
+// at most twenty.
 export function noteLines(body) {
   const plain = (s) => s.replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/[*_`]/g, "").replace(/\s+/g, " ").trim();
   const lines = String(body ?? "").split("\n");
   let out = lines.filter((l) => /^\s*[-*]\s+/.test(l)).map((l) => plain(l.replace(/^\s*[-*]\s+/, "")));
   if (!out.length) out = lines.filter((l) => l.trim() && !/^\s*#/.test(l)).map(plain);
-  return out.filter(Boolean).slice(0, 3);
+  return out.filter(Boolean).slice(0, 20);
 }
 
-// The prompt "copy update prompt" copies, for when the files were changed:
-// one line, as the gallery's install line is.
-export function prompt(tag) {
-  return `Read ~/.config/herdr-app/AGENTS.md, then update the orbit layout to ${tag} from ${REPO} (read its RECIPE.md); my installed copy was changed, keep those changes`;
+// rows(): how many rows `text` wraps to on the card, word by word, `cols`
+// characters a row. The notes' column is 220 px of 13 px text, the error's
+// 232 px; measured there, 36 characters filled a notes row and 37 an error
+// row, so the defaults (33, and 36 for the error) err high rather than low
+// (too low would cut the last row off).
+export function rows(text, cols = 33) {
+  let n = 1, at = 0;
+  for (const word of String(text ?? "").split(/\s+/).filter(Boolean)) {
+    const len = word.length;
+    if (at && at + 1 + len > cols) { n++; at = 0; }
+    at += (at ? 1 : 0) + len;
+    while (at > cols) { n++; at -= cols; }
+  }
+  return n;
+}
+
+// The card shows at most this many rows of notes (more scroll inside it,
+// so it keeps one size, as Herdr's own notices do) and of an error.
+const NOTE_ROWS = 6, ERROR_ROWS = 3;
+
+// The error line under the title of an "error" card.
+export function errorText(card) {
+  return card.code === "changed" ? "Not replaced: your copy was changed." : `Not updated: ${card.error ?? "it failed"}.`;
+}
+
+// The prompt "copy update prompt" copies, for when the files were changed or
+// the update failed: one line, as the gallery's install line is.
+export function prompt(tag, code) {
+  const why = code === "changed" ? "my installed copy was changed, keep those changes" : "the update button on its card failed, keep my settings";
+  return `Read ~/.config/herdr-app/AGENTS.md, then update the orbit layout to ${tag} from ${REPO} (read its RECIPE.md); ${why}`;
 }
 
 async function readJson(path) {
@@ -262,15 +288,16 @@ export class Updates {
   }
 
   // The card's height (its own lengths, which herdr-app zooms): orbit-dialogs'
-  // update.js draws to these. `lines`: the notes, or the one error line.
+  // update.js draws to these. `lines`: rows of 18 px under the title (the
+  // notes, or the error).
   static height(lines) {
     return 14 + 20 + (lines ? 4 + 18 * lines : 0) + 12 + 28 + 14;
   }
 
   static lines(card) {
     if (card.mode === "updated") return 0;
-    if (card.mode === "error") return 1;
-    return Math.min(3, card.notes?.length ?? 0);
+    if (card.mode === "error") return Math.min(ERROR_ROWS, rows(errorText(card), 36));
+    return Math.min(NOTE_ROWS, (card.notes ?? []).reduce((n, line) => n + rows(line), 0));
   }
 
   // Where the card goes (window pixels), or null.
@@ -289,8 +316,9 @@ export class Updates {
     let herdr = (HERDR.edge + HERDR.pill) * z + toasts * (HERDR.apart + HERDR.toast) * z;
     if (herdrUpdates()?.core?.error) herdr += (HERDR.apart + HERDR.error) * z;
     const bottom = Math.max(bar, Math.ceil(herdr)) + apart;
-    const h = Updates.height(Updates.lines(card));
-    return { x: Math.round(view.width - (L.gap ? gap : apart) - WIDTH * z), y: Math.round(view.height - bottom - h * z), h };
+    const lines = Updates.lines(card);
+    const h = Updates.height(lines);
+    return { x: Math.round(view.width - (L.gap ? gap : apart) - WIDTH * z), y: Math.round(view.height - bottom - h * z), h, lines };
   }
 
   // Opens, moves or closes the card to match.
@@ -303,7 +331,8 @@ export class Updates {
     const old = this.card;
     const id = openOverlay({ mod: "orbit-dialogs", kind: "window", frame: "none", width: WIDTH, height: r.h, at: { x: r.x, y: r.y },
       props: { dialog: "update", mode: card.mode, tag: card.tag, version: String(card.tag).replace(/^v/, ""), from: card.from ?? this.version,
-        notes: card.notes ?? [], code: card.code ?? null, error: card.error ?? null, prompt: prompt(card.tag) } });
+        notes: card.notes ?? [], rows: r.lines, code: card.code ?? null, error: card.mode === "error" ? errorText(card) : null,
+        prompt: prompt(card.tag, card.code) } });
     if (old) closeOverlay(old.id);
     this.card = { id, key };
     setShared(CARD, id);
