@@ -772,9 +772,23 @@ class FakeGitHub:
     headers."""
     def __init__(self):
         fake = self
-        self.release, self.hits, self.downloads = None, [], []
+        self.release, self.hits, self.downloads, self.tarballs = None, [], [], []
         class H(BaseHTTPRequestHandler):
             def do_GET(self):
+                if self.path.startswith("/repos/Calonca/herdr-orbit-look/tarball/"):
+                    # As GitHub's API: 415 to an Accept it refuses, else a
+                    # redirect to the archive (codeload there).
+                    accept = self.headers.get("Accept", "")
+                    fake.tarballs.append(accept)
+                    if accept and not any(a.split(";")[0].strip() in ("*/*", "application/vnd.github+json", "application/json")
+                                          for a in accept.split(",")):
+                        self.send_response(415)
+                        self.end_headers()
+                        return
+                    self.send_response(302)
+                    self.send_header("Location", f"/archive/{self.path.rsplit('/', 1)[1]}.tar.gz")
+                    self.end_headers()
+                    return
                 if self.path.startswith("/archive/"):
                     # This repo's look as release <tag>: stamped, and a mark in orbit-status.
                     data = release_archive(self.path[len("/archive/"):-len(".tar.gz")])
@@ -800,7 +814,7 @@ class FakeGitHub:
     def answer(self, tag, bullets=("one", "two", "three", "four")):
         base = self.url.split("/repos/")[0]
         self.release = {"tag_name": tag, "draft": False, "prerelease": False, "html_url": "https://example.invalid",
-                        "tarball_url": f"{base}/archive/{tag}.tar.gz",
+                        "tarball_url": f"{base}/repos/Calonca/herdr-orbit-look/tarball/{tag}",
                         "body": f"## {tag}\n\n" + "\n".join(f"- **{b}.** detail {b}" for b in bullets)}
 
 
@@ -834,7 +848,7 @@ def installed_ok():
 FAKE = FakeGitHub()
 # update.py downloads only this repo's archives on GitHub; the fake's address
 # is allowed by its test switch (the sandbox's herdr-app passes it on).
-ENV["HERDR_ORBIT_UPDATE_TEST_ARCHIVE"] = FAKE.url.split("/repos/")[0] + "/archive/"
+ENV["HERDR_ORBIT_UPDATE_TEST_ARCHIVE"] = FAKE.url.split("/repos/")[0] + "/"
 INSTALLED = open(f"{REPO}/mods/orbit/VERSION").read().split("\n")[0].strip()
 MAJOR, MINOR, PATCH = (int(v) for v in INSTALLED.split("."))
 

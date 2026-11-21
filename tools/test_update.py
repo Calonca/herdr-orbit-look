@@ -407,6 +407,46 @@ class Replace(Base):
             out = self.apply(base + "here")  # a redirect to an allowed address is followed
             self.assertTrue(out.get("ok"), out)
 
+    def test_github_tarball(self):
+        """As GitHub's API answers the tarball address: 415 to an Accept it
+        refuses (application/octet-stream did that to 0.5.0 and 0.5.1), else
+        a redirect to the archive on another host (codeload)."""
+        import threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        data = open(self.url[len("file://"):], "rb").read()
+        accepts = []
+
+        class H(BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path.startswith("/codeload/Calonca/herdr-orbit-look/legacy.tar.gz/refs/tags/"):
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/x-gzip")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+                accept = self.headers.get("Accept", "")
+                accepts.append(accept)
+                types = [a.split(";")[0].strip() for a in accept.split(",")]
+                if accept and not set(types) & {"*/*", "application/vnd.github+json", "application/json"}:
+                    self.send_response(415)
+                    self.end_headers()
+                    return
+                self.send_response(302)
+                self.send_header("Location", "/codeload/Calonca/herdr-orbit-look/legacy.tar.gz/refs/tags/" + self.path.rsplit("/", 1)[1])
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+        server = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.shutdown)
+        base = f"http://127.0.0.1:{server.server_address[1]}/"
+        with mock.patch.dict(os.environ, {U.TEST_ARCHIVE: base}):
+            out = self.apply(base + "repos/Calonca/herdr-orbit-look/tarball/v0.6.0")
+        self.assertTrue(out.get("ok"), out)
+        self.assertEqual(len(accepts), 1, accepts)
+
     def test_busy(self):
         import fcntl
         os.makedirs(f"{self.home}/data/orbit-updates", exist_ok=True)
