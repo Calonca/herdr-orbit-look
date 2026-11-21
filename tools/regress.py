@@ -773,6 +773,7 @@ class FakeGitHub:
     def __init__(self):
         fake = self
         self.release, self.hits, self.downloads, self.tarballs = None, [], [], []
+        self.refuse = False  # True: the tarball address answers 415 whatever is asked
         class H(BaseHTTPRequestHandler):
             def do_GET(self):
                 if self.path.startswith("/repos/Calonca/herdr-orbit-look/tarball/"):
@@ -780,7 +781,7 @@ class FakeGitHub:
                     # redirect to the archive (codeload there).
                     accept = self.headers.get("Accept", "")
                     fake.tarballs.append(accept)
-                    if accept and not any(a.split(";")[0].strip() in ("*/*", "application/vnd.github+json", "application/json")
+                    if fake.refuse or accept and not any(a.split(";")[0].strip() in ("*/*", "application/vnd.github+json", "application/json")
                                           for a in accept.split(",")):
                         self.send_response(415)
                         self.end_headers()
@@ -932,7 +933,7 @@ def update(ids):
     time.sleep(1)
     shot("update-card")
     st = update_state()
-    check("update", "its notes: the first three bullets, plain", (st.get("latest") or {}).get("notes") == ["one. detail one", "two. detail two", "three. detail three"], json.dumps(st))
+    check("update", "its notes: all the bullets, plain", (st.get("latest") or {}).get("notes") == ["one. detail one", "two. detail two", "three. detail three", "four. detail four"], json.dumps(st))
     if r:
         bottom = r["y"] + r["h"] * ZOOM
         bar_top = bar_y() - 20 * ZOOM
@@ -1056,6 +1057,49 @@ def update(ids):
     if c:
         click(*card_point(c, "close"))
     wait(lambda: not card(), 3)
+
+    # Long notes: wrapped, six rows on the card, the rest scroll inside it;
+    # the taller card still clear of Herdr's pill.
+    long = [f"{w} " + "a longer line of release notes that wraps over more than one row" for w in ("first", "second", "third", "fourth", "fifth")]
+    FAKE.answer(newer(6), long)
+    check_now()
+    c = wait(lambda: (card() or {}).get("tag") == newer(6) and card(), 5)
+    check("update", "long notes: all kept", (update_state().get("latest") or {}).get("notes") == [f"{l}. detail {l}" for l in long], json.dumps(update_state()))
+    check("update", "long notes: six rows on the card, a taller card", c and c.get("lines") == 6 and c["h"] == 14 + 20 + 4 + 18 * 6 + 12 + 28 + 14, str(c))
+    check("update", "long notes: still clear of Herdr's pill", c and c["y"] + c["h"] * ZOOM <= herdr_pill() - 4, f"{c} pill top {herdr_pill()}")
+    time.sleep(1)
+    shot("update-long-notes")
+    if c:
+        # A wheel over the notes scrolls them (the window's own pointer: the card's middle).
+        for _ in range(6):
+            click(c["x"] + 140 * ZOOM, c["y"] + (14 + 20 + 4 + 50) * ZOOM, 5)
+        time.sleep(0.8)
+        shot("update-long-notes-scrolled")
+
+    # A download GitHub refuses: the error wrapped (not cut with "…"),
+    # "update" again and "copy update prompt", nothing replaced.
+    FAKE.refuse = True
+    n = len(FAKE.downloads)
+    if c:
+        click(*card_point(c, "first"))
+    err = wait(lambda: (card() or {}).get("mode") == "error" and card(), 15)
+    FAKE.refuse = False
+    check("update", "a refused download: an error card, nothing downloaded or replaced",
+          err and len(FAKE.downloads) == n and installed_ok() == (True, INSTALLED), f"{card()} {FAKE.downloads} {installed_ok()}")
+    check("update", "the error wraps over more than one row", err and err.get("lines", 0) >= 2, str(err))
+    time.sleep(1)
+    shot("update-download-error")
+    if err:
+        click(*card_point(err, "second"))
+    got = wait(lambda: newer(6) in clipboard() and clipboard(), 5) or clipboard()
+    check("update", "a download error: \"copy update prompt\" copies the prompt", newer(6) in got and "failed" in got and "keep those changes" not in got, repr(got))
+    time.sleep(0.5)
+    shot("update-download-copied")
+    c = card()
+    if c:
+        click(*card_point(c, "close"))
+    wait(lambda: not card(), 3)
+
     ok, v = installed_ok()
     check("update", "at the end: the look hashes as installed", ok and v == INSTALLED, f"{ok} {v}")
 
