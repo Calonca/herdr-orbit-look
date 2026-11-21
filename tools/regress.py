@@ -44,6 +44,10 @@ Scenarios:
           it had
   settings  orbit.settings (ctrl-,) opens Orbit look settings in the right
           pane, not an overlay; again, it shows that one (no second copy)
+  toast   a notify() of each level (info, success, warning, error): with
+          notifications "all" each shows (orbit-toast, the layout's "toast");
+          with "errors only" (asked of the orbit mod as the settings dialog
+          does) only the error shows, the others close at once
 """
 import argparse, json, os, subprocess, sys, time
 
@@ -435,6 +439,60 @@ export default class Counter extends View {
 """
 
 
+NOTIFIER = """import { View, div } from "gpui-kit";
+import { props, notify, run } from "herdr";
+// tools/regress.py: sets the notifications setting as the settings dialog
+// does (props.set), or posts a notify() of props.level.
+export default class Notifier extends View {
+  init() {
+    const p = props() ?? {};
+    if (p.set) run(`orbit.settings ${JSON.stringify({ notify: p.set })}`);
+    if (p.level) notify({ title: `${p.level} toast`, body: `a ${p.level} notification from the regression suite`, level: p.level, timeout: 5000 });
+  }
+  render() { return div().size_full().child("notifier"); }
+}
+"""
+
+LEVELS = ["info", "success", "warning", "error"]
+
+
+def toast(ids):
+    os.makedirs(f"{HOME}/mods/regress-notify", exist_ok=True)
+    open(f"{HOME}/mods/regress-notify/main.js", "w").write(NOTIFIER)
+    open(f"{HOME}/mods/regress-notify/mod.json", "w").write('{ "place": "none" }')
+    check("toast", "the layout names orbit-toast", json.load(open(f"{HOME}/layouts/orbit.json")).get("toast") == "orbit-toast")
+    do("space.select", {"id": ids["shown"][0]})
+    time.sleep(0.8)
+
+    # Its tab is closed after the shot (closed before, the shot lost the
+    # toast).
+    def run_mod(props, then=lambda: None):
+        r = do("tab.new", {"mod": "regress-notify", "props": props})
+        time.sleep(0.5)
+        then()
+        if r.get("tab"):
+            do("tab.close", {"id": r["tab"], "confirmed": True})
+
+    # Overlays are listed by mod name; a toast closes after its timeout.
+    toasts = lambda: [o for o in overlays() or [] if o == "orbit-toast"]
+    for setting in ["all", "errors"]:
+        run_mod({"set": setting})
+        check("toast", f"{setting}: saved", wait(lambda: shared().get("orbit.settings", {}).get("notify") == setting),
+              json.dumps(shared().get("orbit.settings")))
+        for level in LEVELS:
+            wait(lambda: not toasts(), 8)
+            def look():
+                shown = bool(wait(toasts, 1.0))
+                want = setting == "all" or level == "error"
+                check("toast", f"{setting}: {level} {'shows' if want else 'closes at once'}", shown == want, str(overlays()))
+                time.sleep(1.5)  # the shot is the window's last frame: a moment late
+                shot(f"toast-{setting}-{level}")
+            run_mod({"level": level}, look)
+    wait(lambda: not toasts(), 8)
+    run_mod({"set": "all"})
+    wait(lambda: shared().get("orbit.settings", {}).get("notify") == "all")
+
+
 def keep(ids):
     os.makedirs(f"{HOME}/mods/regress-counter", exist_ok=True)
     open(f"{HOME}/mods/regress-counter/main.js", "w").write(COUNTER)
@@ -627,7 +685,7 @@ def identity(ids):
     time.sleep(1)
 
 
-SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("keep", keep), ("split", split)]
+SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("toast", toast), ("keep", keep), ("split", split)]
 
 
 def main():

@@ -316,7 +316,7 @@ export default class Orbit extends View {
       case "view-add": return addPanelView(cx, { title: a.title, mod: a.mod, props: a.props ?? null });
       // The look settings only (the settings dialog): the panel's views are
       // its tab row's to change.
-      case "settings": return apply(Object.fromEntries(Object.entries(a).filter(([k]) => ["density", "rounding", "gap", "tabs", "background"].includes(k))));
+      case "settings": return apply(Object.fromEntries(Object.entries(a).filter(([k]) => ["density", "rounding", "gap", "tabs", "background", "notify"].includes(k))));
     }
   }
 

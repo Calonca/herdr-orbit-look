@@ -1,7 +1,8 @@
 // The orbit layout's own settings: the theme (Tokyo Night or one of the six
 // others shipped in themes/, herdr-app's app.theme; any other is in herdr-app's settings, as
 // the UI font: "herdr settings…" opens them), density, corners, gap, the tab
-// rows on top or at the bottom, and the background picture. Each change is asked of the orbit mod (look.js ask),
+// rows on top or at the bottom, the background picture and which
+// notifications show (all, or errors only: orbit-toast). Each change is asked of the orbit mod (look.js ask),
 // which saves it in shared "orbit.settings" and writes it into the layout at
 // once. Opened in the right pane ("Orbit look settings", the orbit mod's
 // openSettings), as other views are. Props: { dialog: "settings" }.
@@ -174,6 +175,8 @@ export class Settings {
         .child(line("corners", choices("rounding", CORNERS, L.rounding ?? null)))
         .child(line("gap", choices("gap", GAPS, L.gapSet ?? null)))
         .child(line("tab rows", ["bottom", "top"].map((v) => toggle(`tabs-${v}`, v, (L.tabs ?? "bottom") === v, () => this.set({ tabs: v })))))
+        .child(line("notifications", [["all", "all"], ["errors only", "errors"]].map(([text, v]) =>
+          toggle(`notify-${v}`, text, (L.notify ?? "all") === v, () => this.set({ notify: v })))))
         .child(line("background", background))
         .when(found.length > 0, (el) => el.child(line("", found)))
         .when(Boolean(this.error), (el) => el.child(div().ml(LABEL + 6).text_size(13).text_color(t.ansi1).child(this.error ?? ""))))
