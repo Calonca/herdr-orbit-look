@@ -57,31 +57,38 @@ MAX_DOWNLOAD = 64 * 1024 * 1024
 UA = "herdr-orbit-look"
 
 
+LAYOUT_ROOT_WRITES = ("background", "terminal_padding", "terminal_opacity", "padding")
+LAYOUT_NODE_WRITES = {
+    "body": ("gap", "padding"), "work": ("gap",), "orbit": ("size",), "status": ("size",),
+    "sidebar-footer": ("size",), "sidebar": ("background", "radius"), "panel": ("min",),
+    "left": ("background", "active"), "right": ("background", "active", "children"),
+    "panel-body": ("background", "active"),
+    "left-mid": ("divider",), "right-mid": ("divider",), "panel-mid": ("divider",),
+}
+LAYOUT_FRAMES = ("left-frame", "right-frame", "panel")
+LAYOUT_FRAME_SIZED = ("-cap", "-tabs")
+LAYOUT_VIEWS_STACK, LAYOUT_VIEW_PREFIX = "panel-body", "panel-v"
+
+
 def layout_digest(data):
     """layouts/orbit.json with what the orbit mod writes taken out (layout.js
     shape(); keep the two in step)."""
     root = json.loads(data)
-    for k in ("background", "terminal_padding", "terminal_opacity", "padding"):
+    for k in LAYOUT_ROOT_WRITES:
         root.pop(k, None)
-    strip = {
-        "body": ("gap", "padding"), "work": ("gap",), "orbit": ("size",), "status": ("size",),
-        "sidebar-footer": ("size",), "sidebar": ("background", "radius"), "panel": ("min",),
-        "left": ("background", "active"), "right": ("background", "active", "children"),
-        "panel-body": ("background", "active"),
-        "left-mid": ("divider",), "right-mid": ("divider",), "panel-mid": ("divider",),
-    }
+    strip = LAYOUT_NODE_WRITES
 
     def walk(node):
         nid = node.get("id")
         for k in strip.get(nid, ()):
             node.pop(k, None)
-        if nid in ("left-frame", "right-frame", "panel") and isinstance(node.get("children"), list):
+        if nid in LAYOUT_FRAMES and isinstance(node.get("children"), list):
             for c in node["children"]:
-                if str(c.get("id", "")).endswith(("-cap", "-tabs")):
+                if str(c.get("id", "")).endswith(LAYOUT_FRAME_SIZED):
                     c.pop("size", None)
             node["children"].sort(key=lambda c: str(c.get("id")))
-        if nid == "panel-body" and isinstance(node.get("children"), list):
-            node["children"] = [c for c in node["children"] if not str(c.get("id", "")).startswith("panel-v")]
+        if nid == LAYOUT_VIEWS_STACK and isinstance(node.get("children"), list):
+            node["children"] = [c for c in node["children"] if not str(c.get("id", "")).startswith(LAYOUT_VIEW_PREFIX)]
         for c in node.get("children") or []:
             if isinstance(c, dict):
                 walk(c)

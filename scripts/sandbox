@@ -11,6 +11,7 @@
 #   scripts/sandbox log           the window's log
 #   scripts/sandbox hc <args>     hc against the sandbox core
 #   scripts/sandbox x <args>      xdotool on the sandbox's own display (X11 only)
+#   scripts/sandbox down          stop everything and delete it
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -131,5 +132,5 @@ case ${1:-} in
     [[ -n $x11 ]] || { echo "x needs SANDBOX_X11=1" >&2; exit 2; }
     [[ $DISPLAY != ":0" && $DISPLAY != ":1" ]] || { echo "refusing display $DISPLAY" >&2; exit 2; }
     shift; exec xdotool "$@" ;;
-  *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  *) awk 'NR > 1 && !/^#/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0"; exit 2 ;;
 esac
