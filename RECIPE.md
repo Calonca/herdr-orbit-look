@@ -465,8 +465,8 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
   other files and keys alone, the settings in `shared.json` and the
   pictures in `backgrounds/`. Copy `mods/orbit/VERSION` as it is: a copy
   someone changed afterwards (keeping their own edits) no longer matches it,
-  and the card then offers a prompt instead of replacing it. This build is
-  version 0.5.0 (`mods/orbit/VERSION`'s first line, shared `"orbit.version"`).
+  and the card then offers a prompt instead of replacing it. This build's
+  version is `mods/orbit/VERSION`'s first line (shared `"orbit.version"`).
 - **Update notices**: ask the person once whether the look should check for
   its own updates and show their card, and run `./install.sh --updates on`
   or `off` with the answer (by hand: "update notices" in the look settings).
