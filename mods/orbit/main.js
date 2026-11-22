@@ -1,8 +1,9 @@
 // The orbit layout's own block: it draws nothing and keeps the window in step.
-// - The layout file (look.js apply): the theme's glass, the outline of the
-//   pane with the keys in the shown space's colour, the right pane's children
-//   and the side panel's views. Written again when the theme, the shown space
-//   or the keys change, and when layouts/ is replaced (a fresh copy).
+// - The layout file (layout.js apply): the theme's glass, the right pane's
+//   children and the side panel's views. Written again when the theme changes
+//   and when layouts/ is replaced (a fresh copy). The outline's colour isn't
+//   in it: orbit-edge and orbit-tabs draw it from "orbit.sides" and
+//   "orbit.identity", so a keys move or a space switch writes no file.
 // - The two panes (sides.js): the shown space's right pane (its pick, or
 //   hidden when it has none), which pane has the keys, an agent shown from the
 //   agents list or an alert (on the right, its terminal block shows).
@@ -38,7 +39,7 @@ import { save, show, showRight, close, closeAsked, cancelAsk, newTerminal, newMo
 import { apply, closePanelView, renamePanelView, movePanelView, addPanelView, share } from "./layout.js";
 import { find } from "./look.js";
 import { follow } from "./split.js";
-import { identity, spaceKey, lookUpRepos, publish } from "./identity.js";
+import { lookUpRepos, publish } from "./identity.js";
 import { Updates } from "./updates.js";
 
 // The look settings (orbit-dialogs' "settings"), in the shown space's right
@@ -86,7 +87,6 @@ export default class Orbit extends View {
     this.updates = new Updates();
     cx.spawn(async (cx) => { try { await this.updates.start(cx); } catch (e) { console.log(`orbit updates: ${e}`); } });
     cx.spawn(async (cx) => { try { await renameTheme(cx); } catch (e) { console.log(`orbit: ${e}`); } });
-    this.focus = null; // the outline colour last written
     // Both loops use cx each time round: herdr ends a loop at its next cx use
     // once this block is gone (another layout shown), and without one they
     // would spin on.
@@ -234,7 +234,6 @@ export default class Orbit extends View {
     const rightAway = !rightEntries(space, st, ps).length || st.folded[space.id];
     const panelAway = gone("panel") && Date.now() > (this.panelHold ?? 0);
     if ((st.focus === "right" && rightAway) || (st.focus === "panel" && panelAway)) save({ focus: "left" });
-    if (state().focus !== this.drawnSide) this.redraw(cx);
     // A space switch: the picks of the space shown before don't carry over.
     if (this.space !== space.id) {
       this.space = space.id;
@@ -328,9 +327,9 @@ export default class Orbit extends View {
     }
   }
 
-  // Writes the layout for the pane with the keys and the outline colour, one
-  // write at a time: one begun before the keys moved would otherwise land
-  // last with the old colours. Again while either changed during a write.
+  // Writes the layout again (the theme's glass), one write at a time: one
+  // begun before the theme changed would otherwise land last. Again while it
+  // changed during a write.
   redraw(cx) {
     if (this.drawing) { this.again = true; return; }
     this.drawing = true;
@@ -338,10 +337,9 @@ export default class Orbit extends View {
       try {
         do {
           this.again = false;
-          this.drawnSide = state().focus;
-          const colour = this.focus;
+          const surface = this.surface;
           await apply();
-          if (state().focus !== this.drawnSide || colour !== this.focus) this.again = true;
+          if (surface !== this.surface) this.again = true;
         } while (this.again);
       } catch (e) {
         console.log(`orbit: ${e}`);
@@ -352,16 +350,13 @@ export default class Orbit extends View {
   }
 
   // Runs on every change of spaces: the shown one goes to the front of the
-  // recent ones, and its colour becomes the outline.
+  // recent ones. A new theme's glass is written into the layout.
   render(cx) {
     const surface = theme().surface;
     const active = spaces().find((s) => s.active);
-    const focus = active ? identity(spaceKey(active)) : this.focus;
-    if ((this.surface !== undefined && this.surface !== surface) || focus !== this.focus) {
-      this.focus = focus;
-      this.redraw(cx);
-    }
+    const changed = this.surface !== undefined && this.surface !== surface;
     this.surface = surface;
+    if (changed) this.redraw(cx);
     // A space switch shows its right pane at once, not at the next tick (and
     // shares the spaces' colours).
     if (this.sent) this.sync(cx);

@@ -13,7 +13,7 @@
 import { div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { panes, spaces, props, run, theme, openOverlay, layout } from "herdr";
-import { look, glass, find, ask, spaceLook, statusColor, probeColor } from "./look.js";
+import { look, glass, find, ask, keysIn, spaceLook, statusColor, probeColor } from "./look.js";
 import { mark, main, WIDGET } from "./labels.js";
 import { state, LEFT_TAB, entries, entryLabel, isSplit } from "./sides.js";
 import { rowKit, muted, rowGlass, track, remember, dragKit, editKit, inColumn } from "./rowframe.js";
@@ -39,7 +39,9 @@ export class PaneRow {
     const ps = panes();
     const list = entries(space, side, st, ps);
     const { color: ident } = spaceLook(space);
-    const focused = st.focus === side;
+    // As the outline's cap and sides go (look.js keysIn), so all of it
+    // changes in the same frame.
+    const focused = keysIn() === side;
     const line = focused ? ident : t.border;
     const stop = (_e, cx) => cx.stop_propagation();
     // A change asks the orbit mod (look.js ask): it shows, closes and makes tabs.

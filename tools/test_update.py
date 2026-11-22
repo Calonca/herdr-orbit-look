@@ -4,7 +4,7 @@ mismatch) and the replace step, which can destroy a person's files.
 
   python3 tools/test_update.py
 """
-import copy, hashlib, importlib.util, io, json, os, shutil, sys, tarfile, tempfile, unittest
+import copy, hashlib, importlib.util, io, json, os, re, shutil, sys, tarfile, tempfile, unittest
 from unittest import mock
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -29,6 +29,17 @@ def snapshot(root):
 def write(path, text):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     open(path, "w").write(text)
+
+
+# The outline's side blocks as layout.js shape() writes them: a line (look.js
+# LINE) wide, drawn by orbit-edge. Written out here (no node at test time);
+# LINE is read from the mod.
+LINE = int(re.search(r"export const LINE = (\d+);", open(os.path.join(REPO, "mods/orbit/look.js")).read()).group(1))
+PANES = ("left", "right", "panel")
+
+
+def side_block(pane):
+    return {"size": {"px": LINE}, "content": {"mod": "orbit-edge", "props": {"pane": pane, "side": True}}}
 
 
 class Base(unittest.TestCase):
@@ -152,7 +163,11 @@ class Hash(Base):
                     if c["id"].endswith(("-cap", "-tabs")):
                         c["size"] = {"px": 77}
                 kids.reverse()
-            find("left-mid")["divider"] = {"width": 2, "color": "#bb9af7"}
+            for pane in PANES:
+                mid = find(f"{pane}-mid")
+                mid.pop("divider", None)
+                for side in ("s1", "s2"):
+                    find(f"{pane}-{side}").update(side_block(pane))
             find("left")["background"] = "#123"
             find("left")["active"] = "left-tab"
             find("right")["children"].append({"id": "t-t7", "type": "block", "content": {"terminal": "t7"}})
@@ -162,6 +177,22 @@ class Hash(Base):
         self.layout(mod_writes)
         self.assertEqual(self.now(), self.recorded)
 
+    def test_layout_side_blocks_as_shipped(self):
+        # shape() writes the outline's sides as they ship, so they count in the
+        # hash: the shipped layout must already have them so.
+        root = json.load(open(os.path.join(REPO, "layouts/orbit.json")))
+        nodes = {n.get("id"): n for n in walk(root)}
+        for pane in PANES:
+            self.assertNotIn("divider", nodes[f"{pane}-mid"])
+            for side in ("s1", "s2"):
+                got = {k: nodes[f"{pane}-{side}"].get(k) for k in ("size", "content")}
+                self.assertEqual(got, side_block(pane), f"{pane}-{side}")
+
+    def test_layout_older_divider(self):
+        # An older orbit mod's write (0.5.3 and before): the coloured divider.
+        self.layout(lambda root, find: find("left-mid").__setitem__("divider", {"width": 2, "color": "#bb9af7"}))
+        self.assertEqual(self.now(), self.recorded)
+
     def test_layout_hand_edits(self):
         edits = {
             "the sidebar's width": lambda root, find: find("sidebar").__setitem__("size", {"px": 300}),
@@ -169,6 +200,8 @@ class Hash(Base):
             "the theme": lambda root, find: root.__setitem__("theme", "nord"),
             "a block added to a frame": lambda root, find: find("left-frame")["children"].append({"id": "x", "type": "block"}),
             "a block added to the panel": lambda root, find: find("panel-body")["children"].append({"id": "mine", "type": "block"}),
+            "an outline side's width": lambda root, find: find("right-s1").__setitem__("size", {"px": 4}),
+            "an outline side's mod": lambda root, find: find("left-s2")["content"].__setitem__("props", {"pane": "left"}),
         }
         for what, edit in edits.items():
             with self.subTest(what):

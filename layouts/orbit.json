@@ -95,19 +95,19 @@
                   "id": "left-mid",
                   "type": "row",
                   "resizable": false,
-                  "divider": {
-                    "width": 2,
-                    "color": "#7aa2f7"
-                  },
                   "children": [
                     {
                       "id": "left-s1",
                       "type": "block",
                       "size": {
-                        "px": 0
+                        "px": 2
                       },
                       "content": {
-                        "mod": "orbit-edge"
+                        "mod": "orbit-edge",
+                        "props": {
+                          "pane": "left",
+                          "side": true
+                        }
                       }
                     },
                     {
@@ -148,10 +148,14 @@
                       "id": "left-s2",
                       "type": "block",
                       "size": {
-                        "px": 0
+                        "px": 2
                       },
                       "content": {
-                        "mod": "orbit-edge"
+                        "mod": "orbit-edge",
+                        "props": {
+                          "pane": "left",
+                          "side": true
+                        }
                       }
                     }
                   ]
@@ -197,19 +201,19 @@
                   "id": "right-mid",
                   "type": "row",
                   "resizable": false,
-                  "divider": {
-                    "width": 2,
-                    "color": "#414868"
-                  },
                   "children": [
                     {
                       "id": "right-s1",
                       "type": "block",
                       "size": {
-                        "px": 0
+                        "px": 2
                       },
                       "content": {
-                        "mod": "orbit-edge"
+                        "mod": "orbit-edge",
+                        "props": {
+                          "pane": "right",
+                          "side": true
+                        }
                       }
                     },
                     {
@@ -237,10 +241,14 @@
                       "id": "right-s2",
                       "type": "block",
                       "size": {
-                        "px": 0
+                        "px": 2
                       },
                       "content": {
-                        "mod": "orbit-edge"
+                        "mod": "orbit-edge",
+                        "props": {
+                          "pane": "right",
+                          "side": true
+                        }
                       }
                     }
                   ]
@@ -287,19 +295,19 @@
                   "id": "panel-mid",
                   "type": "row",
                   "resizable": false,
-                  "divider": {
-                    "width": 2,
-                    "color": "#414868"
-                  },
                   "children": [
                     {
                       "id": "panel-s1",
                       "type": "block",
                       "size": {
-                        "px": 0
+                        "px": 2
                       },
                       "content": {
-                        "mod": "orbit-edge"
+                        "mod": "orbit-edge",
+                        "props": {
+                          "pane": "panel",
+                          "side": true
+                        }
                       }
                     },
                     {
@@ -327,10 +335,14 @@
                       "id": "panel-s2",
                       "type": "block",
                       "size": {
-                        "px": 0
+                        "px": 2
                       },
                       "content": {
-                        "mod": "orbit-edge"
+                        "mod": "orbit-edge",
+                        "props": {
+                          "pane": "panel",
+                          "side": true
+                        }
                       }
                     }
                   ]
