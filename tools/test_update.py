@@ -39,6 +39,41 @@ def side_block(pane):
     return {"size": {"px": LINE}, "content": {"mod": "orbit-edge", "props": {"pane": pane, "side": True}}}
 
 
+def mod_writes(root, find):
+    root["background"] = {"image": "backgrounds/me.png", "fit": "cover"}
+    root["terminal_padding"] = [8, 6]
+    root["terminal_opacity"] = 1
+    root.pop("padding", None)
+    find("body")["gap"] = 4
+    find("body")["padding"] = [4, 0]
+    find("work").pop("gap", None)
+    find("orbit")["size"] = {"px": 6}
+    find("status")["size"] = {"px": 28}
+    find("sidebar-footer")["size"] = {"px": 67}
+    find("sidebar")["background"] = "#1616229e"
+    find("sidebar")["radius"] = 4
+    find("panel")["min"] = 99
+    for f in ("left-frame", "right-frame", "panel"):
+        kids = find(f)["children"]
+        for c in kids:
+            if c["id"].endswith(("-cap", "-tabs")):
+                c["size"] = {"px": 77}
+        kids.reverse()
+    for pane in PANES:
+        mid = find(f"{pane}-mid")
+        mid.pop("divider", None)
+        for side in ("s1", "s2"):
+            find(f"{pane}-{side}").update(side_block(pane))
+    find("left")["background"] = "#123"
+    find("right")["background"] = "#123"
+    find("panel-body")["background"] = "#123"
+    find("left")["active"] = "left-tab"
+    find("right")["children"].append({"id": "t-t7", "type": "block", "content": {"terminal": "t7"}})
+    find("right")["active"] = "t-t7"
+    find("panel-body")["children"].append({"id": "panel-vabc", "type": "block", "content": {"mod": "files"}})
+    find("panel-body")["active"] = "panel-vabc"
+
+
 class Base(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="orbit-update-test-")
@@ -139,38 +174,50 @@ class Hash(Base):
         open(path, "w").write(json.dumps(root, indent=2))
 
     def test_layout_what_the_mod_writes(self):
-        def mod_writes(root, find):
-            root["background"] = {"image": "backgrounds/me.png", "fit": "cover"}
-            root["terminal_padding"] = [8, 6]
-            root["terminal_opacity"] = 1
-            root.pop("padding", None)
-            find("body")["gap"] = 4
-            find("work").pop("gap", None)
-            find("orbit")["size"] = {"px": 6}
-            find("status")["size"] = {"px": 28}
-            find("sidebar-footer")["size"] = {"px": 67}
-            find("sidebar")["background"] = "#1616229e"
-            find("sidebar")["radius"] = 4
-            find("panel")["min"] = 99
-            for f in ("left-frame", "right-frame", "panel"):
-                kids = find(f)["children"]
-                for c in kids:
-                    if c["id"].endswith(("-cap", "-tabs")):
-                        c["size"] = {"px": 77}
-                kids.reverse()
-            for pane in PANES:
-                mid = find(f"{pane}-mid")
-                mid.pop("divider", None)
-                for side in ("s1", "s2"):
-                    find(f"{pane}-{side}").update(side_block(pane))
-            find("left")["background"] = "#123"
-            find("left")["active"] = "left-tab"
-            find("right")["children"].append({"id": "t-t7", "type": "block", "content": {"terminal": "t7"}})
-            find("right")["active"] = "t-t7"
-            find("panel-body")["children"].append({"id": "panel-vabc", "type": "block", "content": {"mod": "files"}})
-            find("panel-body")["active"] = "panel-vabc"
         self.layout(mod_writes)
         self.assertEqual(self.now(), self.recorded)
+
+    def test_layout_model_covers_the_list(self):
+        touched = set()
+
+        class Node(dict):
+            def __setitem__(self, k, v):
+                touched.add((self.get("id", "root"), k)); super().__setitem__(k, v)
+
+            def pop(self, k, *d):
+                touched.add((self.get("id", "root"), k)); return super().pop(k, *d)
+
+            def update(self, other):
+                for k, v in other.items():
+                    self[k] = v
+
+        class Kids(list):
+            def __init__(self, owner, items):
+                super().__init__(items); self.owner = owner
+
+            def append(self, x):
+                touched.add((self.owner, "children")); super().append(x)
+
+            def reverse(self):
+                touched.add((self.owner, "children")); super().reverse()
+
+        def wrap(n):
+            out = Node({k: v for k, v in n.items() if k != "children"})
+            if "children" in n:
+                dict.__setitem__(out, "children", Kids(n.get("id", "root"), [wrap(c) for c in n["children"]]))
+            return out
+
+        root = wrap(json.load(open(os.path.join(REPO, "layouts/orbit.json"))))
+        frames = {c["id"]: f for f in U.LAYOUT_FRAMES for c in next(n for n in walk(root) if n.get("id") == f)["children"]}
+        mod_writes(root, lambda id: next(n for n in walk(root) if n.get("id") == id))
+        sized = lambda i: next((x for x in U.LAYOUT_FRAME_SIZED if i.endswith(x)), None)
+        touched = {(f"{frames[i]}/*{sized(i)}", k) if i in frames and sized(i) and k == "size" else (i, k) for i, k in touched}
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from test_ties import digest_leaves_out
+        side_blocks = {(f"{p}-{x}", k) for p in PANES for x in ("s1", "s2") for k in ("size", "content")}
+        self.assertEqual(touched - side_blocks, digest_leaves_out(),
+                         "mod_writes in tools/test_update.py (a layout as the orbit mod writes it) should touch exactly "
+                         "what update.py's LAYOUT_* lists leave out of the hash: change it with them.")
 
     def test_layout_side_blocks_as_shipped(self):
         root = json.load(open(os.path.join(REPO, "layouts/orbit.json")))
