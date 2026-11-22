@@ -1,7 +1,3 @@
-// The recent spaces, most recent first: identity symbol, name, machine, agent state. The one before this space
-// is picked at first. ↑/↓ or Tab/Shift+Tab move, 1-9 or Enter go, Esc closes.
-// Props: { dialog: "switcher" }.
-
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, shared, run, theme, props, closeOverlay } from "herdr";

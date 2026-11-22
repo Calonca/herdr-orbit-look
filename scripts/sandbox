@@ -11,12 +11,6 @@
 #   scripts/sandbox log           the window's log
 #   scripts/sandbox hc <args>     hc against the sandbox core
 #   scripts/sandbox x <args>      xdotool on the sandbox's own display (X11 only)
-#   scripts/sandbox down          stop everything and delete it
-#
-# SANDBOX_X11=1: an X11 window on a private Xvfb display instead of headless
-# weston, with a HOME of its own (the WASM host and modules linked in), so
-# real clicks and keys can be sent with `scripts/sandbox x` (xdotool). Every
-# command for that sandbox needs SANDBOX_X11=1 too.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -26,14 +20,11 @@ root=/var/tmp/herdr-app-$name
 bin=${HERDR_APP_BIN:-$(command -v herdr-app)}
 export HC_SESSION=herdr-app-$name HERDR_APP_HOME=$root/home XDG_STATE_HOME=$root/state
 export HERDR_APP_NO_SOUND=1 DO_NOT_TRACK=1 HERDR_TELEMETRY=0
-# A runtime dir of its own: the display's socket lives there, and without the
-# user's systemd the core runs as a plain child instead of a user service.
 export XDG_RUNTIME_DIR=$root/run WAYLAND_DISPLAY=herdr-app-$name
 unset DISPLAY
 width=${SANDBOX_WIDTH:-1600} height=${SANDBOX_HEIGHT:-1000}
 x11=${SANDBOX_X11:-}
 if [[ -n $x11 ]]; then
-  # A display number of its own, from the name (never :0, the person's).
   xnum=$((100 + $(printf '%s' "$name" | cksum | cut -d' ' -f1) % 400))
   export DISPLAY=:$xnum
   unset WAYLAND_DISPLAY
@@ -44,8 +35,6 @@ ours() { { tr '\0' '\n' <"/proc/$1/environ"; } 2>/dev/null | grep -qx "HERDR_APP
 start_xvfb() {
   mkdir -p "$root"
   if [[ -f $root/xpid ]] && kill -0 "$(cat "$root/xpid")" 2>/dev/null; then return 0; fi
-  # A display of ours that ended leaves its socket and lock behind (never :0
-  # or :1: the number is 100 or more).
   rm -f "/tmp/.X11-unix/X$xnum" "/tmp/.X$xnum-lock"
   Xvfb "$DISPLAY" -screen 0 "${width}x${height}x24" -nolisten tcp >"$root/xvfb.log" 2>&1 &
   echo $! >"$root/xpid"
@@ -57,14 +46,12 @@ start_xvfb() {
   return 1
 }
 
-# Its own HOME: the WASM host and its modules are linked in (read only).
 make_home() {
   local h=$root/userhome
   mkdir -p "$h/.local/bin" "$h/.config" "$h/.cache"
   [[ -e $h/.zshrc ]] || echo "# sandbox" >"$h/.zshrc"
   [[ -e $HOME/.local/bin/wasm-mods-host ]] && ln -sfn "$HOME/.local/bin/wasm-mods-host" "$h/.local/bin/wasm-mods-host"
   [[ -d $HOME/.config/wasm-mods && ! -e $h/.config/wasm-mods ]] && cp -r "$HOME/.config/wasm-mods" "$h/.config/wasm-mods"
-  # The modules, copied: a module's own data then stays in the sandbox.
   if [[ -d $HOME/.local/share/wasm-mods/modules && ! -e $h/.local/share/wasm-mods/modules ]]; then
     mkdir -p "$h/.local/share/wasm-mods"
     cp -r "$HOME/.local/share/wasm-mods/modules" "$h/.local/share/wasm-mods/modules"
@@ -103,7 +90,6 @@ stop_window() {
 start_window() {
   start_display
   mkdir -p "$HERDR_APP_HOME" "$root/bin"
-  # Opening a link would reach the real browser: log it instead.
   for opener in xdg-open open; do
     printf '#!/bin/sh\nprintf "%%s\\n" "$*" >>%q\n' "$root/opened" >"$root/bin/$opener"
     chmod +x "$root/bin/$opener"

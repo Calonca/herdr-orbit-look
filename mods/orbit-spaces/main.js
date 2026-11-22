@@ -1,9 +1,3 @@
-// The sidebar of spaces (a clone of herdr-app's spaces mod, restyled): a
-// header per machine, "Local" first; each space with its identity symbol (filled
-// by its agents' state), its name, and its branch and ahead/behind under it;
-// worktrees hung from their repo with tree lines, foldable. Click to switch,
-// right-click for its menu, drag to reorder.
-//
 // Derived from herdr-app's `spaces` mod (Apache-2.0) and changed: restyled
 // rows, identity symbols and colours, worktrees under their repo, the glass
 // background.
@@ -14,30 +8,22 @@ import { look, glass, spaceLook, spaceSymbol, probeColor, accentBand } from "./l
 import { backdrop, orbitPlace, orbitRadius } from "./glass.js";
 import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window } from "herdr";
 
-// Where a space is now: its first terminal's live folder, else where it was made.
-// `ps`: panes(), read once by the caller (each read copies every pane).
 function place(s, ps) {
   const tabs = new Set((s.tabs ?? []).map((c) => c.id));
   return ps.find((p) => tabs.has(p.tab) && p.cwd)?.cwd || s.folder;
 }
-// A row's first line, a further line, the symbol's centre and the gap from
-// it to the label.
 let LINE = 27, SUB = 16, GAP = 15, K = 1, R = 4;
 const DOT_X = 14;
 const sz = (n) => Math.round(n * K);
 const where = (s, ps) => JSON.stringify([s.machine ?? null, place(s, ps)]);
 const base = (path) => path.replace(/\/+$/, "").split("/").pop();
-// Changes made outside Herdr (an editor's save, a commit in another app): looked
-// for this often, in repos the list shows, while the window is in front.
 const FALLBACK = 60000;
 
-// Why a machine can't be reached.
 const AWAY = {
   unreachable: "unreachable: the machine is off, asleep, or on another network",
   refused: "ssh connection refused: is the ssh server running there, on that port?",
 };
 
-// A space speaks up only when something in it needs you.
 export function glyph(status) {
   return status === "blocked" || status === "done" ? "●" : "·";
 }
@@ -48,21 +34,16 @@ export function tone(t, status) {
 
 export default class Spaces extends View {
   init(_props, cx) {
-    // A render herdr-app cut off (over its 50 ms, e.g. when a garbage
-    // collection lands in it) leaves an error banner until the next render;
-    // one that never reached its end is retried here.
     this.unfinished = false;
     cx.timer.every(1000, (cx) => { if (this.unfinished) { this.unfinished = false; cx.notify(); } });
-    this.git = {}; // where() -> { name, branch, ahead, behind, repo, linked }, null: not a repo
-    this.checked = {}; // where() -> when it was last looked at
-    this.unsure = new Set(); // where()s git couldn't answer for (a machine away)
-    this.pending = new Set(); // where()s to look at next
-    this.busy = {}; // pane -> an agent working or a program in front of its shell
-    this.ready = {}; // machine -> its layout was readable at the last look
-    this.at = {}; // space -> its where() at the last look
-    this.watching = new Set(); // local repos' git folders
-    // Spaces made while this runs wait (at most a moment) for their git, so a
-    // worktree appears under its repo instead of jumping there.
+    this.git = {};
+    this.checked = {};
+    this.unsure = new Set();
+    this.pending = new Set();
+    this.busy = {};
+    this.ready = {};
+    this.at = {};
+    this.watching = new Set();
     this.shown = new Set(spaces().map((s) => s.id));
     this.born = {};
     this.pressed = null;
@@ -72,8 +53,6 @@ export default class Spaces extends View {
     this.foldedRepos = new Set(JSON.parse(localStorage.getItem("repos.folded") ?? "[]"));
     this.refreshMachines(cx);
     cx.timer.every(15000, cx => this.refreshMachines(cx));
-    // `git status` walks the whole tree, on another machine a process there:
-    // only when its answer could have changed (see `due`).
     cx.timer.every(250, (cx) => this.checkNew(cx));
   }
 
@@ -86,11 +65,7 @@ export default class Spaces extends View {
     if (sp.some((s) => !this.shown.has(s.id))) cx.notify();
   }
 
-  // Places whose git could have changed: new ones (a new space, a cd), where a
-  // command or an agent's turn just ended (a checkout, a commit, edits), those on
-  // a machine that is back, and repos in view whose fallback is due.
   due(now, sp, ps) {
-    // Moved there: what it knew of that place may be old.
     const at = {};
     for (const s of sp) at[s.id] = where(s, ps);
     const keys = new Set(Object.values(at).filter((k) => JSON.parse(k)[1]));
@@ -120,7 +95,6 @@ export default class Spaces extends View {
     return due;
   }
 
-  // `key` and the other places in its repo (a commit there moves their ahead/behind).
   sameRepo(key, keys) {
     const repo = this.git[key]?.repo;
     return [key, ...(repo ? [...keys].filter((k) => this.git[k]?.repo === repo) : [])];
@@ -133,7 +107,6 @@ export default class Spaces extends View {
     });
   }
 
-  // One look at a time, each place once however often it was asked for meanwhile.
   refreshGit(keys, cx) {
     for (const k of keys) this.pending.add(k);
     if (this.refreshing) return;
@@ -151,7 +124,6 @@ export default class Spaces extends View {
     });
   }
 
-  // One place's git: branch, ahead/behind, its repo.
   async check(key, cx) {
     const [on, cwd] = JSON.parse(key);
     this.checked[key] = Date.now();
@@ -160,12 +132,10 @@ export default class Spaces extends View {
       // No optional locks: a status that touched the index would wake the watch again.
       const r = await exec("git", ["--no-optional-locks", "status", "--porcelain=v2", "--branch"], { cwd, on });
       if (r.code !== 0) {
-        // Only git's own "no" is remembered as no repo; anything else is asked again.
         if (!/not a git repository/i.test(r.stderr)) this.unsure.add(key);
         this.git[key] = null;
         return;
       }
-      // The repo's own .git folder names it; a worktree's top differs from it.
       const top = await exec("git", ["rev-parse", "--show-toplevel"], { cwd, on });
       const common = await exec("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd, on });
       const repo = common.stdout.trim();
@@ -182,7 +152,6 @@ export default class Spaces extends View {
       this.git[key] = info;
       if (!on) this.watch(repo, cx);
     } catch {
-      // Couldn't ask (the machine is away): keep what it showed, look again later.
       this.git[key] ??= null;
       this.unsure.add(key);
     }
@@ -203,11 +172,9 @@ export default class Spaces extends View {
   }
 
   menu(w) {
-    // A popup is as tall as its items; height is only the most.
     openOverlay({ mod: "menu", kind: "popup", width: 200, height: 260, props: { tab: "space", target: { id: w.id } } });
   }
 
-  // Spaces in order, each worktree space moved under its main checkout's.
   ordered() {
     const sp = spaces(), ps = panes();
     const ready = (w) => this.shown.has(w.id) || where(w, ps) in this.git || Date.now() - (this.born[w.id] ??= Date.now()) > 1500;
@@ -216,7 +183,7 @@ export default class Spaces extends View {
     const mains = new Set(list.filter((r) => r.g && !r.g.linked).map((r) => r.g.repo));
     const nested = (r) => r.g?.linked && mains.has(r.g.repo);
     const out = [];
-    const placed = new Set(); // repos whose worktrees are listed (under the first of its spaces)
+    const placed = new Set();
     for (const r of list) {
       if (nested(r)) continue;
       const first = r.g && !r.g.linked && !placed.has(r.g.repo);
@@ -230,7 +197,6 @@ export default class Spaces extends View {
     return out;
   }
 
-  // The rows, under a header per machine once one isn't this computer.
   grouped(t, collapsed) {
     const rows = this.ordered();
     const draw = (r) => (collapsed ? this.compact(r, t) : this.row(r, t));
@@ -266,21 +232,13 @@ export default class Spaces extends View {
     });
   }
 
-  // A space's colour and symbol come from the orbit mod (shared
-  // "orbit.identity"): its name, but a worktree and the main checkout it
-  // hangs from share their repo's (its git dir).
-
-  // A space's row: the symbol (grey, filled by its agents' state) and
-  // the name; under it the branch and how far it is ahead or behind. The shown
-  // space's row takes its identity colour: a band behind it (look.js
-  // accentBand, as the taskbar's card), its name bold in white. A worktree is one line, hung from its repo's symbol.
   row({ w, i, g, tree, kids, last }, t) {
     const on = w.active;
     const nested = Boolean(tree);
     const { color } = spaceLook(w);
     const two = !nested && Boolean(g);
     const h = nested ? LINE - 3 : two ? LINE + SUB - 2 : LINE;
-    const r = nested ? 12 : 14; // the symbol's box
+    const r = nested ? 12 : 14;
     const dotX = nested ? DOT_X + GAP + 4 : DOT_X;
     const lineColor = t.muted.slice(0, 7) + "73";
     const folded = this.foldedRepos.has(g?.repo);
@@ -309,7 +267,6 @@ export default class Spaces extends View {
         cx.notify();
       })
       .on_mouse_down("right", () => this.menu(w))
-      // Tree lines: down from the repo's symbol, and across to each worktree's.
       .when(kids > 0 && !folded, (el) => el.child(div().absolute().left(DOT_X).top(LINE / 2 + 8).bottom(0).w(1).bg(lineColor)))
       .when(nested, (el) => el
         .child(div().absolute().left(DOT_X).top(0).h(last ? h / 2 - 4 : h).w(1).bg(lineColor))
@@ -376,7 +333,6 @@ export default class Spaces extends View {
       changed = true;
     }
     if (changed) setShared("space.colors", kept);
-    // The glass: the blurred background under the fill (glass.js).
     const at = orbitPlace(L, "sidebar-top", this.own);
     return v_flex().id("orbit-spaces").size_full().min_h(0).relative().text_size(sz(16))
       .on_size_change((size, cx) => { if (size.width !== this.own?.width || size.height !== this.own?.height) { this.own = size; cx.notify(); } })

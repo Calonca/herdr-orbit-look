@@ -1,23 +1,3 @@
-// "Orbit 0.6.0 is out": the look's own update notice, a card at the bottom
-// right (the orbit mod's updates.js opens it, places it clear of Herdr's own
-// notices, moves it, and does what its buttons ask). A dot, the title, a ×,
-// the release notes (wrapped; past six rows they scroll inside the card), and
-// its buttons:
-//
-//   due      "update" (its tooltip says what it does) · "stop notifications"
-//   working  "updating…"
-//   updated  "Updated to Orbit 0.6.0" · "undo" (the previous copy back)
-//   error    the error, wrapped over up to three rows; for a copy someone
-//            changed (code "changed"), "copy update prompt" (a line for an
-//            agent); else "update" again and "copy update prompt"
-//
-// Nothing is replaced before the click on "update", and only by the orbit
-// mod's update.py, which leaves a changed copy alone.
-//
-// Its heights are fixed: updates.js sizes the window from them (height())
-// and says how many 18 px rows the notes or the error get (`rows`).
-// Props: { dialog: "update", mode, tag, version, from, notes: [line], rows, code, error, prompt }.
-
 import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { props, theme, closeOverlay } from "herdr";
@@ -28,7 +8,6 @@ export class Update {
     this.copied = false;
   }
 
-  // At once here (the orbit mod takes its asks a moment later), and remembered there.
   close(what = "update-close") {
     const p = props() ?? {};
     if (p.overlay) closeOverlay(p.overlay);
@@ -97,7 +76,6 @@ export class Update {
           .text_size(14).text_color(t.muted).cursor_pointer().hover((st) => st.bg(t.hover).text_color(t.foreground))
           .on_click(() => this.close())
           .child("×")))
-      // All the notes, wrapped; past `rows` rows they scroll here.
       .when(lines.length > 0 && rows > 0, (el) => el.child(div().mt(4).pl(16).h(18 * rows).flex_none()
         .child(v_flex().id("orbit-update-notes").size_full().overflow_y_scrollbar()
           .children(lines.map((line) => h_flex().w_full().flex_none().items_start().text_size(13).line_height("18px").text_color(t.muted)

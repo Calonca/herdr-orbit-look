@@ -1,28 +1,9 @@
-// The orbit layout's own settings: the theme (Tokyo Night or one of the six
-// others shipped in themes/, herdr-app's app.theme; any other is in herdr-app's settings, as
-// the UI font: "herdr settings…" opens them), density, corners, gap, the tab
-// rows on top or at the bottom, the terminals' background (see-through to
-// solid), the background picture and which
-// notifications show (all, or errors only: orbit-toast) and whether the look
-// checks for its own updates and shows their card (the orbit mod's
-// updates.js). Each change is asked of the orbit mod (look.js ask),
-// which saves it in shared "orbit.settings" and writes it into the layout at
-// once. Opened in the right pane ("Orbit look settings", the orbit mod's
-// openSettings), as other views are. Props: { dialog: "settings" }.
-//
-// "background…" opens a file dialog: KDE's kdialog, else GNOME's zenity (from
-// a toolbox or a flatpak, the host's, through flatpak-spawn); with neither,
-// herdr-app's own folder picker, and the pictures in the chosen folder show
-// here to pick from. The picture is copied into herdr-app's home
-// (backgrounds/), where a layout's picture has to be.
-
 import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { theme, props, closeOverlay, exec, home, appHome, run, readTextFile, watchFolder, pickFolder } from "herdr";
 import { look, ask } from "./look.js";
 
 const PRESETS = ["compact", "default", "comfortable"];
-// The themes shipped in themes/, known by their accent.
 const THEMES = [["tokyo night", "#7aa2f7", "tokyo-night"], ["catppuccin mocha", "#89b4fa", "catppuccin-mocha"], ["everforest", "#a7c080", "everforest"],
   ["gruvbox dark", "#83a598", "gruvbox-dark"], ["kanagawa", "#7e9cd8", "kanagawa"], ["nord", "#88c0d0", "nord"],
   ["rosé pine", "#c4a7e7", "rose-pine"]];
@@ -30,7 +11,7 @@ const CORNERS = ["auto", 0, 4, 8, 12];
 const GAPS = ["auto", "none", 4, 8, 12, 16];
 const OPACITIES = [["clear", 0], ["tinted", 0.5], ["solid", 1]];
 const LABEL = 124;
-const WAIT = 15 * 60 * 1000; // how long an open file dialog is waited for
+const WAIT = 15 * 60 * 1000;
 const PICTURES = /\.(png|jpe?g|webp)$/i;
 
 // The file dialog, run apart from herdr-app (its exec stops a command after
@@ -69,7 +50,7 @@ export class Settings {
   init(_props, cx) {
     this.picking = false;
     this.error = null;
-    this.found = null; // the pictures of a folder picked with herdr-app's picker
+    this.found = null;
     this.handle = cx.focus_handle();
     cx.timer.after(100, () => this.handle.focus());
   }
@@ -78,19 +59,16 @@ export class Settings {
     ask("settings", change);
   }
 
-  // Opened as an overlay (an older copy's), Esc closes it; in a pane it stays.
   close() {
     if (props()?.overlay) closeOverlay(props().overlay);
   }
 
-  // Copies `path` into backgrounds/ and makes it the background.
   async use(path) {
     const c = await exec("sh", ["-c", COPY, "sh", path, appHome()]);
     if (c.code !== 0) throw new Error(c.stderr.trim() || "couldn't copy it");
     this.set({ background: `backgrounds/${c.stdout.trim()}` });
   }
 
-  // background…: a file dialog; the picture chosen becomes the background.
   pick(cx) {
     if (this.picking) return;
     this.picking = true;
@@ -104,7 +82,6 @@ export class Settings {
         await exec("mkdir", ["-p", dir]);
         const r = await exec("sh", ["-c", OPEN, "sh", out, `${home()}/Pictures`]);
         if (r.code === 3) {
-          // No file dialog here: herdr-app's folder picker, then its pictures.
           const folder = await pickFolder({ prompt: "Use this folder" });
           if (folder) {
             const ls = await exec("ls", ["-1", folder]);
@@ -171,7 +148,6 @@ export class Settings {
         .child(line("theme", THEMES.map(([name, accent, file]) => toggle(`theme-${accent}`, name, t.accent.slice(0, 7).toLowerCase() === accent,
           (cx) => {
             run("app.theme", { name: file ?? name });
-            // A new theme takes the keys from the dialog: Esc closes it again.
             cx.timer.after(300, () => this.handle.focus());
           }))))
         .child(line("font, size", [toggle("theme", "herdr settings…", false, () => { this.close(); run("app.settings", { section: "look" }); })]))

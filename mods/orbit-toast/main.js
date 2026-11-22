@@ -1,17 +1,3 @@
-// The orbit layout's toast (its root "toast"): Herdr's shipped toast with one
-// rule. The look setting "notifications" (shared "orbit.settings", set in
-// Orbit look settings) is "all", or "errors": then every notification but an
-// error closes at once, unseen.
-//
-// How notifications look. Anything can post one with notify({ title, body,
-// level, icon, action }); replace this mod to restyle them all. Click to
-// run its action (e.g. go to the agent) and dismiss it.
-//
-// Each toast on screen is listed in shared "orbit.toasts" (its overlay id:
-// when it opened) while it shows, so the look's update card (the orbit mod's updates.js)
-// stays clear of them: Herdr stacks toasts at the bottom right, where the
-// card is.
-
 import { View, div, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { props, closeOverlay, run, theme, shared, setShared } from "herdr";
@@ -32,7 +18,6 @@ function listed(id, on) {
 
 export default class Toast extends View {
   init(initProps, cx) {
-    // The props come in as init's argument; props() may not be set yet here.
     const p = initProps ?? props() ?? {};
     if (hidden(p) && p.overlay) return closeOverlay(p.overlay);
     this.overlay = p.overlay;

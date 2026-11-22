@@ -1,6 +1,4 @@
 #!/bin/bash
-# Fills every cell of its terminal with a pure green █ (redrawn on a resize),
-# so regress.py can see where the cell grid ends: the "padding" scenario.
 # On the alternate screen, without wrapping: a resize doesn't reflow the old
 # rows into a mess before the redraw.
 printf '\e[?1049h\e[?7l'

@@ -1,13 +1,8 @@
-// Make tab N, asked for when ctrl+N finds no such tab: a name and, optionally,
-// the command it runs (empty: a shell). Enter makes it, Esc cancels.
-// Props: { dialog: "new-tab", space, index }.
-
 import { div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { run, props, closeOverlay, theme } from "herdr";
 import { look } from "./look.js";
 
-// "claude --resume" -> ["claude", "--resume"]; quotes keep spaces together.
 function argv(command) {
   const out = [];
   for (const m of command.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)) out.push(m[1] ?? m[2] ?? m[3]);

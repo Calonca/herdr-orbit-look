@@ -1,17 +1,9 @@
-// The foot of the sidebar: "▸ agents" folds herdr's agents list (the
-// layout's "agents" block) in and out; "open folder" makes a space in a
-// folder from the system's folder picker; "menu" is the sidebar's menu
-// (orbit-dialogs' menu): what herdr's stock sidebar has buttons for (search, settings,
-// add machine, new space) and the shown space's items. A dot on it while an
-// update is ready.
-
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { run, theme, layout, spaces, panes, pickFolder, openOverlay, updates, machines, exec } from "herdr";
 import { look, glass, find } from "./look.js";
 import { backdrop, orbitPlace, orbitRadius, zoom } from "./glass.js";
 
-// A space's checkout: "main", "linked" (a worktree) or null (as the menu asks).
 async function checkout(space) {
   const tabs = new Set((space.tabs ?? []).map((c) => c.id));
   const folder = panes().find((p) => tabs.has(p.tab) && p.cwd)?.cwd || space.folder;
@@ -29,7 +21,6 @@ export default class OrbitSidebarFooter extends View {
     const open = find(layout(), "agents")?.hidden === false;
     const ghost = (id, text, action) => div().id(id).px(6).py(3).rounded(4).text_size(16).text_color(t.ansi7)
       .hover((s) => s.bg(t.foreground.slice(0, 7) + "1a").text_color(t.foreground)).on_click(action).child(text);
-    // The glass: the blurred background under the fill (glass.js).
     const L = look();
     const at = orbitPlace(L, "sidebar-bottom", this.own);
     return v_flex().id("orbit-sidebar-footer").size_full().relative().px(11).pb(8).justify_end().gap(4)
@@ -51,10 +42,6 @@ export default class OrbitSidebarFooter extends View {
           .when(Boolean(updates()?.app?.ready), (el) => el.child(div().size(6).rounded_full().bg(t.accent))), (_e, cx) => {
           const space = spaces().find((s) => s.active);
           cx.spawn(async () => {
-            // Its height: its items (orbit-dialogs' menu), 31 each, two lines, the
-            // padding; the worktree items in a git checkout (the menu asks
-            // git the same). It opens upwards from the button: the footer is
-            // at the window's bottom.
             const away = machines().filter((m) => m.name && m.layout === "ready").length;
             const git = space ? await checkout(space) : null;
             const n = 4 + away + (space ? 2 : 0) + 1 + (git ? 2 : 0) + (git === "linked" ? 1 : 0);

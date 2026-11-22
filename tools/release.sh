@@ -1,14 +1,4 @@
 #!/usr/bin/env bash
-# Publishes a release of the look, the one step:
-#
-#   tools/release.sh 0.5.0
-#
-# On a clean main that has CHANGELOG.md's "## 0.5.0" entry: writes
-# mods/orbit/VERSION (the version, the list of the look's files and their
-# hash: mods/orbit/update.py stamp), commits it if it changed, tags v0.5.0,
-# pushes the branch and the tag, and creates the GitHub release with that
-# entry as its notes. The release's source archive is what the look's
-# "update" button downloads; it checks the archive against that VERSION.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 version=${1:?usage: tools/release.sh <version, e.g. 0.5.0>}

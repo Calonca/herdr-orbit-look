@@ -1,14 +1,5 @@
-// What the machine is using: cpu (all and each core, the load), ram (and
-// swap), the disk of the home folder. This file is the same in every orbit
-// mod that uses it (the status bar's widgets, orbit-dialogs' "stat" popup).
-//
-//   const sys = new System(); sys.start(cx);   then sys.cpu, sys.cores, ...
-//
-// /proc every second and `df` every 30 s (Linux; elsewhere they stay null).
-
 import { readTextFile, exec, home, shared } from "herdr";
 
-// `17G`, `7.1G`, `512M`: binary units, one decimal under 10.
 export function bytes(n) {
   const units = ["B", "K", "M", "G", "T", "P"];
   let u = 0;
@@ -18,25 +9,23 @@ export function bytes(n) {
 
 export const pct = (v) => `${Math.round(v * 100)}%`;
 
-// A use's colour: blue, yellow from 70%, red from 90%.
 export function level(t, v) {
   return v >= 0.9 ? t.ansi1 : v >= 0.7 ? t.ansi3 : t.ansi4;
 }
 
 export class System {
   constructor() {
-    this.cpu = null; // 0..1
-    this.cores = []; // 0..1 each
-    this.load = null; // [1, 5, 15 min]
-    this.mem = null; // { used, total, available, swapUsed, swapTotal }
-    this.disk = null; // { used, free, total, path }
-    this.prev = null; // last /proc/stat totals: [{ idle, total }], all cpus then each core
+    this.cpu = null;
+    this.cores = [];
+    this.load = null;
+    this.mem = null;
+    this.disk = null;
+    this.prev = null;
   }
 
   start(cx) {
     this.sample(cx);
     this.sampleDisk(cx);
-    // cpu use needs two samples: the second soon, so a popup has it at once.
     cx.timer.after(250, (cx) => this.sample(cx));
     cx.timer.every(1000, (cx) => this.sample(cx));
     cx.timer.every(30000, (cx) => this.sampleDisk(cx));
@@ -55,7 +44,6 @@ export class System {
           const all = use(now[0], this.prev[0]);
           if (all !== null) this.cpu = all;
           this.cores = now.slice(1).map((c, i) => use(c, this.prev[i + 1]) ?? 0);
-          // tools/regress.py: a machine with this many cores (the rest idle).
           const fake = shared("orbit.probe") === true ? shared("orbit.probe.cores") : null;
           if (Number.isInteger(fake) && fake > this.cores.length) this.cores = [...this.cores, ...Array(fake - this.cores.length).fill(0)];
         }
@@ -71,7 +59,7 @@ export class System {
           this.mem = { used: info.MemTotal - info.MemAvailable, total: info.MemTotal, available: info.MemAvailable,
             swapUsed: info.SwapTotal - info.SwapFree, swapTotal: info.SwapTotal };
         }
-      } catch (_) { /* not Linux: those widgets stay hidden */ }
+      } catch (_) { }
       cx.notify();
     });
   }
@@ -87,7 +75,6 @@ export class System {
     });
   }
 
-  // How full the disk is, 0..1, or null while unknown.
   full() {
     const d = this.disk, room = d ? d.used + d.free : 0;
     return room ? d.used / room : null;

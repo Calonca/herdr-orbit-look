@@ -1,15 +1,3 @@
-// "what should this window show?": the picker for a new tab. Type to
-// filter, ↑/↓ to choose, Enter to open, Esc to close. With props {panel: true}
-// (the orbit layout's side panel: its tab row's or the status bar's + ⠿) it
-// picks what the panel shows instead: the views only, each picked one a tab
-// of the panel. With props {side: "left" | "right"} it's the content of a
-// pane's pending "new window" tab (sides.js): a pick opens in that pane,
-// Esc puts back what it showed. A shell, the agents installed here (herdr's
-// knownAgents), herdr's files, changes and agents, then the person's own list
-// (orbit-windows.json in the app's folder, windows.js: any mod or command),
-// herdr's settings, and "configure windows…" (copies a prompt for the
-// person's agent to add to that list).
-
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { run, theme, props, closeOverlay, spaces, panes, knownAgents, shared, setShared, layout, notify } from "herdr";
@@ -17,8 +5,7 @@ import { look, find, ask } from "./look.js";
 import { readWindows, fill, configurePrompt, windowsPath } from "./windows.js";
 
 const ICON = "mods/orbit-add";
-const KNOWN = "orbit.add.known"; // the agents found last time
-// Each pane's frame and its picker's place in its stack (sides.js).
+const KNOWN = "orbit.add.known";
 const FRAME = { left: "left-frame", right: "right-frame" };
 const PICK = { left: "left-pick", right: "right-pick" };
 
@@ -26,14 +13,10 @@ export default class OrbitAdd extends View {
   init(_props, cx) {
     this.filter = "";
     this.at = 0;
-    // The agents found last time show at once (kept in shared state, so also
-    // after a restart); looking them up again can take herdr-app a while, and
-    // the rows update when it answers.
-    // Agents are per machine (a space can be on another one).
     const machine = this.space()?.machine ?? "";
     const known = shared(KNOWN) ?? {};
     this.agents = known.agents?.[machine] ?? [];
-    this.windows = { windows: [], error: null }; // the person's list (windows.js)
+    this.windows = { windows: [], error: null };
     const keep = (cx, change) => {
       Object.assign(this, change);
       const now = shared(KNOWN) ?? {};
@@ -48,14 +31,10 @@ export default class OrbitAdd extends View {
       // In the side panel or a pane it's kept while hidden: it takes the keys
       // each time it's shown.
       this.was = false;
-      // The box that shows and hides is the pane's frame (its stack stays).
       const [box, stack, me] = this.panel() ? ["panel", "panel-body", "panel-pick"] : [FRAME[this.side()], this.side(), PICK[this.side()]];
       cx.timer.every(100, () => {
         const L = layout();
         const now = find(L, box) && !find(L, box).hidden && find(L, stack)?.active === me;
-        // Each time it shows: the keys, a fresh search (it's the same picker,
-        // kept while hidden), and the list read again (edits to the file show
-        // without a restart).
         if (now && !this.was) {
           if (this.filter) { this.input.set_value(""); this.filter = ""; this.at = 0; cx.notify(); }
           this.input.focus();
@@ -76,8 +55,6 @@ export default class OrbitAdd extends View {
     });
   }
 
-  // Reads orbit-windows.json (windows.js); a broken file shows its error
-  // above the rows, and the rest of the picker works on.
   load(cx) {
     cx.spawn(async (cx) => {
       let next;
@@ -110,10 +87,7 @@ export default class OrbitAdd extends View {
     const space = this.space()?.id;
     const panel = this.panel();
     const side = this.side();
-    // In a pane: a terminal or mod opens in that pane (the orbit mod opens
-    // it there: look.js ask).
     const term = (extra) => () => side ? ask("new-terminal", { space, side, extra }) : run("tab.new", { space, ...extra });
-    // In a tab, or (panel) in the side panel.
     const view = (name, mod, about, extra = {}) => ({ name, mark: "widget", about,
       open: () => panel
         ? ask("view-add", { title: name, mod, props: extra.props ?? null })
@@ -124,20 +98,15 @@ export default class OrbitAdd extends View {
       ...(tabsOnly ?? [{ name: "shell", mark: "terminal", about: "a new tab with a terminal", open: term({}) },
         ...this.agents.map((a) => ({ name: a.name.toLowerCase(), mark: "terminal", about: `a new tab running ${a.run.join(" ")}`,
           open: term({ name: a.key ?? a.name, argv: a.run }) }))]),
-      // herdr-app's own: what its status bar opens, as a tab.
       { ...view("files", "files", "this space's files"), pill: "herdr" },
       { ...view("changes", "changes", "unpushed changes, file by file"), pill: "herdr" },
       { ...view("agents", "agents", "every agent and what it's doing"), pill: "herdr" },
-      // The person's own (orbit-windows.json): a mod opens like the views
-      // above, a command runs; "$folder" is this pane's folder.
       ...this.windows.windows.map((w) => {
         const about = w.about ?? (w.mod ? `the ${w.mod} mod` : w.command);
         const vars = { folder: this.folder() };
         const row = w.mod
           ? view(w.title, w.mod, about, w.props ? { props: fill(w.props, vars) } : {})
           : { name: w.title, mark: "widget", about,
-            // The picker's tab goes first (what it showed comes back), then the
-            // command: a dialog it opens stays on top.
             open: (cx) => {
               if (side) ask("drop-pending", { space, side });
               cx.spawn(async (cx) => { await cx.sleep(300); run(w.command, fill(w.args ?? {}, vars)); });
@@ -147,7 +116,6 @@ export default class OrbitAdd extends View {
       ...(tabsOnly ?? [view("Orbit look settings", "orbit-dialogs", "orbit's look: theme, density, corners, gap, tab rows, background",
         { props: { dialog: "settings" } }),
       { name: "herdr settings", mark: "widget", about: "herdr-app's own: layouts, keys, machines", open: () => run("app.settings") }]),
-      // Last: a prompt for the person's own agent to add to that list.
       { name: "configure windows…", mark: "widget", about: "add any mod here: copies a prompt for your agent", stay: true,
         open: (cx) => {
           cx.write_to_clipboard(configurePrompt());
@@ -158,12 +126,10 @@ export default class OrbitAdd extends View {
     return f ? all.filter((r) => `${r.name} ${r.about}`.toLowerCase().includes(f)) : all;
   }
 
-  // A picked row opens; the dialog closes (the panel's picker hides the panel on Esc).
   go(row, cx) {
-    // Enter reaches both the search field and the list: one pick per press.
     if (Date.now() - (this.lastGo ?? 0) < 300) return;
     this.lastGo = Date.now();
-    if (row?.stay) return row.open(cx); // configure windows…: the picker stays
+    if (row?.stay) return row.open(cx);
     if (this.side()) {
       if (!row) ask("drop-pending", { space: this.space()?.id, side: this.side() });
     } else if (this.panel()) {
@@ -179,7 +145,6 @@ export default class OrbitAdd extends View {
     const rows = this.rows();
     this.at = Math.min(this.at, Math.max(0, rows.length - 1));
     const hint = (key, what) => h_flex().gap(5).child(div().text_color(t.accent).child(key)).child(div().child(what));
-    // In a pane or the side panel, their frame and glass are its own.
     const boxed = !this.side() && !this.panel();
     return v_flex().id("orbit-add").track_focus(this.handle).size_full().min_h(0).p(18).gap(12).text_color(t.foreground)
       .when(boxed, (el) => el.bg(t.surface.slice(0, 7) + "f2").border(2).border_color(t.border).rounded(look().radius))

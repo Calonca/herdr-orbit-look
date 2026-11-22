@@ -46,17 +46,15 @@ import hashlib, json, os, re, shutil, signal, sys, tarfile, time, urllib.parse, 
 
 try:
     import fcntl
-except ImportError:  # not on Windows: no lock there
+except ImportError:
     fcntl = None
 
-ORDER = ("themes/", "mods/", "layouts/")  # themes first: a mod or layout that names one finds it
+ORDER = ("themes/", "mods/", "layouts/")
 SKIP_NAMES = {"jsconfig.json", "__pycache__"}
 VERSION = "mods/orbit/VERSION"
 LAYOUT = "layouts/orbit.json"
 MAX_DOWNLOAD = 64 * 1024 * 1024
 UA = "herdr-orbit-look"
-
-# ---------------------------------------------------------------- hash
 
 
 def layout_digest(data):
@@ -81,7 +79,7 @@ def layout_digest(data):
             for c in node["children"]:
                 if str(c.get("id", "")).endswith(("-cap", "-tabs")):
                     c.pop("size", None)
-            node["children"].sort(key=lambda c: str(c.get("id")))  # the tabs on top: upside down
+            node["children"].sort(key=lambda c: str(c.get("id")))
         if nid == "panel-body" and isinstance(node.get("children"), list):
             node["children"] = [c for c in node["children"] if not str(c.get("id", "")).startswith("panel-v")]
         for c in node.get("children") or []:
@@ -98,7 +96,7 @@ def file_digest(rel, path):
         try:
             return layout_digest(data)
         except Exception:
-            pass  # not JSON any more: its bytes, which won't match
+            pass
     return hashlib.sha256(data).hexdigest()
 
 
@@ -170,8 +168,6 @@ def version_text(version, items, tree):
     return f"{version}\n{digest(tree, items)}\n" + "".join(f"{i}\n" for i in items)
 
 
-# ---------------------------------------------------------------- files
-
 
 def atomic_write(path, text):
     tmp = f"{path}.orbit-tmp"
@@ -229,7 +225,7 @@ def swap(home, src, old_items, new_items, keys, prev):
     Any failure moves everything back and raises. `prev` gets the list of what
     it holds (items) and the keys it replaced (keys.json)."""
     os.makedirs(prev)
-    done = []  # ("out", item) moved home -> prev; ("in", item) moved src -> home
+    done = []
     try:
         for item in ordered(old_items + new_items):
             if os.path.lexists(os.path.join(home, item)):
@@ -255,19 +251,11 @@ def swap(home, src, old_items, new_items, keys, prev):
                     move(os.path.join(prev, what), os.path.join(home, what))
                 elif what is not None:
                     atomic_write(os.path.join(home, "keys.json"), what)
-            except Exception as e:  # keep going: put back all that can be
+            except Exception as e:
                 print(f"couldn't put back {what}: {e}", file=sys.stderr)
         raise
 
 
-# ---------------------------------------------------------------- download
-
-
-# Where a release archive may come from: this repo's archives on GitHub, over
-# https (the API's tarball_url redirects to codeload). Checked before the
-# request and on every redirect. TEST_ARCHIVE (an environment variable, unset
-# by default; tools/test_update.py and tools/regress.py set it) allows one more
-# prefix, and only a local one: a file:// path or http://127.0.0.1:<port>/.
 ALLOWED = {"api.github.com": "/repos/Calonca/herdr-orbit-look/tarball/", "codeload.github.com": "/Calonca/herdr-orbit-look/"}
 TEST_ARCHIVE = "HERDR_ORBIT_UPDATE_TEST_ARCHIVE"
 
@@ -345,7 +333,6 @@ def unpack(archive, dest):
                     os.chmod(out, 0o755)
             elif m.issym() or m.islnk():
                 raise ValueError(f"a link in the archive: {m.name}")
-            # pax headers and the like: nothing to unpack
 
 
 def check_release(tree, tag):
@@ -361,8 +348,6 @@ def check_release(tree, tag):
         raise ValueError("its files don't match its version file")
     return version, items
 
-
-# ---------------------------------------------------------------- apply, undo
 
 
 class Refused(Exception):
@@ -401,7 +386,7 @@ def apply(home, url, tag):
             new_version, new_items = check_release(staging, tag)
         except Exception as e:
             raise Refused("check", f"the download didn't check out: {e}")
-        installed(home)  # still as recorded, after the download
+        installed(home)
         keys = {}
         if os.path.isfile(os.path.join(staging, "keys.json")):
             keys = json.load(open(os.path.join(staging, "keys.json")))
@@ -439,7 +424,6 @@ def undo(home):
         raise Refused("missing", "the previous copy's list is broken")
     version, current = installed(home)
     back = read_version(prev)
-    # The previous copy moves out of the way first, then the swap fills a new one.
     held = os.path.join(work, "previous.old")
     rmtree(held)
     os.rename(prev, held)
@@ -477,7 +461,7 @@ def run(home, action, fn, tag=None):
 def detach():
     """Goes on in a process of its own (the caller gets its answer now)."""
     if not hasattr(os, "fork"):
-        return  # (Windows) the work is done before the answer
+        return
     if os.fork():
         print(json.dumps({"started": True}))
         sys.stdout.flush()

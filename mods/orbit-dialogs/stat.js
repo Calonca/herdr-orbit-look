@@ -1,12 +1,3 @@
-// What the status bar's cpu, ram and disk widgets open (props { dialog:
-// "stat", stat: "cpu" | "ram" | "disk" }): a popup above the widget, or,
-// opened from its "open in pane ⇥" (pin.js), a pane of its own. It samples
-// the machine itself (system.js), live.
-//   cpu   the total, the load, each core as a bar
-//   ram   used, available, swap
-//   disk  the home folder's filesystem: used, free, how full
-// props.height: in a popup it is that tall.
-
 import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { props, theme, closeOverlay, shared, setShared } from "herdr";
@@ -15,7 +6,6 @@ import { pinButton } from "./pin.js";
 
 export const TITLES = { cpu: "cpu", ram: "memory", disk: "disk" };
 
-// Kept in step with the status bar's POPUPS and cpuHeight.
 const ROW = 22, CORE_COLUMNS = 3;
 
 export class Stat {
@@ -26,8 +16,6 @@ export class Stat {
     if (props()?.overlay) this.handle.focus();
   }
 
-  // For tools/regress.py only (shared "orbit.probe" on): where the popup and
-  // each core's row are, in shared "orbit.probe.stat".
   probe(key, b) {
     if (!b || shared("orbit.probe") !== true) return;
     const all = shared("orbit.probe.stat") ?? {};
@@ -42,8 +30,6 @@ export class Stat {
     const s = this.sys;
     const bar = (v, w) => div().w(w).h(6).flex_none().rounded(3).bg(t.muted.slice(0, 7) + "40")
       .child(div().h_full().rounded(3).w(Math.max(1, Math.round((v ?? 0) * w))).bg(level(t, v ?? 0)));
-    // Every row has a fixed height, so the status bar knows how tall the
-    // popup is (its POPUPS and cpuHeight).
     const row = (label, value, v = null) => h_flex().h(ROW).flex_none().gap(10).items_center().text_size(12.5)
       .child(div().w(80).flex_none().text_color(t.muted).child(label))
       .child(div().flex_1().min_w(0).truncate().text_color(t.foreground).child(value))
@@ -54,8 +40,6 @@ export class Stat {
       if (s.load) body.push(row("load", s.load.map((x) => x.toFixed(2)).join("  ")));
       if (s.cores.length) {
         body.push(div().h(18).flex_none().text_size(12.5).text_color(t.muted).child("cores"));
-        // Each core a small bar, down CORE_COLUMNS columns; past the popup's
-        // room (a short window), the list scrolls.
         const per = Math.ceil(s.cores.length / CORE_COLUMNS);
         const cols = [];
         for (let n = 0; n < s.cores.length; n += per) {

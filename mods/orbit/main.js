@@ -1,37 +1,3 @@
-// The orbit layout's own block: it draws nothing and keeps the window in step.
-// - The layout file (layout.js apply): the theme's glass, the right pane's
-//   children and the side panel's views. Written again when the theme changes
-//   and when layouts/ is replaced (a fresh copy). The outline's colour isn't
-//   in it: orbit-edge and orbit-tabs draw it from "orbit.sides" and
-//   "orbit.identity", so a keys move or a space switch writes no file.
-// - The two panes (sides.js): the shown space's right pane (its pick, or
-//   hidden when it has none), which pane has the keys, an agent shown from the
-//   agents list or an alert (on the right, its terminal block shows).
-// - The order spaces were last shown in (shared "orbit.recent").
-// - What the other mods draw with, worked out once: each space's colour and
-//   symbol ("orbit.identity"), the look ("orbit.look"), where the tab rows
-//   sit ("orbit.places").
-// - Commands for keys.json (its "layout:orbit" section), on the focused pane:
-//   orbit.tab1..9, .next, .prev   show its tab N, the next, the previous; with
-//                                 no tab N on the left, a prompt to make one
-//   orbit.new        a new terminal in it    orbit.window   a "new window" tab in it
-//   orbit.right      a "new window" tab in the right pane (opens it)
-//   orbit.close      close its shown tab (a terminal asks; again confirms)
-//   orbit.left-pane, orbit.right-pane   give the keys to that pane
-//   orbit.move       move the shown tab to the other pane
-//   orbit.split      the right pane beside, or put away
-//   orbit.side-panel the side panel, or hidden
-//   orbit.recent     the space shown before this one
-//   orbit.switcher   the recent spaces, most recent first, to pick from
-//   orbit.add        what a new tab should show (the picker, as a dialog)
-//   orbit.settings   the look settings ("Orbit look settings", in the right pane)
-// - Update notices for the look itself (updates.js): the daily check and the
-//   card at the bottom right.
-// - The other orbit mods' asks (look.js ask): the only writer of
-//   "orbit.sides", "orbit.settings" and the layout file is this mod.
-// Put it in the layout as a small block:
-//   { "id": "orbit", "type": "block", "size": { "px": 4 }, "content": { "mod": "orbit" } }
-
 import { View, div } from "gpui-kit";
 import { spaces, run, shared, setShared, nextCommand, openOverlay, watchFolder, appHome, theme, layout, focused, panes, readTextFile } from "herdr";
 import { state, leftTabs, rightEntries, entries, shownEntry, LEFT_TAB, FRAME } from "./sides.js";
@@ -42,8 +8,6 @@ import { follow } from "./split.js";
 import { lookUpRepos, publish } from "./identity.js";
 import { Updates } from "./updates.js";
 
-// The look settings (orbit-dialogs' "settings"), in the shown space's right
-// pane, as other views open there: shown again if that space has it already.
 export const SETTINGS_TITLE = "Orbit look settings";
 export async function openSettings(cx) {
   const space = spaces().find((s) => s.active);
@@ -55,15 +19,10 @@ export async function openSettings(cx) {
 
 const RECENT = "orbit.recent";
 
-// The shipped themes' old names (before they were called by their palettes),
-// and their names now.
 const OLD_THEMES = { orbit: "tokyo-night", ...Object.fromEntries(["catppuccin-mocha", "everforest", "gruvbox-dark",
   "kanagawa", "nord", "rose-pine"].map((t) => [`orbit-${t}`, t])) };
 
-// A theme picked for this layout under an old name is picked again under its
-// new one (install.sh does it too, when it can).
 async function renameTheme(cx) {
-  // A moment first: herdr-app takes up newly copied theme files.
   await cx.sleep(3);
   const text = await readTextFile(`${appHome()}/layouts/.state/orbit.json`);
   if (!text) return;
@@ -74,7 +33,6 @@ async function renameTheme(cx) {
   }
 }
 
-// Space ids, most recently shown first.
 export function recent() {
   const ids = new Set(spaces().map((s) => s.id));
   return (shared(RECENT) ?? []).filter((id) => ids.has(id));
@@ -82,8 +40,6 @@ export function recent() {
 
 export default class Orbit extends View {
   init(_props, cx) {
-    // This copy's version (mods/orbit/VERSION) goes into shared "orbit.version"
-    // (updates.js), so you can see which one you have.
     this.updates = new Updates();
     cx.spawn(async (cx) => { try { await this.updates.start(cx); } catch (e) { console.log(`orbit updates: ${e}`); } });
     cx.spawn(async (cx) => { try { await renameTheme(cx); } catch (e) { console.log(`orbit: ${e}`); } });
@@ -101,8 +57,6 @@ export default class Orbit extends View {
       for (;;) {
         await cx.sleep(1);
         const name = await nextCommand();
-        // An ask from another orbit mod: "<what> <args as JSON>". Each runs
-        // on its own (a new terminal waits for herdr; the keys don't).
         const sp = name.indexOf(" ");
         if (sp > 0) {
           let args = null;
@@ -118,8 +72,6 @@ export default class Orbit extends View {
     cx.timer.every(250, () => this.sync(cx));
   }
 
-  // Runs a layout command unless the same one went out just now (the layout
-  // answers a moment later).
   once(name, args) {
     const key = name + JSON.stringify(args);
     const now = Date.now();
@@ -128,8 +80,6 @@ export default class Orbit extends View {
     run(name, args);
   }
 
-  // What the other mods draw with, worked out here once: the spaces' colours
-  // and symbols, the look, the tab rows' places (identity.js, layout.js).
   shareAll(cx) {
     try { lookUpRepos(cx); publish(); share(); } catch (e) { console.log(`orbit: ${e}`); }
   }
@@ -140,13 +90,9 @@ export default class Orbit extends View {
     if (!find(L, "left") || !find(L, "right")) return;
     const space = spaces().find((s) => s.active);
     if (!space) return;
-    // The shown space's split (split.js).
     follow(L, space.id, new Set(spaces().map((s) => s.id)), Date.now() - this.born > 10000);
     const ps = panes();
     let st = state();
-    // Each space keeps its pane with the keys: leaving one notes it, coming
-    // back gives it again (a terminal there gets herdr's keys too), while
-    // herdr's own focus settles on the space's tab, which isn't the keys moving.
     const gone = (id) => find(L, id)?.hidden === true;
     if (this.keysSpace !== space.id) {
       const by = { ...(st.keysBy ?? {}) };
@@ -164,8 +110,6 @@ export default class Orbit extends View {
         if (e?.kind === "term") run("pane.focus", { terminal: e.pane.terminal });
       }
     }
-    // Gone: a right terminal that ended, a mod of a closed space (not in the
-    // first seconds, while herdr is still loading what's there).
     if (Date.now() - this.born > 10000 && ps.length) {
       const live = new Set(ps.map((p) => p.terminal).filter(Boolean));
       const ids = new Set(spaces().map((s) => s.id));
@@ -176,7 +120,6 @@ export default class Orbit extends View {
         st = state();
       }
     }
-    // The left keeps a tab: when its last one went, the right's first comes back.
     if (!leftTabs(space, st).length) {
       const first = rightEntries(space, st, ps).find((e) => e.kind === "term");
       if (first) {
@@ -189,8 +132,6 @@ export default class Orbit extends View {
     const active = space.tabs.find((t) => t.active);
     const right = find(L, "right"), rightFrame = find(L, FRAME.right) ?? right;
     if (active && st.right[active.id]) {
-      // herdr showed a right tab (an agent from the list or an alert, a key):
-      // the left shows its own again, the right shows that terminal, focused.
       const back = leftTabs(space, st).find((t) => t.id === st.last[space.id]) ?? leftTabs(space, st)[0];
       if (back) this.once("tab.select", { id: back.id });
       const e = rightEntries(space, st, ps).find((x) => x.kind === "term" && x.tab.id === active.id);
@@ -201,7 +142,6 @@ export default class Orbit extends View {
       save({ last: { ...st.last, [space.id]: active.id } });
       st = state();
     }
-    // The shown space's right pane: its pick, or hidden with none.
     const list = rightEntries(space, st, ps);
     if (!list.length || st.folded[space.id]) {
       if (!rightFrame.hidden) this.once("layout.hide", { id: rightFrame.id });
@@ -210,11 +150,6 @@ export default class Orbit extends View {
       if (rightFrame.hidden) this.once("layout.show", { id: rightFrame.id });
       if (right.active !== want.id && find(L, want.id)) this.once("layout.select", { stack: "right", child: want.id });
     }
-    // Which pane has the keys. Only a change of herdr's focus counts: a
-    // picker or a mod in a pane has the keys without herdr saying so (the
-    // rows watch presses for that), and while the pane with the keys shows
-    // one, a change of herdr's focus (a layout written again, a space switch)
-    // is herdr losing track, not the keys moving.
     const f = focused();
     let side = null;
     if (f?.pane) side = st.right[ps.find((p) => p.pane === f.pane)?.tab] ? "right" : "left";
@@ -226,15 +161,11 @@ export default class Orbit extends View {
       const blind = st.focus === "panel" || at?.kind === "mod" || at?.kind === "pick";
       if (side && side !== st.focus && !blind && Date.now() > (this.hold ?? 0)) save({ focus: side });
     }
-    // The keys' pane put away (the split, the panel): the left has them. The
-    // panel given the keys is shown a moment after, so it counts as gone only
-    // once that moment has passed.
     if (st.focus === "panel" && this.panelKeys !== true) { this.panelKeys = true; this.panelHold = Date.now() + 1500; }
     if (st.focus !== "panel") this.panelKeys = false;
     const rightAway = !rightEntries(space, st, ps).length || st.folded[space.id];
     const panelAway = gone("panel") && Date.now() > (this.panelHold ?? 0);
     if ((st.focus === "right" && rightAway) || (st.focus === "panel" && panelAway)) save({ focus: "left" });
-    // A space switch: the picks of the space shown before don't carry over.
     if (this.space !== space.id) {
       this.space = space.id;
       const leftWant = st.pending[space.id] === "left" ? "left-pick" : LEFT_TAB;
@@ -257,7 +188,6 @@ export default class Orbit extends View {
     }
   }
 
-  // The two panes' keys, on the focused pane (sides.js). True: handled.
   async paneCommand(name, space, cx) {
     const st = state();
     const side = st.focus === "right" && rightEntries(space, st).length && !st.folded[space.id] ? "right" : "left";
@@ -291,11 +221,7 @@ export default class Orbit extends View {
     return false;
   }
 
-  // What the other orbit mods ask for (look.js ask): their rows, the
-  // picker, the dialogs. `a.space` is a space id (else the shown space),
-  // `a.side` "left" | "right", `a.id` an entry of that side's row (sides.js).
   async asked(what, a, cx) {
-    // The update card's (orbit-dialogs' update.js), and a check now (tools/regress.py).
     if (what === "update-close") return this.updates.close(a.tag);
     if (what === "update-stop") return this.updates.stop(a.tag);
     if (what === "update-apply") return this.updates.update(a.tag);
@@ -321,15 +247,10 @@ export default class Orbit extends View {
       case "view-rename": return renamePanelView(a.id, a.name);
       case "view-move": return movePanelView(a.id, a.to);
       case "view-add": return addPanelView(cx, { title: a.title, mod: a.mod, props: a.props ?? null });
-      // The look settings only (the settings dialog): the panel's views are
-      // its tab row's to change.
       case "settings": return apply(Object.fromEntries(Object.entries(a).filter(([k]) => ["density", "rounding", "gap", "tabs", "background", "notify", "updates", "opacity"].includes(k))));
     }
   }
 
-  // Writes the layout again (the theme's glass), one write at a time: one
-  // begun before the theme changed would otherwise land last. Again while it
-  // changed during a write.
   redraw(cx) {
     if (this.drawing) { this.again = true; return; }
     this.drawing = true;
@@ -349,16 +270,12 @@ export default class Orbit extends View {
     });
   }
 
-  // Runs on every change of spaces: the shown one goes to the front of the
-  // recent ones. A new theme's glass is written into the layout.
   render(cx) {
     const surface = theme().surface;
     const active = spaces().find((s) => s.active);
     const changed = this.surface !== undefined && this.surface !== surface;
     this.surface = surface;
     if (changed) this.redraw(cx);
-    // A space switch shows its right pane at once, not at the next tick (and
-    // shares the spaces' colours).
     if (this.sent) this.sync(cx);
     else this.shareAll(cx);
     const now = active?.id;

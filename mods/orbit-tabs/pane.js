@@ -1,15 +1,3 @@
-// The left and right panes' tab rows (main.js picks this for props
-// { stack: "left" | "right" }), at a pane's bottom as the bottom of its
-// outline. The row lists that pane's tabs for the shown space (sides.js: the
-// left the space's herdr tabs, the right its own terminals and mods), the
-// shown one a folder tab that opens into the content above (the tab line is
-// cut under it); then + >_ (a new terminal in this pane) and + ⠿ (a "new
-// window" tab with the picker), and at the left row's right end the split
-// toggle. Click shows a tab, double-click renames it, drag moves it,
-// middle-click closes it (a terminal asks first), right-click opens its menu
-// (orbit-dialogs' menu). The space's symbol and name are the status bar's
-// taskbar's, not the row's.
-
 import { div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { panes, spaces, props, run, theme, openOverlay, layout } from "herdr";
@@ -23,7 +11,7 @@ const TERMINAL = "mods/orbit-tabs/terminal.svg";
 
 export class PaneRow {
   init(_props, cx) {
-    this.acx = cx; // for the menu's Rename (rowframe.js editKit)
+    this.acx = cx;
   }
 
   render(cx) {
@@ -39,41 +27,29 @@ export class PaneRow {
     const ps = panes();
     const list = entries(space, side, st, ps);
     const { color: ident } = spaceLook(space);
-    // As the outline's cap and sides go (look.js keysIn), so all of it
-    // changes in the same frame.
     const focused = keysIn() === side;
     const line = focused ? ident : t.border;
     const stop = (_e, cx) => cx.stop_propagation();
-    // A change asks the orbit mod (look.js ask): it shows, closes and makes tabs.
     const at = { space: space.id, side };
 
-    // The row is the bottom of the pane's outline (rowframe.js): the line
-    // with its corners, open under the shown tab, which has its own edge.
     const kit = rowKit(t, L, line, muted(t.border, ident, focused), "mods/orbit-tabs");
     const seg = kit.seg;
 
-    // The shown entry: on the left herdr's shown tab (while the stack shows it).
     const isShown = (e) => side === "left"
       ? (e.kind === "pick" ? stack.active === e.id : stack.active === LEFT_TAB && e.tab.active)
       : stack.active === e.id;
 
     const lead = seg(div().w(12), { first: true });
 
-    // Drag a tab onto another to move it there (rowframe.js dragKit): on
-    // the left herdr's tab order (tab.move, as herdr's tab bar), on the right
-    // orbit.sides' order. The picker's tab stays last.
     const drag = dragKit(this, focused ? ident : t.foreground, (from, to) => {
       const a = list[from], b = list[to];
       if (!a || !b || a.kind === "pick" || b.kind === "pick") return;
       if (side === "left") run("tab.move", { id: a.tab.id, index: b.tab.index });
       else ask("reorder", { ...at, from, to });
     }, (i, cx) => {
-      // A double-click: the tab's name field.
       const e = list[i];
       if (e && e.kind !== "pick") edit.begin(cx, e.id, entryLabel(e));
     });
-    // Renaming (rowframe.js editKit): on the left herdr's tab name, on
-    // the right orbit.sides' (the orbit mod's actions.js renameEntry).
     const edit = editKit(this, (key, name) => ask("rename", { ...at, id: key, name }));
     edit.asked(side, (key) => { const e = list.find((x) => x.id === key); return e ? entryLabel(e) : null; });
     const tabs = [];
@@ -84,8 +60,6 @@ export class PaneRow {
       const status = e.kind === "tab" ? e.tab.status : pane?.status ?? null;
       const m = e.kind === "mod" || e.kind === "pick" ? { icon: WIDGET, tint: true } : mark(pane);
       const dot = statusColor(status);
-      // Text stays white (the shown tab's) or quiet; the colour is the
-      // outline's, on the pane with the keys.
       const color = shown ? t.foreground : t.ansi7;
       if (shown) probeColor(`${side}-text`, color);
       const inner = h_flex().id(`d-tab-${side}-${i}`).h(26).px(10).items_center().text_size(12).text_color(color)
@@ -97,10 +71,8 @@ export class PaneRow {
         .child(editing ? edit.field(t, entryLabel(e)) : div().min_w(0).truncate().child(entryLabel(e)))
         .when(!editing, (el) => el.tooltip(e.kind === "pick" ? "pick what this window shows · middle-click: put it away"
           : "drag to move · double-click: rename · middle-click: close"))
-        // The second click of a double-click, or one in the name field, shows nothing.
         .on_click((ev, cx) => { if ((ev?.click_count ?? 1) < 2 && !editing) ask("show", { ...at, id: e.id }); })
         .on_mouse_down("middle", (_e, cx) => { cx.stop_propagation(); if (!editing) ask("close", { ...at, id: e.id }); })
-        // Right-click: Rename, then herdr's pane items (orbit-dialogs' menu, tabmenu.js).
         .on_mouse_down("right", (_e, cx) => {
           cx.stop_propagation();
           if (e.kind === "pick" || editing) return;
@@ -112,8 +84,6 @@ export class PaneRow {
       if (shown) {
         tabs.push({ shown: kit.shownSeg(el) });
       } else {
-        // Short of room, the others narrow (their names cut short) before
-        // the shown one does, so it stays in the row, open into the content.
         if (i && !isShown(list[i - 1])) tabs.push(seg(div().w(2)));
         tabs.push(seg(h_flex().items_center().min_w(0).overflow_hidden()
           .child(el.min_w(0).rounded(RADIUS).hover((s) => s.bg(t.foreground.slice(0, 7) + "0f").text_color(t.foreground))))
@@ -121,14 +91,10 @@ export class PaneRow {
       }
     });
 
-    // Too many for the pane's width, the tabs before and after the shown one
-    // narrow, then scroll sideways; the shown one, the lead, + >_ + ⠿ and the
-    // split stay.
     const k = tabs.findIndex((x) => x.shown);
     const strip = (n, list) => h_flex().id(`d-tabs-${side}-${n}`).flex_shrink_1().min_w(0).h_full().items_start().overflow_x_scroll().children(list);
     const row = k < 0 ? [lead, strip(0, tabs)]
       : [lead, strip(0, tabs.slice(0, k)), tabs[k].shown, strip(1, tabs.slice(k + 1))];
-    // + >_ and + ⠿.
     const plus = (id, icon, tip, f) => h_flex().id(id).h(26).px(6).gap(3).flex_none().items_center().rounded(RADIUS)
       .text_size(12).text_color(t.muted).hover((s) => s.bg(t.foreground.slice(0, 7) + "0f").text_color(t.foreground))
       .tooltip(tip).on_mouse_down("left", stop).on_click((_e, cx) => f(cx))
@@ -137,9 +103,6 @@ export class PaneRow {
       .child(plus(`d-plus-term-${side}`, TERMINAL, "a new terminal in this pane", () => ask("new-terminal", at)))
       .child(plus(`d-plus-win-${side}`, WIDGET, "a new window: pick what it shows", () => ask("pending", at)))));
     row.push(seg(div()).flex_1());
-    // At the left row's right end, the split toggle (as the status bar's
-    // sidebar toggle, mirrored): the right pane beside, or put away (nothing
-    // ends). One icon each way. The right row and the side panel's have none.
     if (side === "left") {
       const split = isSplit();
       row.push(seg(h_flex().pr(6).pl(2).items_center()
