@@ -321,5 +321,79 @@ class LayoutWrites(unittest.TestCase):
                              "AS_SHIPPED in tools/test_ties.py names writes shape() no longer makes: take them out")
 
 
+# ---------------------------------------------------------------- repeated values
+
+
+class RepeatedValues(unittest.TestCase):
+    def test_archives_allowed(self):
+        archives = J.const(J.lex_file("mods/orbit/updates.js"), "ARCHIVES", "mods/orbit/updates.js")
+        allowed = [f"https://{host}{path}" for host, path in U.ALLOWED.items()]
+        self.assertEqual(sorted(archives), sorted(allowed),
+                         "Where a release archive may come from is said twice: ARCHIVES in mods/orbit/updates.js (the "
+                         "card offers an update only from there) and ALLOWED in mods/orbit/update.py (the download "
+                         "and every redirect are checked against it). Change both the same way.")
+
+    def install_items(self):
+        """install.sh's items(), run in bash on a test tree, and that tree."""
+        text = read("install.sh")
+        m = re.search(r"^items\(\) \{\n(.*?)^\}\n", text, re.S | re.M)
+        self.assertTrue(m, "install.sh has no items() { ... } function: tools/test_ties.py reads it")
+        tree = tempfile.mkdtemp(prefix="orbit-ties-")
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", tree]))
+        for rel in ["themes/b.json", "themes/a.json", "themes/notes.txt", "mods/orbit-z/main.js", "mods/orbit/main.js",
+                    "mods/stray.js", "layouts/orbit.json", "layouts/orbit.svg", "layouts/a.svg", "layouts/x.png"]:
+            os.makedirs(os.path.dirname(os.path.join(tree, rel)), exist_ok=True)
+            open(os.path.join(tree, rel), "w").close()
+        out = subprocess.run(["bash", "-c", f"set -euo pipefail\n{m.group(0)}\nitems", "items"],
+                             env={"repo": tree, "PATH": os.environ.get("PATH", ""), "LC_ALL": "C"},
+                             capture_output=True, text=True, check=True).stdout.split()
+        return out, tree
+
+    def test_install_order(self):
+        items, tree = self.install_items()
+        msg = ("install.sh items() and update.py (tree_items, ORDER) list the look's files the same way: what install.sh "
+               "copies is what the update replaces and hashes, themes first (a mod or layout naming one finds it). "
+               "Change both the same way.")
+        self.assertEqual(sorted(items), sorted(U.tree_items(tree)), msg)
+        top = lambda i: next(n for n, p in enumerate(U.ORDER) if i.startswith(p))
+        self.assertEqual(items, sorted(items, key=top), msg)
+        self.assertEqual([p for n, p in enumerate(U.ORDER)], [p for p in dict.fromkeys(i.split("/")[0] + "/" for i in items)], msg)
+
+    def test_install_diff_skips(self):
+        lines = [l for l in read("install.sh").splitlines() if re.search(r"\bdiff -rq\b", l)]
+        self.assertEqual(len(lines), 1, "install.sh should have one `diff -rq` (its unchanged-copy check): tools/test_ties.py reads it")
+        excludes = {x.strip('"') for x in re.findall(r"-x (\"[^\"]+\"|\S+)", lines[0])}
+        # Hidden files: the hash skips them; install's diff doesn't need to
+        # (the repo has none, so at worst a folder is copied again).
+        hashed_out = set(U.SKIP_NAMES) | {"*.d.ts", os.path.basename(U.VERSION)}
+        self.assertEqual(excludes, hashed_out,
+                         "What install.sh's diff ignores when it compares an installed folder (-x ...) and what update.py "
+                         "leaves out of the hash (SKIP_NAMES, *.d.ts, VERSION) are the files Herdr or the look write "
+                         "into mod folders. Change both the same way.")
+        for x in excludes - {"VERSION"}:
+            self.assertTrue(U.skipped(x.replace("*", "x")), f"update.py skipped() doesn't skip {x}")
+
+    def test_regress_padding(self):
+        tree = ast.parse(read("tools/regress.py"))
+        found = [n.value for n in tree.body if isinstance(n, ast.Assign) and any(getattr(t, "id", None) == "PADDING" for t in n.targets)]
+        self.assertEqual(len(found), 1, "tools/regress.py should have one PADDING = {...}: tools/test_ties.py reads it")
+        padding = {k: list(v) for k, v in ast.literal_eval(found[0]).items()}
+        densities = J.const(J.lex_file(LAYOUT_JS), "DENSITIES", LAYOUT_JS)
+        self.assertEqual(padding, {k: d["padding"] for k, d in densities.items()},
+                         "PADDING in tools/regress.py (the padding its screenshot check expects) is a copy of each "
+                         "density's padding in DENSITIES in mods/orbit/layout.js. Change it with them.")
+
+    def test_start_is_comfortable(self):
+        start = J.const(J.lex_file("mods/orbit/look.js"), "START", "mods/orbit/look.js")
+        densities = J.const(J.lex_file(LAYOUT_JS), "DENSITIES", LAYOUT_JS)
+        comfortable = densities["comfortable"]
+        same = {k: start[k] for k in comfortable if k in start}
+        self.assertEqual(same, {k: comfortable[k] for k in same},
+                         "START in look.js (the look every mod draws with until the orbit mod shares its own) is the "
+                         "comfortable density of DENSITIES in mods/orbit/layout.js, the default. Change them together "
+                         "(look.js in every mod: it's a shared copy).")
+        self.assertEqual(start.get("small"), min(4, comfortable["radius"]), "START.small is min(4, radius) (layout.js lookOf)")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
