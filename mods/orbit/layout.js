@@ -1,16 +1,3 @@
-// What the orbit mod writes into layouts/orbit.json: the look settings
-// (density, corners, gap, the tab rows on top or at the bottom, the
-// background picture), the theme's glass, the outline's side blocks (their
-// colour is orbit-edge's, from shared state), the right pane's children and the
-// side panel's views. Only the orbit mod has
-// this file: the other mods ask it for a change (look.js ask).
-//
-// - apply(next?): writes the layout; `next` is merged into the saved settings
-//   first (shared "orbit.settings"). Only what differs is written.
-// - The side panel's views: close, rename, move, add (and show).
-// - share(): what the other mods would otherwise each work out: the look
-//   ("orbit.look") and where the tab rows sit ("orbit.places").
-
 import { shared, setShared, theme, appHome, readTextFile, writeTextFile, layout, run, panes, spaces, settings as appSettings } from "herdr";
 import { state as sidesState, termChild, PICK } from "./sides.js";
 import { glass, find, LINE, PANEL_DRAG_MIN, GENERATED } from "./look.js";
@@ -18,15 +5,8 @@ import { glass, find, LINE, PANEL_DRAG_MIN, GENERATED } from "./look.js";
 export const LAYOUT = "orbit";
 export const KEY = "orbit.settings";
 
-// The look settings (orbit-dialogs' settings dialog changes them), saved in
-// shared "orbit.settings" with the side panel's views. null: the density's.
-// notify: "all" notifications, or "errors" only (orbit-toast). updates: the
-// look's own update notices and their daily check (updates.js), on or off.
-// opacity: the terminals' own background, 0 (the glass shows) to 1 (solid).
-// The terminals' font and size are herdr-app's settings: the layout names none.
 export const DEFAULTS = { density: "comfortable", rounding: null, gap: null, tabs: "bottom", background: null, notify: "all", updates: true, opacity: 0, views: null };
 
-// The densities. The mods were drawn at comfortable; `scale` is relative to it.
 export const DENSITIES = {
   compact: { radius: 4, gap: 6, header: 30, status: 28, padding: [2, 2], footer: 67, scale: 0.9 / 1.15 },
   default: { radius: 12, gap: 10, header: 38, status: 34, padding: [4, 4], footer: 75, scale: 1 / 1.15 },
@@ -37,35 +17,24 @@ export function settings() {
   return { ...DEFAULTS, ...(shared(KEY) ?? {}) };
 }
 
-// The side panel's views, in their tabs' order: herdr's files and changes
-// until one is closed or another added. [{ title, mod, props }]
 const STARTING = [{ title: "files", mod: "files", props: null }, { title: "changes", mod: "changes", props: null }];
 export function panelViews(s = settings()) {
   return Array.isArray(s.views) ? s.views.filter((v) => v?.mod) : STARTING;
 }
 
-// A view's block id in the panel: the same for the same view.
 export function viewId(v) {
   let h = 0x811c9dc5;
   for (const ch of JSON.stringify([v.mod, v.props ?? null])) h = Math.imul(h ^ ch.codePointAt(0), 0x01000193) >>> 0;
   return `panel-v${h.toString(36)}`;
 }
 
-// The layout with the theme's glass, the outline's sides, the right pane's
-// children and the panel's views in it. A layout can't give a theme colour an
-// alpha, so colours are written as hex. What this writes is left out of the
-// look's hash (update.py layout_digest): keep the two in step.
 export function shape(root, s, colors) {
   const L = lookOf(s);
   const { radius, gap, top } = L;
   const glassy = glass(colors);
-  // The background picture, and the space around the terminals.
   root.background = { image: L.background.image, fit: "cover" };
   root.terminal_padding = L.padding;
   root.terminal_opacity = L.opacity;
-  // The gap: between the sidebar, the panes and the panel, and around them
-  // all and the status bar (the window pads the sides, the body its top and
-  // bottom; the orbit block under the bar grows to it, 4px at least).
   const put = (node, key, value) => { if (!node) return; if (value) node[key] = value; else delete node[key]; };
   put(root, "padding", gap ? [0, gap] : null);
   const row = find(root, "body");
@@ -78,8 +47,6 @@ export function shape(root, s, colors) {
   if (status) status.size = { px: L.status };
   const footer = find(root, "sidebar-footer");
   if (footer) footer.size = { px: L.footer };
-  // Each pane's frame: its outline's top (orbit-edge), its content between
-  // the side lines, its tab row; with the tabs on top, upside down.
   for (const id of ["left-frame", "right-frame", "panel"]) {
     const frame = find(root, id);
     const kids = frame?.children ?? [];
@@ -93,14 +60,10 @@ export function shape(root, s, colors) {
   const sidebar = find(root, "sidebar");
   if (sidebar) {
     sidebar.background = glassy;
-    // Square while flush with the window; with a gap, the panes' corners.
     put(sidebar, "radius", gap ? radius : null);
   }
   const sidePanel = find(root, "panel");
   if (sidePanel) sidePanel.min = PANEL_DRAG_MIN;
-  // The outline's sides: a line-wide orbit-edge on each side of the content,
-  // in its colour from shared state like the cap and the tab row (no
-  // divider: its colour would need this file written on every keys move).
   for (const [stack, pane] of [["left", "left"], ["right", "right"], ["panel-body", "panel"]]) {
     const st = find(root, stack);
     if (st) st.background = glassy;
@@ -114,17 +77,12 @@ export function shape(root, s, colors) {
       }
     }
   }
-  // The right pane: every space's terminals and mods, the shown space's pick
-  // shown (written with its children: a select sent before the window has
-  // loaded a new child fails).
   const right = find(root, "right");
   if (right) {
     right.children = rightChildren(right.children ?? []);
     const want = space && sidesState().shown?.[space.id];
     if (want && right.children.some((c) => c.id === want)) right.active = want;
   }
-  // The side panel: a block per view after its picker (orbit-add). With
-  // none, the picker shows.
   const body = find(root, "panel-body");
   if (body) {
     const views = panelViews(s);
@@ -135,10 +93,6 @@ export function shape(root, s, colors) {
   return root;
 }
 
-// The right pane's children from orbit.sides (sides.js): its picker, a
-// terminal block per terminal put there, a block per mod. A block whose
-// terminal ended is gone already (herdr takes it out); its tab is too, so it
-// isn't written back.
 function rightChildren(old) {
   const st = sidesState();
   const live = new Set(panes().map((p) => p.terminal).filter(Boolean));
@@ -150,13 +104,8 @@ function rightChildren(old) {
   return kids;
 }
 
-// The layout file as last read or written here, so a change (the outline on
-// each space switch) is one write and no read. The write only lands on that
-// text; when the file changed meanwhile it's read again.
 let known = null;
 
-// Saves `next` (merged over the settings) and writes the layout. `fresh`
-// reads the file first (it was replaced by a new copy).
 export async function apply(next, fresh = false) {
   const s = { ...settings(), ...(next ?? {}) };
   if (next) setShared(KEY, s);
@@ -177,8 +126,6 @@ export async function apply(next, fresh = false) {
   }
 }
 
-// Closes a side panel view: its tab goes, and if it was the shown one, the
-// view beside it shows (the picker once none is left).
 export async function closePanelView(id) {
   const views = panelViews();
   const at = views.findIndex((v) => viewId(v) === id);
@@ -190,14 +137,12 @@ export async function closePanelView(id) {
   await apply({ views: left });
 }
 
-// Renames a side panel view (its tab's label).
 export async function renamePanelView(id, title) {
   const name = (title ?? "").trim();
   if (!name) return;
   await apply({ views: panelViews().map((v) => (viewId(v) === id ? { ...v, title: name } : v)) });
 }
 
-// Moves a side panel view to where another is (its tab dragged there).
 export async function movePanelView(id, to) {
   const views = panelViews();
   const from = views.findIndex((v) => viewId(v) === id);
@@ -208,8 +153,6 @@ export async function movePanelView(id, to) {
   await apply({ views });
 }
 
-// Puts a mod in the side panel as a tab of its own (at the end, unless it's
-// there) and shows it, once the window has its block.
 export async function addPanelView(cx, view) {
   const id = viewId(view);
   const there = () => Boolean(find(layout(), id));
@@ -222,28 +165,20 @@ export async function addPanelView(cx, view) {
   run("layout.show", { id: "panel" });
 }
 
-// The look the other mods draw with (look.js look()), from the settings: the
-// density's sizes, its corners and gap unless set, the tab rows' side, and
-// the background (a picture of the person's has no blurred copy: the glass
-// over it is the plain fill).
 export function lookOf(s = settings()) {
   const d = DENSITIES[s.density] ?? DENSITIES.comfortable;
   const radius = s.rounding ?? d.radius;
   const background = s.background ? { image: s.background, blur: null } : GENERATED;
   const opacity = typeof s.opacity === "number" ? Math.min(1, Math.max(0, s.opacity)) : 0;
   return { ...d, radius, gap: s.gap ?? d.gap, small: Math.min(4, radius), top: s.tabs === "top", background, opacity,
-    // What's set (null: the density's), for the settings dialog.
     density: s.density, rounding: s.rounding, gapSet: s.gap, tabs: s.tabs, picked: s.background, notify: s.notify, updates: s.updates !== false };
 }
 
-// The blocks whose place a mod needs before an event tells it its own (the
-// tab rows' glass: orbit-tabs' rowframe.js).
 const PLACED = ["left-tabs", "right-tabs", "panel-tabs"];
 
 const zoom = () => appSettings()?.zoom || 1;
 const viewport = () => { const v = globalThis.window?.viewport_size?.(); return v?.width ? v : null; };
 
-// Shares the look and the tab rows' places, each when it changed.
 export function share() {
   const put = (key, value) => { if (JSON.stringify(shared(key)) !== JSON.stringify(value)) setShared(key, value); };
   put("orbit.look", lookOf());
@@ -251,13 +186,6 @@ export function share() {
   put("orbit.places", Object.fromEntries(PLACED.map((id) => [id, blockPlace(L, id)]).filter(([, at]) => at)));
 }
 
-// Where block `id` of the shown layout sits in the window, in window pixels
-// ({ x, y, width, height }), worked out from the layout as herdr-app lays it
-// out: each row/column's padding and gap, its shown children's px sizes and
-// weights (shares of what px siblings leave), min/max, every length zoomed
-// and rounded to whole pixels. null without a viewport or that block. Rows
-// and columns with a divider aren't walked into: the tab rows
-// (`<pane>-tabs`) are found without.
 export function blockPlace(L, id) {
   const view = viewport();
   if (!view || !L) return null;
@@ -273,8 +201,6 @@ export function blockPlace(L, id) {
     const main = across ? inner.width : inner.height;
     const between = r(node.gap) + r(node.divider?.width);
     const clamp = (c, v) => Math.min(c.max != null ? r(c.max) : Infinity, Math.max(c.min != null ? r(c.min) : 0, v));
-    // The px ones first; the weights share the rest, a weighted one held at
-    // its min (or max) taking that out of the share for the others.
     const size = new Map();
     for (const c of kids) if (c.size?.px != null) size.set(c, clamp(c, r(c.size.px)));
     let free = main - between * (kids.length - 1) - [...size.values()].reduce((a, b) => a + b, 0);

@@ -77,18 +77,15 @@ NAME = os.environ.get("HERDR_APP_SANDBOX", "regress")
 ROOT = f"/var/tmp/herdr-app-{NAME}"
 HOME = f"{ROOT}/home"
 OUT = os.environ.get("REGRESS_OUT", "/tmp/herdr-regress")
-# The person's conditions by default: a HiDPI screen (scale 2), a window of
-# 1280×706 (logical), herdr-app's zoom 1.2. Positions below are logical
-# window pixels, as the probes report them; x() scales them for xdotool.
 W, H = (int(v) for v in os.environ.get("REGRESS_SIZE", "1280x706").split("x"))
 SCALE = float(os.environ.get("REGRESS_SCALE", "2"))
 ZOOM = float(os.environ.get("REGRESS_ZOOM", "1.2"))
-CORES = 32  # the cpu popup is tested with this many cores (a fake count)
+CORES = 32
 ENV = {**os.environ, "HERDR_APP_SANDBOX": NAME, "SANDBOX_X11": "1", "SANDBOX_WIDTH": str(int(W * SCALE)),
        "SANDBOX_HEIGHT": str(int(H * SCALE)), "GPUI_X11_SCALE_FACTOR": str(SCALE),
        "DO_NOT_TRACK": "1", "HERDR_TELEMETRY": "0"}
 
-results = []  # (scenario, case, ok, detail)
+results = []
 
 
 def sb(*args, check=False):
@@ -170,7 +167,6 @@ def shot(name):
     sb("shot", f"{OUT}/{name}.png")
 
 
-# The bar's row, swept so every widget and card reports where it is.
 def bar_y():
     p = shared().get("orbit.probe.status", {})
     if "sidebar" in p:
@@ -192,7 +188,6 @@ def cards():
     p = sweep()
     y = bar_y()
     on = [(v["x"], k[5:]) for k, v in p.items() if k.startswith("task:")]
-    # Only cards on the bar now: a sweep refreshes every card it passes.
     return [n for _, n in sorted(on)], p
 
 
@@ -200,7 +195,6 @@ def centre(b):
     return b["x"] + b["width"] / 2, b["y"] + b["height"] / 2
 
 
-# ---------------------------------------------------------------- setup
 
 def setup():
     sb("down")
@@ -211,9 +205,6 @@ def setup():
     json.dump({"zoom": ZOOM, "telemetry": False}, open(f"{HOME}/settings.json", "w"))
     sb("up", check=True)
     time.sleep(2)
-    # A fresh home shows "Updated to …" over the bar's right end: its ×, now,
-    # before an agent's toast could be there instead (a click on that one
-    # shows its space).
     do("space.new", {"name": "first", "folder": "/tmp"})
     time.sleep(2)
     click(W - 37 * ZOOM, H - 34 * ZOOM)
@@ -229,14 +220,12 @@ def setup():
     for n, st in report.items():
         sb("hc", "send", ids[n][1], f"printf '\\033]7501;state={st}\\007'")
     time.sleep(1)
-    # "done": it worked, then finished while another space was shown.
     sb("hc", "send", ids["done"][1], "printf '\\033]7501;state=idle\\007'")
     do("space.select", {"id": ids["shown"][0]})
     time.sleep(1.5)
     return ids
 
 
-# ---------------------------------------------------------------- scenarios
 
 def grab(name):
     from PIL import Image
@@ -250,15 +239,12 @@ def opened_rect(before, after, anchor=None):
     `anchor`: only the run of changed columns that holds the anchor's left
     edge (a toast elsewhere doesn't count)."""
     from PIL import ImageChops
-    # From the window's top: a terminal's blinking cursor changes too, but
-    # only the columns around the anchor count.
     top = int(8 * SCALE)
     bottom = int((bar_y() - 22 * ZOOM) * SCALE)
     box = (0, top, before.width, bottom)
     diff = ImageChops.difference(before.crop(box), after.crop(box)).convert("L").point(lambda v: 255 if v > 24 else 0)
     if anchor:
         cols = [diff.crop((c, 0, c + 1, diff.height)).getbbox() is not None for c in range(diff.width)]
-        # the run of changed columns nearest the anchor's left edge
         a = min(max(0, int(anchor["x"] * SCALE)), diff.width - 1)
         on = [c for c, v in enumerate(cols) if v]
         if not on:
@@ -308,14 +294,12 @@ def popup(ids):
         click(*centre(p[w]))
         check("popup", f"{w} opens", wait(lambda: overlays() == ["orbit-dialogs"]), str(overlays()))
         away()
-        time.sleep(1.5)  # cpu: two samples
+        time.sleep(1.5)
         rects[w] = opened_rect(before, grab(f"popup-{w}"), p[w])
         placed_above("popup", w, rects[w], p[w], 300)
         click(*centre(p[w]))
         check("popup", f"{w}: a second click closes it", wait(lambda: overlays() == []), str(overlays()))
         time.sleep(0.4)
-    # Every core's row in full inside the cpu popup (CORES of them): the
-    # pointer passes over the popup and each row says where it is.
     cx, cy = centre(p["cpu"])
     click(cx, cy)
     wait(lambda: overlays() == ["orbit-dialogs"])
@@ -337,7 +321,6 @@ def popup(ids):
     click(cx, cy)
     wait(lambda: overlays() == [])
     time.sleep(0.4)
-    # A press beside an open popup closes it; the next click opens it again.
     click(cx, cy)
     wait(lambda: overlays() == ["orbit-dialogs"])
     click(W / 2, 200)
@@ -345,7 +328,6 @@ def popup(ids):
     time.sleep(1.8)
     click(cx, cy)
     check("popup", "then one click opens it again", wait(lambda: overlays() == ["orbit-dialogs"]), str(overlays()))
-    # "open in pane ⇥": top right of the popup.
     time.sleep(0.6)
     if r:
         click(r["x"] + r["width"] - 50 * ZOOM, r["y"] + 24 * ZOOM)
@@ -358,7 +340,6 @@ def popup(ids):
 def order(ids):
     names, _ = cards()
     want = ["shown", "blocked", "done", "working"]
-    # blocked and done wait for you, most recent first: done changed last.
     want_alt = ["shown", "done", "blocked", "working"]
     check("order", "shown, waiting, at work; idle left out", names in (want, want_alt), f"{names}")
     check("order", "waiting: most recent first", names == want_alt, f"{names}")
@@ -420,7 +401,6 @@ def drag(ids):
     check("drag", "the moved card is pinned", wait(lambda: shared().get("orbit.pinned") == [ids[moved][0]]), str(shared().get("orbit.pinned")))
     after, _ = cards()
     check("drag", "it lands where dropped", after[:1] == [moved], str(after))
-    # A second card onto the first pinned one: in front of it, both pinned.
     names, p = cards()
     a, b = p[f"task:{names[-1]}"], p[f"task:{names[0]}"]
     (ax, ay), (bx, by) = centre(a), centre(b)
@@ -447,8 +427,6 @@ def settings(ids):
     check("settings", "again: still one", len(mine()) == 1, str(mine()))
 
 
-# The terminal padding per density (mods/orbit/layout.js), and what it was
-# before: [horizontal, vertical] at zoom 1.
 PADDING = {"compact": (2, 2), "default": (4, 4), "comfortable": (8, 6)}
 OLD_PADDING = {"compact": (8, 6), "default": (14, 12), "comfortable": (18, 16)}
 
@@ -487,12 +465,9 @@ def padding(ids):
         time.sleep(2)
         for d in ["compact", "default", "comfortable"]:
             do(f'orbit.settings {json.dumps({"density": d})}')
-            # The orbit mod took it (its shared look), then the window drew it.
             wait(lambda: shared().get("orbit.look", {}).get("padding") == list(PADDING[d]), 5)
             time.sleep(1.5)
             pad_x = PADDING[d][0] * ZOOM
-            # Settled: the green reaches its pane (less than a cell short) and
-            # the tab row's place is the new one (the green inside it).
             settled = lambda g: g if g and min(g.values()) >= 0 and g["right"] <= line + pad_x + cell_w + 1 else None
             g = wait(lambda: settled(cell_gaps(f"padding-{d}")), 8) or cell_gaps(f"padding-{d}")
             gaps[d] = g
@@ -616,8 +591,6 @@ def toast(ids):
     do("space.select", {"id": ids["shown"][0]})
     time.sleep(0.8)
 
-    # Its tab is closed after the shot (closed before, the shot lost the
-    # toast).
     def run_mod(props, then=lambda: None):
         r = do("tab.new", {"mod": "regress-notify", "props": props})
         time.sleep(0.5)
@@ -625,7 +598,6 @@ def toast(ids):
         if r.get("tab"):
             do("tab.close", {"id": r["tab"], "confirmed": True})
 
-    # Overlays are listed by mod name; a toast closes after its timeout.
     toasts = lambda: [o for o in overlays() or [] if o == "orbit-toast"]
     for setting in ["all", "errors"]:
         run_mod({"set": setting})
@@ -637,7 +609,7 @@ def toast(ids):
                 shown = bool(wait(toasts, 1.0))
                 want = setting == "all" or level == "error"
                 check("toast", f"{setting}: {level} {'shows' if want else 'closes at once'}", shown == want, str(overlays()))
-                time.sleep(1.5)  # the shot is the window's last frame: a moment late
+                time.sleep(1.5)
                 shot(f"toast-{setting}-{level}")
             run_mod({"level": level}, look)
     wait(lambda: not toasts(), 8)
@@ -663,9 +635,7 @@ def keep(ids):
         do("space.select", {"id": target})
         time.sleep(1.5)
     check("keep", "A -> B -> A twice: it never starts again", inits() == start, f"inits {start} -> {inits()}")
-    # A pinned space, another outline colour.
     pinned_ids = [ids["blocked"][0]]
-    # (pinning goes through the menu elsewhere; here the shared value is only read)
     do("space.select", {"id": ids["blocked"][0]})
     time.sleep(1.5)
     do("space.select", {"id": a})
@@ -724,7 +694,7 @@ def split(ids):
     near = lambda want: wait(lambda: abs(left() - want) <= 2, 6)
     do("space.select", {"id": b})
     check("split", "a space never resized has the split it had", near(base), f"{left()} vs {base}")
-    time.sleep(1)  # the switch settled before the drag
+    time.sleep(1)
     drag_by(-60)
     wait(lambda: left() < base - 40, 6)
     narrow = still()
@@ -732,7 +702,6 @@ def split(ids):
     kept = lambda sp: (shared().get("orbit.splits") or {}).get("spaces", {}).get(sp)
     at_b = (nodes().get("left-frame"), nodes().get("right-frame"), kept(b))
     check("split", "the drags took (A wide, B narrow)", wide > base + 40 and narrow < base - 40, f"base {base} A {wide} B {narrow}")
-    # The sandbox's software-drawn window is slow: each switch is waited for.
     seen = []
     for sp, want in [(a, wide), (b, narrow), (a, wide)]:
         do("space.select", {"id": sp})
@@ -813,9 +782,9 @@ def identity(ids):
         if origin:
             g("remote", "add", "origin", origin, cwd=path)
     repo(f"{base}/app", "git@github.com:me/app.git")
-    repo(f"{base}/elsewhere/app-clone", "https://github.com/me/app")  # the same repo, another place
+    repo(f"{base}/elsewhere/app-clone", "https://github.com/me/app")
     g("worktree", "add", "-q", "-b", "fix", f"{base}/app-fix", cwd=f"{base}/app")
-    repo(f"{base}/notes")  # no origin
+    repo(f"{base}/notes")
     g("worktree", "add", "-q", "-b", "draft", f"{base}/notes-draft", cwd=f"{base}/notes")
     repo(f"{base}/other", "git@github.com:me/other.git")
     made = {}
@@ -837,7 +806,6 @@ def identity(ids):
     time.sleep(1)
 
 
-# ---------------------------------------------------------------- update
 
 class FakeGitHub:
     """GitHub's latest-release answer, served locally: `release` is what it
@@ -846,7 +814,7 @@ class FakeGitHub:
     def __init__(self):
         fake = self
         self.release, self.hits, self.downloads, self.tarballs = None, [], [], []
-        self.refuse = False  # True: the tarball address answers 415 whatever is asked
+        self.refuse = False
         class H(BaseHTTPRequestHandler):
             def do_GET(self):
                 if self.path.startswith("/repos/Calonca/herdr-orbit-look/tarball/"):
@@ -864,7 +832,6 @@ class FakeGitHub:
                     self.end_headers()
                     return
                 if self.path.startswith("/archive/"):
-                    # This repo's look as release <tag>: stamped, and a mark in orbit-status.
                     data = release_archive(self.path[len("/archive/"):-len(".tar.gz")])
                     fake.downloads.append(self.path)
                     self.send_response(200)
@@ -920,8 +887,6 @@ def installed_ok():
 
 
 FAKE = FakeGitHub()
-# update.py downloads only this repo's archives on GitHub; the fake's address
-# is allowed by its test switch (the sandbox's herdr-app passes it on).
 ENV["HERDR_ORBIT_UPDATE_TEST_ARCHIVE"] = FAKE.url.split("/repos/")[0] + "/"
 INSTALLED = open(f"{REPO}/mods/orbit/VERSION").read().split("\n")[0].strip()
 MAJOR, MINOR, PATCH = (int(v) for v in INSTALLED.split("."))
@@ -945,7 +910,6 @@ def check_now(tag=None):
         FAKE.answer(tag)
     sb("do", "orbit.update-check {}")
     wait(lambda: len(FAKE.hits) > n, 5)
-    # Then the answer is saved (data/orbit-updates/state.json) and the card placed.
     want = FAKE.release and FAKE.release["tag_name"]
     wait(lambda: len(FAKE.hits) > n and (update_state().get("latest") or {}).get("tag") == want, 5)
     time.sleep(1)
@@ -1013,7 +977,6 @@ def update(ids):
         check("update", "above the status bar, at the right edge", bottom <= bar_top + 1 and r["x"] + 280 * ZOOM <= W, f"{r} bar top {bar_top}")
         check("update", "clear of Herdr's update pill", bottom <= herdr_pill() - 4, f"bottom {bottom} pill top {herdr_pill()}")
 
-    # A toast: the card moves up, clear of it.
     os.makedirs(f"{HOME}/mods/regress-notify", exist_ok=True)
     open(f"{HOME}/mods/regress-notify/main.js", "w").write(NOTIFIER)
     open(f"{HOME}/mods/regress-notify/mod.json", "w").write('{ "place": "none" }')
@@ -1030,18 +993,15 @@ def update(ids):
     back = wait(lambda: card() and r and abs(card()["y"] - r["y"]) < 2, 12)
     check("update", "the toast gone: the card back in its place", back, f"{card()} was {r}")
 
-    # Herdr's own pill showing ("Updated to …" after a start on a new version), compact.
     sb("do", "orbit.settings " + json.dumps({"density": "compact"}))
     time.sleep(1.5)
     shot("update-card-compact")
     c = card()
     check("update", "compact: still clear of Herdr's pill", c and c["y"] + c["h"] * ZOOM <= herdr_pill() - 4, f"{c} pill top {herdr_pill()}")
     sb("do", "orbit.settings " + json.dumps({"density": "comfortable"}))
-    # (Clicked once it's back in its place.)
     c = wait(lambda: card() and r and abs(card()["y"] - r["y"]) < 2 and card(), 5)
     time.sleep(0.5)
 
-    # ×: gone, and not again for that release.
     if c:
         click(*card_point(c, "close"))
     check("update", "× closes it", wait(lambda: "orbit-dialogs" not in (overlays() or []), 3), str(overlays()))
@@ -1049,7 +1009,6 @@ def update(ids):
     check_now()
     check("update", "the same release again: no card", not card(), str(card()))
 
-    # "update": the look replaced by the release, the settings kept.
     settings_before = json.dumps(shared().get("orbit.settings"), sort_keys=True)
     check_now(newer(2))
     c = wait(lambda: (card() or {}).get("tag") == newer(2) and card(), 5)
@@ -1071,7 +1030,6 @@ def update(ids):
     check("update", "the previous copy is kept", os.path.isfile(f"{HOME}/data/orbit-updates/previous/mods/orbit/VERSION"))
     check("update", "the status bar runs the new copy", wait(lambda: bar_y() is not None, 5), "")
 
-    # "undo": the copy from before back, and no card for that release.
     c = card()
     if c:
         click(*card_point(c, "first"))
@@ -1081,7 +1039,6 @@ def update(ids):
     check("update", "after undo: no card for that release", wait(lambda: not card(), 5), str(card()))
     shot("update-undone")
 
-    # A changed copy: left alone, one line, "copy update prompt".
     path = f"{HOME}/mods/orbit-tabs/main.js"
     original = open(path).read()
     open(path, "a").write("\n// my own change\n")
@@ -1109,7 +1066,6 @@ def update(ids):
         click(*card_point(c, "close"))
     check("update", "× closes the error card", wait(lambda: not card(), 3), str(card()))
 
-    # "stop notifications": the setting off, no card, no request; on again: back.
     check_now(newer(4))
     c = wait(lambda: (card() or {}).get("tag") == newer(4) and card(), 5)
     check("update", f"{newer(4)}: the card", c, str(card()))
@@ -1122,7 +1078,6 @@ def update(ids):
     check("update", "off: still no card", not card(), str(card()))
     set_updates(True)
     check("update", "on again (the settings row): it asks, and the card is back", check_now() and wait(card, 3), str(card()))
-    # The settings row.
     sb("do", "orbit.settings")
     time.sleep(1.5)
     shot("update-settings")
@@ -1131,8 +1086,6 @@ def update(ids):
         click(*card_point(c, "close"))
     wait(lambda: not card(), 3)
 
-    # Long notes: wrapped, six rows on the card, the rest scroll inside it;
-    # the taller card still clear of Herdr's pill.
     long = [f"{w} " + "a longer line of release notes that wraps over more than one row" for w in ("first", "second", "third", "fourth", "fifth")]
     FAKE.answer(newer(6), long)
     check_now()
@@ -1143,14 +1096,11 @@ def update(ids):
     time.sleep(1)
     shot("update-long-notes")
     if c:
-        # A wheel over the notes scrolls them (the window's own pointer: the card's middle).
         for _ in range(6):
             click(c["x"] + 140 * ZOOM, c["y"] + (14 + 20 + 4 + 50) * ZOOM, 5)
         time.sleep(0.8)
         shot("update-long-notes-scrolled")
 
-    # A download GitHub refuses: the error wrapped (not cut with "…"),
-    # "update" again and "copy update prompt", nothing replaced.
     FAKE.refuse = True
     n = len(FAKE.downloads)
     if c:
@@ -1184,7 +1134,6 @@ def update_pill(ids):
     json.dump({"last_run": "0.0.1", "presented": []}, open(f"{HOME}/update-notes.json", "w"))
     sb("restart", check=True)
     time.sleep(4)
-    # The orbit mod takes commands once it has started again.
     for _ in range(4):
         if check_now(nxt):
             break

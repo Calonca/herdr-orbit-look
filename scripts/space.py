@@ -19,7 +19,6 @@ def linear(hex_):
     return (np.array([(hex_ >> 16) & 255, (hex_ >> 8) & 255, hex_ & 255], float) / 255.0) ** 2.2
 
 
-# centre, radii (fractions of the screen), rotation (degrees), colour, alpha
 GLOWS = [
     ((0.50, 0.43), (0.65, 0.13), -18.0, 0x8FB8FF, 0.16),
     ((0.50, 0.425), (0.45, 0.045), -18.0, 0xD8E6FF, 0.12),
@@ -33,7 +32,7 @@ def render(w, h):
     aspect = h / w
     ys, xs = np.mgrid[0:h, 0:w].astype(float)
     px = (xs + 0.5) / w
-    py = (ys + 0.5) / w  # width units, so circles stay round
+    py = (ys + 0.5) / w
     img = np.broadcast_to(linear(0x04070F), (h, w, 3)).copy()
     for (cx, cy), (rx_, ry_), rot, color, alpha in GLOWS:
         s, c = np.sin(np.radians(rot)), np.cos(np.radians(rot))
@@ -43,7 +42,6 @@ def render(w, h):
         a = (alpha * np.exp(-1.6 * d2))[..., None]
         img = img * (1 - a) + linear(color) * a
 
-    # The planet: a 1100px circle (at the design's width) whose box starts at (58%, 70%).
     k = w / DESIGN_WIDTH
     size = 1100.0 * k
     x0, y0 = 0.58 * w, 0.70 * h
@@ -53,12 +51,10 @@ def render(w, h):
     X, Y = xs + 0.5, ys + 0.5
     dist = np.hypot(X - center[0], Y - center[1])
 
-    # Outer cyan glow (0 0 90px 18px rgba(90,190,255,.28)).
     glow = np.clip(1 - (dist - radius - 18 * k) / (90 * k), 0, 1) ** 2 * 0.28
     glow = np.where(dist >= radius, glow, 0)[..., None]
     img = img * (1 - glow) + linear(0x5ABEFF) * glow
 
-    # Body: radial gradient from the lit side.
     t = np.hypot(X - light[0], Y - light[1]) / (radius * 1.6)
     stops = [(0.0, linear(0x16305C)), (0.35, linear(0x0A1630)), (0.70, linear(0x04070F))]
     body = np.broadcast_to(stops[2][1], (h, w, 3)).copy()
@@ -70,7 +66,6 @@ def render(w, h):
     inside = (dist < radius)[..., None]
     img = np.where(inside, body, img)
 
-    # Inner rim light, stronger at the top (inset 0 10px 40px rgba(125,207,255,.45)).
     dir_y = (Y - center[1]) / np.maximum(dist, 1)
     top = np.clip(0.35 - 0.65 * dir_y, 0, 1)
     rim = np.clip(1 - (radius - dist) / (40 * k), 0, 1) ** 2 * 0.45 * top
@@ -80,7 +75,6 @@ def render(w, h):
     out = (np.clip(img, 0, 1) ** (1 / 2.2) * 255).round().astype(np.uint8)
     pic = Image.fromarray(out, "RGB")
 
-    # Stars (320, seed 7), drawn at their own size.
     from PIL import ImageDraw
 
     draw = ImageDraw.Draw(pic, "RGBA")

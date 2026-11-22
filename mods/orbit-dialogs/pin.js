@@ -1,9 +1,3 @@
-// "open in pane ⇥": the button a popup shows when it was opened with
-// props.pin (its title). It runs props.pinCommand, which opens the same mod
-// in a pane (the status bar passes the orbit mod's new-mod ask, a whole
-// command: "orbit.new-mod <args as JSON>"), then closes the popup. In a pane
-// (no props.pin) it isn't there.
-
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { props, run, closeOverlay } from "herdr";

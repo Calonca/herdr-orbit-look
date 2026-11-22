@@ -1,60 +1,16 @@
-// Update notices for the look itself (not for Herdr: Herdr shows its own).
-//
-// The check: at most once a day while the look runs, one GET of the repo's
-// latest release on GitHub's public API, without a login, with a generic
-// User-Agent and nothing about the person or their machine. Its answer, the
-// time and the release whose card was closed are kept in herdr-app's home
-// (data/orbit-updates/state.json). A failed check is silent and tried again
-// the next day. The setting "update notices" off (shared "orbit.settings"
-// `updates: false`) stops the check and hides the card.
-//
-// The card (orbit-dialogs' "update"): a window overlay at the bottom right,
-// shown while the latest release is newer than this copy (mods/orbit/VERSION)
-// and its card wasn't closed. Closing it remembers that release, so each
-// release shows once; "stop notifications" turns the setting off.
-//
-// "update" (asked here: update-apply) runs update.py apply, detached: it
-// replaces the look's files only when they hash to what VERSION records (no
-// one changed them), and keeps the previous copy. Its answer lands in
-// data/orbit-updates/result.json, read here every two seconds, since the
-// update reloads this mod midway. The card then says "Updated to Orbit x"
-// (with "undo": update-undo), or one error line; for a changed copy, a button
-// that copies a prompt for an agent instead.
-//
-// Where it sits: above the status bar with the look's gap, and never where
-// Herdr draws its own notices. Herdr puts those at the window's bottom right,
-// 16 px in, from the bottom up: its update pill (34 px tall: "Herdr 0.x is
-// ready · Restart", or "Updated to 0.x" after an update), each toast (72 px,
-// 8 px apart, above the pill's place when it shows), then a herdr-core update
-// error. A mod can't tell whether the pill is showing (it can be closed, and
-// "Updated to" has no flag), so the card always keeps clear of the pill's
-// place, of every toast open now (orbit-toast lists them in shared
-// "orbit.toasts") and of the core error while there is one: its bottom is the
-// look's gap above the highest of those and of the status bar. It moves when
-// they change, and with the window's size, the zoom and the look.
-//
-// Install: install.sh --updates on|off writes data/orbit-updates/ask, which is
-// taken up here once (the installing agent asks the person).
-
 import { checking, shared, setShared, appHome, readTextFile, writeTextFile, exec, openOverlay, closeOverlay, updates as herdrUpdates, settings as appSettings } from "herdr";
 import { settings, lookOf, apply } from "./layout.js";
 
 export const REPO = "https://github.com/Calonca/herdr-orbit-look";
 const API = "https://api.github.com/repos/Calonca/herdr-orbit-look/releases/latest";
-// Where a release's archive may come from (the answer's tarball_url);
-// update.py checks it again, and every redirect (ALLOWED there).
 const ARCHIVES = ["https://api.github.com/repos/Calonca/herdr-orbit-look/tarball/", "https://codeload.github.com/Calonca/herdr-orbit-look/"];
 const CARD = "orbit.update.card";
 const DAY = 24 * 60 * 60 * 1000;
 const WIDTH = 280;
-// Herdr's own notices (its frame, src/window.rs): 16 px from the window's
-// right and bottom; the update pill 34 px tall; toasts 72 px, 8 px apart; the
-// core error one line of 13 px text with 12 px padding.
 const HERDR = { edge: 16, pill: 34, toast: 72, apart: 8, error: 44 };
 
 const dir = () => `${appHome()}/data/orbit-updates`;
 
-// "v0.5.0" -> [0, 5, 0]; null if it isn't a version.
 export function parseVersion(v) {
   const m = /^v?(\d+)\.(\d+)(?:\.(\d+))?/.exec(String(v ?? "").trim());
   return m ? [Number(m[1]), Number(m[2]), Number(m[3] ?? 0)] : null;
@@ -67,8 +23,6 @@ export function newer(a, b) {
   return false;
 }
 
-// The note lines: the release's bullets (its CHANGELOG entry), plain text,
-// at most twenty.
 export function noteLines(body) {
   const plain = (s) => s.replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/[*_`]/g, "").replace(/\s+/g, " ").trim();
@@ -78,11 +32,6 @@ export function noteLines(body) {
   return out.filter(Boolean).slice(0, 20);
 }
 
-// rows(): how many rows `text` wraps to on the card, word by word, `cols`
-// characters a row. The notes' column is 220 px of 13 px text, the error's
-// 232 px; measured there, 36 characters filled a notes row and 37 an error
-// row, so the defaults (33, and 36 for the error) err high rather than low
-// (too low would cut the last row off).
 export function rows(text, cols = 33) {
   let n = 1, at = 0;
   for (const word of String(text ?? "").split(/\s+/).filter(Boolean)) {
@@ -94,17 +43,12 @@ export function rows(text, cols = 33) {
   return n;
 }
 
-// The card shows at most this many rows of notes (more scroll inside it,
-// so it keeps one size, as Herdr's own notices do) and of an error.
 const NOTE_ROWS = 6, ERROR_ROWS = 3;
 
-// The error line under the title of an "error" card.
 export function errorText(card) {
   return card.code === "changed" ? "Not replaced: your copy was changed." : `Not updated: ${card.error ?? "it failed"}.`;
 }
 
-// The prompt "copy update prompt" copies, for when the files were changed or
-// the update failed: one line, as the gallery's install line is.
 export function prompt(tag, code) {
   const why = code === "changed" ? "my installed copy was changed, keep those changes" : "the update button on its card failed, keep my settings";
   return `Read ~/.config/herdr-app/AGENTS.md, then update the orbit layout to ${tag} from ${REPO} (read its RECIPE.md); ${why}`;
@@ -116,11 +60,11 @@ async function readJson(path) {
 
 export class Updates {
   constructor() {
-    this.state = null; // { checked, latest: { tag, notes, archive }, closed, seen }
-    this.version = null; // this copy's (mods/orbit/VERSION's first line)
-    this.result = null; // update.py's last answer (result.json)
-    this.running = null; // { action, since }: update.py started from here and not answered yet
-    this.card = null; // { id, key }: the open card and where it is
+    this.state = null;
+    this.version = null;
+    this.result = null;
+    this.running = null;
+    this.card = null;
     this.checking = false;
   }
 
@@ -149,8 +93,6 @@ export class Updates {
     return settings().updates !== false;
   }
 
-  // One write at a time, each of the whole state as it is then (a check and
-  // a close can land together).
   save(change) {
     this.state = { ...this.state, ...change };
     const write = async () => {
@@ -162,7 +104,6 @@ export class Updates {
     return this.saving;
   }
 
-  // install.sh --updates on|off: the person's answer, taken up once.
   async takeAsk() {
     const path = `${dir()}/ask`;
     const ask = ((await readTextFile(path)) ?? "").trim();
@@ -182,26 +123,20 @@ export class Updates {
     }
   }
 
-  // update.py's answer, new here (read on start too: an update or undo
-  // reloads this mod, often before it answers).
   async takeResult(r) {
     this.result = r;
     if (!r?.at) return;
     if (this.running && r.at >= this.running.since) this.running = null;
-    // An undo: the release it went back from doesn't come up again.
     if (r.ok && r.action === "undo" && r.at > (this.state?.seen ?? 0) && this.state?.latest?.tag) {
       await this.save({ closed: this.state.latest.tag, seen: r.at });
     }
   }
 
-  // The latest release, unless the last look was less than a day ago (`now`:
-  // look anyway, still only with the setting on).
   async check(now) {
     if (!this.on() || this.checking) return;
     if (!now && Date.now() - (this.state?.checked ?? 0) < DAY) return;
     this.checking = true;
     try {
-      // tools/regress.py points this at a local fake (shared "orbit.update.api").
       const fake = shared("orbit.probe") === true && shared("orbit.update.api");
       const url = fake || API;
       let latest = this.state?.latest ?? null;
@@ -212,18 +147,13 @@ export class Updates {
           const archive = typeof j?.tarball_url === "string" && (fake || ARCHIVES.some((a) => j.tarball_url.startsWith(a))) ? j.tarball_url : null;
           if (j?.tag_name && !j.draft && !j.prerelease) latest = { tag: j.tag_name, notes: noteLines(j.body), archive };
         }
-      } catch (_) { /* offline, or GitHub said no: the next day */ }
+      } catch (_) { }
       await this.save({ checked: Date.now(), latest });
     } finally {
       this.checking = false;
     }
   }
 
-  // What the card shows now, or null: { mode, tag, ... }.
-  //   "updated"  update.py replaced the look (this copy is the new one)
-  //   "working"  update.py is at it
-  //   "error"    it didn't (code: "changed" for a changed copy)
-  //   "due"      a newer release
   due() {
     const r = this.result;
     const fresh = r?.at && r.at > (this.state?.seen ?? 0);
@@ -236,20 +166,17 @@ export class Updates {
     return { mode: "due", ...latest };
   }
 
-  // The card closed (×): its release won't show again, nor the answer it showed.
   async close(tag) {
     this.hide();
     const seen = Math.max(this.state?.seen ?? 0, this.result?.at ?? 0);
     if (this.state?.closed !== tag || this.state?.seen !== seen) await this.save({ closed: tag, seen });
   }
 
-  // "stop notifications": the setting off (the settings row turns it on again).
   async stop(tag) {
     await this.close(tag);
     await apply({ updates: false });
   }
 
-  // "update": update.py replaces the look in a process of its own.
   async update(tag) {
     const latest = this.state?.latest;
     if (this.running || !latest || latest.tag !== tag) return;
@@ -260,7 +187,6 @@ export class Updates {
     await this.run("apply", [latest.archive, tag]);
   }
 
-  // "undo": the previous copy back.
   async undo() {
     if (this.running) return;
     const seen = this.result?.at ?? 0;
@@ -287,9 +213,6 @@ export class Updates {
     this.card = null;
   }
 
-  // The card's height (its own lengths, which herdr-app zooms): orbit-dialogs'
-  // update.js draws to these. `lines`: rows of 18 px under the title (the
-  // notes, or the error).
   static height(lines) {
     return 14 + 20 + (lines ? 4 + 18 * lines : 0) + 12 + 28 + 14;
   }
@@ -300,7 +223,6 @@ export class Updates {
     return Math.min(NOTE_ROWS, (card.notes ?? []).reduce((n, line) => n + rows(line), 0));
   }
 
-  // Where the card goes (window pixels), or null.
   rect(card) {
     const view = globalThis.window?.viewport_size?.();
     if (!view?.width) return null;
@@ -308,10 +230,7 @@ export class Updates {
     const L = lookOf();
     const gap = Math.round((L.gap || 0) * z);
     const apart = L.gap ? gap : Math.round(HERDR.apart * z);
-    // The status bar's top (orbit-status' glass.js orbitPlace).
     const bar = Math.round(Math.max(4, L.gap || 0) * z) + Math.round(L.status * z);
-    // The top of Herdr's notices at their highest: the pill's place, the toasts open now, the core error.
-    // (One listed for longer than two minutes was left by a quit, not on screen.)
     const toasts = Object.values(shared("orbit.toasts") ?? {}).filter((at) => Date.now() - at < 120000).length;
     let herdr = (HERDR.edge + HERDR.pill) * z + toasts * (HERDR.apart + HERDR.toast) * z;
     if (herdrUpdates()?.core?.error) herdr += (HERDR.apart + HERDR.error) * z;
@@ -321,7 +240,6 @@ export class Updates {
     return { x: Math.round(view.width - (L.gap ? gap : apart) - WIDTH * z), y: Math.round(view.height - bottom - h * z), h, lines };
   }
 
-  // Opens, moves or closes the card to match.
   place() {
     const card = this.due();
     const r = card && this.rect(card);

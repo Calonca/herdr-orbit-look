@@ -1,8 +1,3 @@
-// "close <name>?": asked before a pane tab running a terminal closes. Enter or "close" closes it, Esc or "keep" keeps it; the same
-// close again (middle-click, Ctrl+Shift+W) also confirms (the orbit mod's
-// actions.js, which opens this and does the close).
-// Props: { dialog: "confirm", label, space, side, id }.
-
 import { div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { props, theme } from "herdr";

@@ -1,17 +1,6 @@
 // The orbit layout's menus, derived from herdr-app's `menu` mod (Apache-2.0)
 // and changed: other items, and Rename opening a tab's name field. Opened as
 // a popup with props { dialog: "menu", tab, target }:
-//   tab "sidebar" (the sidebar's "menu"): Search, Settings (a dot while an
-//     update is ready), Add machine, New space (and on each machine that's
-//     connected), then the shown space's own items (Rename, worktrees, Close),
-//     Keybinds: what herdr's stock sidebar offers that this one has no button for.
-//   tab "orbit-tab" (a tab of the orbit rows, right-clicked): Rename, then
-//     herdr's pane items (tabmenu.js).
-//   tab "taskbar" (a space's card in the status bar, right-clicked): Pin or
-//     Unpin (shared "orbit.pinned", the space ids in pin order).
-// The icons are herdr-app's own, from its shipped `workspace-chrome` mod.
-// ↑/↓ move, Enter runs, Esc closes. An item is [label, command, args, icon?];
-// a command "worktree" opens the worktree dialog, as herdr's menu does.
 
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
@@ -19,13 +8,11 @@ import { run, props, closeOverlay, openOverlay, theme, keys, spaces, panes, exec
 import { tabMenuItems, ruleAfterRename } from "./tabmenu.js";
 import { ask } from "./look.js";
 
-// Where a space is now: its first terminal's live folder, else where it was made.
 function place(s) {
   const tabs = new Set((s.tabs ?? []).map((c) => c.id));
   return panes().find((p) => tabs.has(p.tab) && p.cwd)?.cwd || s.folder;
 }
 
-// A space's checkout: "main" (a repo's own), "linked" (a worktree), or null.
 async function checkout(folder, on) {
   const top = await exec("git", ["rev-parse", "--show-toplevel"], { cwd: folder, on });
   const common = await exec("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd: folder, on });
@@ -33,7 +20,6 @@ async function checkout(folder, on) {
   return common.stdout.trim() === `${top.stdout.trim()}/.git` ? "main" : "linked";
 }
 
-// The menu's space: the target's, else the shown one.
 function targetSpace(p) {
   return spaces().find((s) => s.id === p?.target?.id) ?? spaces().find((s) => s.active) ?? null;
 }
@@ -78,15 +64,12 @@ function menuIcon(it) {
   return `mods/workspace-chrome/${name}.svg`;
 }
 
-// The key bound to a command, for the hint on the right.
 function shortcut(name, args) {
   const value = args && Object.values(args)[0];
   const k = keys().find((b) => b.section === "global" && (b.action === name || b.action === `${name}:${value}`));
   return k ? k.keys : "";
 }
 
-// A line before: the space's own items, and Keybinds.
-// A tab's: a line after Rename.
 const ruleBefore = (list, i) => i > 0 && ((list[i][1] === "space.rename") || list[i][1] === "app.help" || ruleAfterRename(list, i));
 
 export class Menu {
@@ -109,7 +92,6 @@ export class Menu {
     const it = items(props(), this.git)[i];
     if (!it) return;
     closeOverlay(props()?.overlay);
-    // Rename: the row the tab is in opens its name field (orbit-tabs).
     if (it[1] === "orbit-rename") setShared("orbit.rename", { ...it[2], n: Date.now() });
     else if (it[1] === "orbit-pin") {
       const rest = (shared("orbit.pinned") ?? []).filter((id) => id !== it[2].id);
@@ -156,7 +138,6 @@ export class Menu {
               .on_click(() => this.choose(i))
               .child(svg(menuIcon(it)).size(14).flex_none().text_color(t.muted))
               .child(div().flex_1().child(it[0]))
-              // Settings: herdr's dot while an update is ready.
               .when(it[1] === "app.settings" && ready, (el) => el.child(div().size(6).rounded_full().flex_none().bg(t.accent)))
               .child(div().text_size(11).text_color(t.dim).child(shortcut(it[1], it[2])))),
         ),

@@ -4,9 +4,6 @@
 // view's: Rename, Close, Hide the panel. This file is the same in every orbit
 // mod that uses it. The pane items are herdr-app's own pane menu's (its
 // `menu` mod, Apache-2.0), as they are in herdr-app 0.1.11.
-//   target { row: "left" | "right" | "panel", key, pane?, terminal? }
-// An item is [label, command, args, icon?]; the menu runs "orbit-rename"
-// and "orbit-close-view" itself.
 
 import { terminals } from "herdr";
 
@@ -17,7 +14,6 @@ export function tabMenuItems(target) {
     return [rename, ["Close", "orbit-close-view", { id: tg.key }, "x"], ["Hide the panel", "layout.hide", { id: "panel" }, "panel-left"]];
   }
   if (!tg.pane) return [rename];
-  // herdr-app's pane menu (its `menu` mod).
   const all = terminals();
   const term = tg.terminal ? all.find((t) => t.address === tg.terminal) : null;
   const parent = term?.parent && all.find((t) => t.address === term.parent);
@@ -37,10 +33,8 @@ export function tabMenuItems(target) {
   ];
 }
 
-// A line after Rename: herdr's items below it.
 export const ruleAfterRename = (list, i) => i === 1 && list[0]?.[1] === "orbit-rename";
 
-// The popup's height for its items (the menu: 31 a row, 9 a line, 5 padding).
 export function menuHeight(list, rules = 0) {
   return 10 + list.length * 31 + rules * 9;
 }

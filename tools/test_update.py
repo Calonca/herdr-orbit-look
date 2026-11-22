@@ -31,9 +31,6 @@ def write(path, text):
     open(path, "w").write(text)
 
 
-# The outline's side blocks as layout.js shape() writes them: a line (look.js
-# LINE) wide, drawn by orbit-edge. Written out here (no node at test time);
-# LINE is read from the mod.
 LINE = int(re.search(r"export const LINE = (\d+);", open(os.path.join(REPO, "mods/orbit/look.js")).read()).group(1))
 PANES = ("left", "right", "panel")
 
@@ -109,12 +106,11 @@ class Hash(Base):
     def test_left_out(self):
         for rel in ["mods/orbit-status/jsconfig.json", "mods/orbit-tabs/gpui-kit.d.ts", "mods/orbit/.hidden",
                     "mods/orbit-add/.cache/x", "mods/orbit/__pycache__/update.cpython-314.pyc",
-                    # the person's own: not on the list
                     "mods/orbit-mine/more.js", "themes/other.json", "layouts/other.json", "shared.json",
                     "layouts/.state/orbit.json", "data/orbit-updates/state.json"]:
             write(f"{self.home}/{rel}", "x")
         with open(f"{self.home}/{U.VERSION}", "a") as f:
-            f.write("\n")  # VERSION itself (a blank line read past)
+            f.write("\n")
         self.assertEqual(self.now(), self.recorded)
 
     def test_counted(self):
@@ -144,7 +140,6 @@ class Hash(Base):
 
     def test_layout_what_the_mod_writes(self):
         def mod_writes(root, find):
-            # layout.js shape(): settings, glass, outlines, right pane, panel views, tabs on top.
             root["background"] = {"image": "backgrounds/me.png", "fit": "cover"}
             root["terminal_padding"] = [8, 6]
             root["terminal_opacity"] = 1
@@ -178,8 +173,6 @@ class Hash(Base):
         self.assertEqual(self.now(), self.recorded)
 
     def test_layout_side_blocks_as_shipped(self):
-        # shape() writes the outline's sides as they ship, so they count in the
-        # hash: the shipped layout must already have them so.
         root = json.load(open(os.path.join(REPO, "layouts/orbit.json")))
         nodes = {n.get("id"): n for n in walk(root)}
         for pane in PANES:
@@ -189,7 +182,6 @@ class Hash(Base):
                 self.assertEqual(got, side_block(pane), f"{pane}-{side}")
 
     def test_layout_older_divider(self):
-        # An older orbit mod's write (0.5.3 and before): the coloured divider.
         self.layout(lambda root, find: find("left-mid").__setitem__("divider", {"width": 2, "color": "#bb9af7"}))
         self.assertEqual(self.now(), self.recorded)
 
@@ -236,14 +228,12 @@ class Replace(Base):
         super().setUp()
         self.install()
         self.tree(self.release, "0.6.0", change="\n// 0.6.0\n")
-        # The release drops orbit-edge and adds orbit-new; its keys differ.
         shutil.rmtree(f"{self.release}/mods/orbit-edge")
         write(f"{self.release}/mods/orbit-new/main.js", "// new")
         write(f"{self.release}/keys.json", json.dumps({"layout:orbit": {"new": "y"}}))
         U.atomic_write(f"{self.release}/{U.VERSION}", U.version_text("0.6.0", U.tree_items(self.release), self.release))
         self.url = self.archive(self.release)
         self.before = snapshot(self.home)
-        # The fake release (a file here) is allowed by the test switch only.
         env = mock.patch.dict(os.environ, {U.TEST_ARCHIVE: f"file://{self.tmp}/"})
         env.start()
         self.addCleanup(env.stop)
@@ -261,19 +251,16 @@ class Replace(Base):
         self.assertEqual((out.get("ok"), out.get("from"), out.get("to")), (True, "0.5.0", "0.6.0"), out)
         self.assertEqual(json.load(open(f"{self.home}/data/orbit-updates/result.json"))["to"], "0.6.0")
         after = snapshot(self.home)
-        # The new release is installed, and checks out as it.
         self.assertEqual(U.installed(self.home)[0], "0.6.0")
         self.assertIn("// 0.6.0", open(f"{self.home}/mods/orbit-status/main.js").read())
         self.assertTrue(os.path.isfile(f"{self.home}/mods/orbit-new/main.js"))
         self.assertFalse(os.path.exists(f"{self.home}/mods/orbit-edge"))
-        # The person's files are as they were.
         self.assertEqual(self.own(after), self.own(self.before))
         keys = json.load(open(f"{self.home}/keys.json"))
         self.assertEqual(keys, {"global": {"ctrl-q": "app.quit"}, "layout:orbit": {"new": "y"}})
         manifest = open(f"{self.home}/.herdr-orbit-manifest").read().split()
         self.assertIn("mods/orbit-new", manifest)
         self.assertNotIn("mods/orbit-edge", manifest)
-        # The previous copy is kept whole.
         prev = f"{self.home}/data/orbit-updates/previous"
         self.assertEqual(U.read_version(prev)[0], "0.5.0")
         self.assertTrue(os.path.isfile(f"{prev}/mods/orbit-edge/main.js"))
@@ -282,7 +269,6 @@ class Replace(Base):
 
     def test_undo_and_redo(self):
         self.apply()
-        # keys.json is written again (the same keys, its own spacing).
         files = lambda: {k: v for k, v in snapshot(self.home).items() if k != "keys.json"}
         keys = lambda: json.load(open(f"{self.home}/keys.json"))
         updated, updated_keys = files(), keys()
@@ -294,7 +280,6 @@ class Replace(Base):
         out = U.run(self.home, "undo", lambda: U.undo(self.home))
         self.assertEqual((out.get("ok"), out.get("to")), (True, "0.6.0"), out)
         self.assertEqual((files(), keys()), (updated, updated_keys))
-        # A copy changed after the update isn't undone over.
         open(f"{self.home}/mods/orbit/main.js", "a").write("//")
         out = U.run(self.home, "undo", lambda: U.undo(self.home))
         self.assertEqual(out.get("error"), "changed", out)
@@ -399,7 +384,6 @@ class Replace(Base):
                         self.assertEqual(out.get("error"), "download", out)
                         self.assertIn("not this repo's release archive", out.get("message", ""))
                         self.unchanged()
-        # The test switch takes a local prefix only.
         with mock.patch.dict(os.environ, {U.TEST_ARCHIVE: "https://evil.example/"}):
             self.assertFalse(U.allowed("https://evil.example/x.tar.gz"))
 
@@ -437,7 +421,7 @@ class Replace(Base):
                     self.assertEqual(out.get("error"), "download", out)
                     self.assertIn("a redirect to an address", out.get("message", ""))
                     self.unchanged()
-            out = self.apply(base + "here")  # a redirect to an allowed address is followed
+            out = self.apply(base + "here")
             self.assertTrue(out.get("ok"), out)
 
     def test_github_tarball(self):

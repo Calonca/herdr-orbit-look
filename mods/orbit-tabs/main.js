@@ -1,9 +1,3 @@
-// The orbit layout's tab rows, each the bottom of its pane's outline:
-//   props { stack: "left" | "right" }   a pane's row (pane.js)
-//   props { stack: "panel-body" }       the side panel's row (panel.js)
-// A change (show, close, rename, move, a new tab) is asked of the orbit mod
-// (look.js ask), which makes it.
-
 import { View, div } from "gpui-kit";
 import { props } from "herdr";
 import { PaneRow } from "./pane.js";

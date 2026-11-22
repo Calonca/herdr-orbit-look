@@ -1,28 +1,4 @@
 #!/usr/bin/env bash
-# Copies the orbit layout, its mods and themes into herdr-app's home
-# ($HERDR_APP_HOME, else ~/.config/herdr-app). Optional: copying the layouts/,
-# mods/ and themes/ folders by hand does the same. Run it again after an
-# update: only what differs is rewritten, and herdr-app reloads it live.
-#
-# What this script installed is listed in <home>/.herdr-orbit-manifest; a file
-# or folder there under the same name that it didn't install is moved to
-# <home>/backup-herdr-orbit-<time>/ first, never overwritten.
-#
-# keys.json's "layout:orbit" section (keys that apply only while the orbit
-# layout shows) is merged into the home's keys.json; the rest of it stays as
-# it is, and it's backed up before the first change.
-#
-# mods/orbit/VERSION in the home gets this copy's version, the list of what
-# it installed and the hash of those files (mods/orbit/update.py), so the look
-# can tell later whether anyone changed them.
-#
-# The look checks once a day whether a newer release of it is out and shows a
-# small card then (Orbit look settings: "update notices"). Its "update" button
-# replaces these files with the release's, only if they are as installed.
-# --updates on|off sets that setting (the orbit mod takes it up when it next
-# starts or within ten minutes); without it the setting stays as it is (on for
-# a new install).
-#
 #   ./install.sh                   install or update
 #   ./install.sh --updates off     the same, and update notices off (or on)
 #   ./install.sh --remove          remove what this script installed (backups stay)
@@ -46,7 +22,6 @@ touch "$manifest"
 
 items() {
   local f
-  # Themes first: a mod or layout that names one finds it there.
   for f in "$repo"/themes/*.json "$repo"/mods/*/ "$repo"/layouts/*.json "$repo"/layouts/*.svg; do
     if [[ -e $f ]]; then f=${f%/}; printf '%s\n' "${f#"$repo"/}"; fi
   done
@@ -54,8 +29,6 @@ items() {
 
 ours() { grep -qxF "$1" "$manifest"; }
 
-# Merges keys.json's sections into the home's keys.json (or, with --remove,
-# takes them out).
 keys() {
   [[ -f $home/keys.json ]] || { echo "no $home/keys.json yet: start herdr-app once, then run this again for the keys"; return 0; }
   python3 - "$home/keys.json" "$repo/keys.json" "$backup" "${1:-}" <<'EOF'
@@ -90,11 +63,6 @@ if [[ ${1:-} == --remove ]]; then
   exit 0
 fi
 
-# The themes were renamed (orbit -> tokyo-night, orbit-nord -> nord, ...).
-# herdr-app drops a layout's saved clicks when the layout's own theme changes
-# under them, and its theme pick in any case, so first each layout's saved
-# clicks get the new names (layouts/.state), and after the copy the window,
-# when it's open, is given the pick again (app.theme), so the colours stay.
 repick=$(python3 - "$home" <<'PY'
 import glob, json, os, sys
 home = sys.argv[1]
@@ -117,8 +85,6 @@ for path in glob.glob(f"{home}/layouts/.state/*.json"):
     os.replace(path + ".herdr-orbit-tmp", path)
     name = os.path.basename(path)[:-5]
     print(f"theme names in {path}: {picks} -> {state.get('theme')}", file=sys.stderr)
-    # The light pick first, the dark one last (app.theme sets the slot of the
-    # theme's own kind; the dark one is what a dark desktop shows).
     for kind in ["light", "dark"]:
         if state.get("theme", {}).get(kind):
             print(f"{name}\t{state['theme'][kind]}")
@@ -134,10 +100,8 @@ items | while read -r rel; do
     echo "backed up $dst to $backup/$rel"
   fi
   ours "$rel" || echo "$rel" >>"$manifest"
-  # (VERSION: written below, from this repo's files.)
   if [[ -e $dst ]] && diff -rq -x jsconfig.json -x "*.d.ts" -x VERSION -x __pycache__ "$src" "$dst" >/dev/null 2>&1; then continue; fi
   if [[ -d $src ]]; then
-    # Folders are replaced whole, so a file deleted here goes there too.
     tmp=$(mktemp -d "$home/.herdr-orbit-tmp.XXXXXX")
     cp -r "$src" "$tmp/new"
     rm -rf "$dst"
@@ -150,9 +114,8 @@ items | while read -r rel; do
   echo "installed $dst"
 done
 
-# The theme picks again, in the open window (see above), for the layout it shows.
 if [[ -n $repick ]] && shown=$(HERDR_APP_HOME=$home DO_NOT_TRACK=1 HERDR_TELEMETRY=0 herdr-app status 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("layout") or "")'); then
-  sleep 2 # the window takes up the new theme and layout files first
+  sleep 2
   while IFS=$'\t' read -r name pick; do
     if [[ $name == "$shown" ]]; then
       HERDR_APP_HOME=$home DO_NOT_TRACK=1 HERDR_TELEMETRY=0 herdr-app do app.theme "{\"name\":\"$pick\"}" >/dev/null
@@ -161,8 +124,6 @@ if [[ -n $repick ]] && shown=$(HERDR_APP_HOME=$home DO_NOT_TRACK=1 HERDR_TELEMET
   done <<<"$repick"
 fi
 
-# What this script installed and the repo no longer has goes from the home
-# too. Only manifest entries: the person's own files are never touched.
 gone=()
 while read -r rel; do
   [[ -n $rel && ! -e $repo/$rel ]] && gone+=("$rel")
@@ -176,22 +137,14 @@ done
 
 keys
 
-# The version, the list and the hash of what's installed: the same as a
-# release ships (the files here are the ones copied).
 python3 "$repo/mods/orbit/update.py" stamp "$repo" --version "$(head -n1 "$repo/mods/orbit/VERSION")" --out "$home/mods/orbit/VERSION"
 
-# The answer to "check for updates and show their card?", for the orbit mod
-# (mods/orbit/updates.js) to take up.
 if [[ -n $updates ]]; then
   mkdir -p "$home/data/orbit-updates"
   printf '%s\n' "$updates" >"$home/data/orbit-updates/ask"
   echo "update notices: $updates"
 fi
 
-# orbit-windows.json: what the "new window" picker lists besides a terminal,
-# the agents and herdr's own views (mods/orbit-add/windows.js). It's the
-# person's file: made from defaults/ only when missing, never overwritten, and
-# not in the manifest, so --remove leaves it.
 if [[ ! -e $home/orbit-windows.json ]]; then
   cp "$repo/defaults/orbit-windows.json" "$home/orbit-windows.json"
   echo "created $home/orbit-windows.json (the picker's list: edit it, or use its \"configure windows…\" row)"

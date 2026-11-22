@@ -1,27 +1,8 @@
-// The "new window" picker's own list (orbit-add): what else it offers besides
-// a terminal, the agents and herdr's own views, read from one file of the
-// person's, orbit-windows.json in the app's folder, so any mod can be listed
-// without changing code.
-//
-//   { "windows": [
-//       { "title": "Notes", "about": "this project's notes", "icon": "mods/my-notes/icon.svg",
-//         "mod": "my-notes", "props": { "folder": "$folder" } },
-//       { "title": "Keybinds", "command": "app.help" }
-//   ] }
-//
-// Each entry: "title"; optionally "about" (a short line) and "icon" (an .svg
-// under the app's folder); then what it opens: "mod" (a folder in mods/) with
-// optional "props", opened in the pane the picker is in, or "command" (any
-// herdr-app command) with optional "args". "$folder" anywhere in props or args
-// becomes the folder of that pane (its space's). A missing file is an empty
-// list; a broken one is reported in the picker, and the rest of it still works.
-
 import { appHome, readTextFile } from "herdr";
 
 export const WINDOWS_FILE = "orbit-windows.json";
 export const windowsPath = () => `${appHome()}/${WINDOWS_FILE}`;
 
-// { windows: [entry], error: string | null }
 export async function readWindows() {
   let text = null;
   try { text = await readTextFile(windowsPath()); } catch (e) { return { windows: [], error: `can't read ${WINDOWS_FILE}: ${e?.message ?? e}` }; }
@@ -40,7 +21,6 @@ export async function readWindows() {
   return { windows, error: bad.length ? `${WINDOWS_FILE}: entr${bad.length > 1 ? "ies" : "y"} ${bad.join(", ")} skipped (each needs "title" and "mod" or "command")` : null };
 }
 
-// "$folder" in every string of props or args.
 export function fill(value, vars) {
   if (typeof value === "string") return value.replace(/\$folder\b/g, vars.folder ?? "");
   if (Array.isArray(value)) return value.map((v) => fill(v, vars));
@@ -48,8 +28,6 @@ export function fill(value, vars) {
   return value;
 }
 
-// What the picker's "configure windows…" row copies: a prompt for the
-// person's own agent.
 export function configurePrompt() {
   const home = appHome();
   return [
