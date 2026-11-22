@@ -19,6 +19,7 @@ PY
 )
 
 python3 tools/test_update.py
+python3 tools/test_ties.py
 python3 mods/orbit/update.py stamp . --version "$version"
 if [[ -n $(git status --porcelain mods/orbit/VERSION) ]]; then
   git add mods/orbit/VERSION
