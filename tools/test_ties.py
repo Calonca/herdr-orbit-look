@@ -395,5 +395,58 @@ class RepeatedValues(unittest.TestCase):
         self.assertEqual(start.get("small"), min(4, comfortable["radius"]), "START.small is min(4, radius) (layout.js lookOf)")
 
 
+# ---------------------------------------------------------------- commands
+
+
+def handled_commands():
+    """The orbit.<name> commands mods/orbit/main.js handles: the names its
+    command() and paneCommand() compare `name` with."""
+    rel = "mods/orbit/main.js"
+    toks = J.lex_file(rel)
+    out = set()
+    for fn in ("command", "paneCommand"):
+        body = J.function_body(toks, fn, rel)
+        texts = [t.text for t in body]
+        for i, t in enumerate(body):
+            if t.text == "name" and t.kind == "ident":
+                before, after = texts[i - 1] if i else "", texts[i + 1] if i + 1 < len(texts) else ""
+                if after == "===" and body[i + 2].kind == "str":
+                    out.add(J.eval_string(body[i + 2].text))
+                elif before == "(" and texts[i - 2] == "test" and body[i - 4].kind == "regex":
+                    rx = body[i - 4].text
+                    if rx != "/^tab[1-9]$/":
+                        raise J.Unreadable(f"{rel}:{t.line}: a command pattern the check doesn't know: {rx}")
+                    out |= {f"tab{n}" for n in range(1, 10)}
+                elif after in ("==", "!=", "!==") or before in ("===", "==", "switch"):
+                    raise J.Unreadable(f"{rel}:{t.line}: name compared in a way the check doesn't read: use name === \"...\"")
+    return out
+
+
+class Commands(unittest.TestCase):
+    def test_keys_are_handled(self):
+        keys = json.loads(read("keys.json"))
+        bound = {c.split(".", 1)[1] for sec in keys.values() for c in sec.values() if c.startswith("orbit.")}
+        self.assertTrue(bound, "keys.json binds no orbit.<command>")
+        missing = bound - handled_commands()
+        self.assertFalse(missing, "keys.json binds " + ", ".join(f"orbit.{c}" for c in sorted(missing)) + ", which "
+                         "mods/orbit/main.js doesn't handle (command() and paneCommand() compare the name with "
+                         "name === \"...\"): the key would do nothing. Handle it there or fix the binding.")
+
+    def test_handled_are_reachable(self):
+        keys = json.loads(read("keys.json"))
+        bound = {c.split(".", 1)[1] for sec in keys.values() for c in sec.values() if c.startswith("orbit.")}
+        readme = read("README.md")
+        m = re.search(r"They are commands of the `orbit` mod.*?\n\n", readme, re.S)
+        self.assertTrue(m, "README.md lost its paragraph \"They are commands of the `orbit` mod ...\": tools/test_ties.py reads it")
+        listed = set(re.findall(r"`orbit\.([\w-]+)`", m.group(0)))
+        unlisted = handled_commands() - bound - listed
+        self.assertFalse(unlisted, "mods/orbit/main.js handles " + ", ".join(f"orbit.{c}" for c in sorted(unlisted)) +
+                         ", which has no key in keys.json and isn't in README.md's list of the other commands "
+                         "(\"They are commands of the `orbit` mod ...\"): nobody can find it. Add it to one of them.")
+        gone = listed - handled_commands()
+        self.assertFalse(gone, "README.md lists " + ", ".join(f"orbit.{c}" for c in sorted(gone)) +
+                         " as an orbit command, but mods/orbit/main.js doesn't handle it.")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
