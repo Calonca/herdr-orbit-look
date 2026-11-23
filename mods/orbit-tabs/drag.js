@@ -1,8 +1,8 @@
 // Dragging a tab of a row (orbit-tabs: the panes' and the side panel's).
 // A press on a tab and a move pick it up (dragKit). While it lasts, shared
 // "orbit.drag" says which tab and where it would land; its row draws the ghost
-// and the row it would land in the bar (rowframe.js). The tab that follows the
-// pointer is drawn by a see-through window over everything (DragLayer): a mod
+// (rowframe.js). The tab that follows the pointer and the bar where it would
+// land are drawn by a see-through window over everything (DragLayer): a mod
 // hears no pointer outside its own elements, and a window stays until closed.
 // Nothing changes before the release: a drop asks the orbit mod ("tab-drop").
 
@@ -24,9 +24,9 @@ export function dragged() {
 }
 
 // Where a row's tabs are, for the drag (and tools/regress.py's probe).
-export function publish(row, g, faces, places, drag) {
+export function publish(row, g, faces, places, gap, drag) {
   if (g.x === null || (!drag && shared("orbit.probe") !== true)) return;
-  const now = { n: drag?.n ?? 0, x: g.x, y: g.y, w: g.W, h: g.H, line: g.line, band: g.band, top: g.top,
+  const now = { n: drag?.n ?? 0, x: g.x, y: g.y, w: g.W, h: g.H, line: g.line, band: g.band, top: g.top, gap, low: g.lowTop,
     tabs: faces.map((f, i) => ({ key: f.key, label: f.label, x: places[i].x, w: places[i].w, pick: f.drag === null })) };
   const key = `orbit.row.${row}`;
   if (JSON.stringify(shared(key)) !== JSON.stringify(now)) setShared(key, now);
@@ -94,6 +94,15 @@ function target(d, p, L) {
   return null;
 }
 
+// The bar where the tab would land: between two tabs, or beside the last.
+function barAt(over) {
+  const r = over && shared(`orbit.row.${over.row}`);
+  if (!r) return null;
+  const slots = r.tabs.filter((s) => !s.pick), z = zoom(), h = Math.round(26 * z);
+  const before = slots[Math.min(over.index, slots.length) - 1], at = before ? before.x + before.w + (r.gap - r.line) / 2 : (slots[0]?.x ?? 0) - (r.gap + r.line) / 2;
+  return { x: r.x + Math.round(Math.min(Math.max(at, r.line + 1), r.w - 2 * r.line)), y: r.y + Math.round(r.low + (r.h - r.band - r.line - h) / 2), w: r.line, h };
+}
+
 export class DragLayer {
   init(_props, cx) {
     this.d = shared(DRAG);
@@ -139,7 +148,7 @@ export class DragLayer {
     if (!d || !view) return div();
     const t = theme(), z = zoom();
     const px = (v) => v / z;
-    const h = Math.round(26 * z);
+    const h = Math.round(26 * z), bar = barAt(shared(DRAG)?.over);
     return div().id("orbit-drag").w(px(view.width)).h(px(view.height)).relative().overflow_hidden().cursor_grabbing()
       .track_focus(this.keys)
       .on_key_down((e, cx) => { cx.stop_propagation(); if (e.key === "escape") this.end(); })
@@ -150,6 +159,7 @@ export class DragLayer {
       .child(h_flex().absolute().left(px(Math.round(this.at.x - d.grab.x))).top(px(Math.round(this.at.y - d.grab.y))).w(px(d.w)).h(px(h))
         .px(11).items_center().text_size(12).text_color(t.foreground).rounded(Math.min(6, look().radius)).bg((t.popover ?? t.surface).slice(0, 7) + "f2")
         .child(div().absolute().left(0).top(0).size_full().rounded(Math.min(6, look().radius)).border(1).border_color(d.color))
-        .children(face(d.face, t.foreground, t.foreground)));
+        .children(face(d.face, t.foreground, t.foreground)))
+      .when(Boolean(bar), (el) => el.child(div().absolute().left(px(bar.x)).top(px(bar.y)).w(px(bar.w)).h(px(bar.h)).rounded(1).bg(d.color)));
   }
 }

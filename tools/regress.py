@@ -1080,7 +1080,7 @@ def keys_of(side):
 
 def at_tab(r, t):
     """The middle of a tab's label area, in window pixels."""
-    return r["x"] + t["x"] + t["w"] / 2, r["y"] + r["band"] + (r["h"] - r["band"]) / 2
+    return r["x"] + t["x"] + t["w"] / 2, r["y"] + r["low"] + (r["h"] - r["band"] - r["line"]) / 2
 
 
 def row_space(name, left=3, right=0):

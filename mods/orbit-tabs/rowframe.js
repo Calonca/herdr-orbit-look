@@ -34,7 +34,7 @@ export function rowGeom(host, L, blockId) {
     lowTop: L.top ? line : band, lowHeight: Math.max(0, H - band - line), x: at?.x ?? null, y: at?.y ?? null };
 }
 
-const PAD = 11, GAP = 4, DOT = 10, ICON = 17, NARROW = 52;
+const PAD = 11, GAP = 4, DOT = 10, ICON = 17, NARROW = 60;
 
 // Where each tab of a row is: {x, w} in whole pixels from the row's left edge,
 // by its label alone, so showing another tab moves nothing. Too many for
@@ -43,12 +43,13 @@ export function tabPlaces(host, g, faces, room, shownAt) {
   const natural = faces.map((f) => g.px(2 * PAD + (f.dot || f.ring ? DOT : 0) + (f.icon ? ICON : 0) + (f.after ? 15 : 0))
     + (f.field ? g.px(f.field) : g.snap((host.texts?.[f.key] ?? 7.4 * g.z * f.label.length) + 1)));
   const gap = g.px(GAP), gaps = gap * Math.max(0, faces.length - 1);
-  const sum = (cap) => natural.reduce((a, w) => a + Math.min(w, cap), 0) + gaps;
+  const wide = (i, cap) => (faces[i].field ? natural[i] : Math.min(natural[i], cap));
+  const sum = (cap) => natural.reduce((a, _w, i) => a + wide(i, cap), 0) + gaps;
   let cap = Math.max(0, ...natural);
   while (cap > g.px(NARROW) && sum(cap) > room) cap = g.snap(cap - 1);
   const total = sum(cap), over = Math.max(0, total - room);
   let x = 0;
-  const places = natural.map((w) => { const p = { x, w: Math.min(w, cap) }; x += p.w + gap; return p; });
+  const places = natural.map((_w, i) => { const p = { x, w: wide(i, cap) }; x += p.w + gap; return p; });
   const shown = places[shownAt];
   if (shown && host.scrolledTo !== `${faces[shownAt].key}/${room}`) {
     host.scrolledTo = `${faces[shownAt].key}/${room}`;
@@ -169,7 +170,7 @@ export function tabRow(host, t, L, o) {
   const shownAt = o.faces.findIndex((f) => f.key === o.shown);
   const room = Math.max(g.px(NARROW), g.W - tailW - endW - g.curve);
   const { places, width, over, gap } = tabPlaces(host, g, o.faces, room, shownAt);
-  publish(o.row, g, o.faces, places, drag);
+  publish(o.row, g, o.faces, places, gap, drag);
   const shown = shownAt < 0 ? null : places[shownAt];
   const clipped = shown && (shown.x + shown.w > 0 && shown.x < width)
     ? { x: Math.max(0, shown.x), w: Math.min(shown.x + shown.w, width) - Math.max(0, shown.x) } : null;
@@ -189,7 +190,6 @@ export function tabRow(host, t, L, o) {
     return div().absolute().left(px(p.x)).top(0).w(px(p.w)).h_full().child(el);
   });
 
-  const bar = drag?.over?.row === o.row ? barX(g, places, o.faces, drag.over.index, gap) : null;
   const low = div().absolute().left(0).w(px(g.W)).top(px(g.lowTop)).h(px(g.lowHeight));
   return [
     rulers(host, o.faces),
@@ -202,9 +202,7 @@ export function tabRow(host, t, L, o) {
         cx.notify();
       })))
       .child(measured(host, "tailW", `d-tail-${o.row}`).absolute().left(px(width)).top(0).pl(6).child(o.tail ?? div()))
-      .child(measured(host, "endW", `d-end-${o.row}`).absolute().right(0).top(0).child(o.end ?? div()))
-      .when(bar !== null, (el) => el.child(div().absolute().left(px(bar)).top(px(g.snap((g.lowHeight - g.px(26)) / 2)))
-        .w(px(g.line)).h(px(g.px(26))).rounded(1).bg(drag.color))),
+      .child(measured(host, "endW", `d-end-${o.row}`).absolute().right(0).top(0).child(o.end ?? div())),
   ];
 }
 
@@ -212,13 +210,6 @@ function measured(host, key, id) {
   return h_flex().id(id).h_full().flex_none().items_center().on_size_change((size, cx) => {
     if (host[key] !== size.width) { host[key] = size.width; cx.notify(); }
   });
-}
-
-function barX(g, places, faces, index, gap) {
-  const slots = places.filter((_p, i) => faces[i].drag !== null);
-  if (!slots.length) return g.line;
-  const at = index <= 0 ? slots[0].x - (gap + g.line) / 2 : slots[Math.min(index, slots.length) - 1].x + slots[Math.min(index, slots.length) - 1].w + (gap - g.line) / 2;
-  return Math.max(g.snap(g.line + 1), g.snap(at));
 }
 
 export function rowGlass(host, L, blockId, fill) {

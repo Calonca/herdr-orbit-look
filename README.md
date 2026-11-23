@@ -146,7 +146,9 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
     the side panel's edge) in one space, and the others keep theirs;
     switching back gives that space's again. A space never resized, and a
     new one, has the split the layout had before any space kept one.
-  - Click shows a tab; double-click renames it; drag moves it; middle-click
+  - Click shows a tab; double-click renames it; drag it along its row or
+    to the other pane (a bar shows where it lands; a terminal keeps running,
+    a view starts again); middle-click
     closes it (a terminal asks first: Enter or the same close again confirms);
     right-click opens its menu (Rename, then herdr's pane items: split, zoom,
     close the pane).

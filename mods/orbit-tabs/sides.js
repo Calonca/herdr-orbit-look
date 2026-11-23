@@ -19,11 +19,11 @@ export function termChild(terminal) {
 
 export function movable(tab, ps = panes()) {
   const mine = ps.filter((p) => p.tab === tab.id);
-  return mine.length === 1 && Boolean(mine[0].terminal) && !mine[0].terminal.includes("/") && !tab.id.includes("/") ? mine[0] : null;
+  return mine.length === 1 && mine[0].terminal ? mine[0] : null;
 }
 
 // Whether a pane's entry can go to the other pane: a terminal alone in its tab
-// on this machine, or a view orbit opened (it knows its props); the left pane
+// (on any machine), or a view orbit opened (it knows its props); the left pane
 // keeps one tab of its own.
 export function crosses(space, side, e, st = state(), ps = panes()) {
   if (side === "right") return e.kind === "term" || e.kind === "mod";

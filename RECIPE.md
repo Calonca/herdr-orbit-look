@@ -85,8 +85,9 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
     from the border, then 60% of the way to its own grey (`#676579` for
     purple); else the border colour. The outline's sides go on past the tab
     line to that edge (a T).
-  - The pane's tabs, 12px in (the space's symbol and name are the
-    taskbar's), 26px tall, 12px text, 10px padding: a 6px dot in
+  - The pane's tabs, the first at the pane's left edge (the space's symbol
+    and name are the taskbar's), 4px apart, 26px tall, 12px text, 11px
+    padding, as wide as their icon and name whichever is shown: a 6px dot in
     the agent's state colour (an agent with no state: a 6px muted ring), the
     program's 12px icon (a view: the ⠿ mark), the name. Others are `#a9b1d6`,
     lighter on hover.
@@ -95,11 +96,12 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
     panes, the right one filled while the right pane shows.
   - The shown tab is a folder tab: no tab line above it, its sides (2px, the
     outline colour) curving out of the tab line with radius 6 and down to its
-    own bottom edge, which lies on the row's edge; its label in the identity
-    colour (foreground when the pane hasn't the keys).
+    own bottom edge, which lies on the row's edge. The first tab's left side
+    is the pane's own, its corner the row's. The line, the shown tab's sides
+    and bottom are one path. Nothing in the row moves when another is shown.
 - **Side panel**, hidden at first, 368px (280–900), on the right: views
   (herdr's files and changes to start with), framed like the panes, with a
-  tab each in a row like theirs (an 11px ⠿ before each name), then `+ ⠿`.
+  tab each in a row like theirs (a 12px ⠿ before each name), then `+ ⠿`.
 - **Dialogs and menus**, on the theme's surface at 95% with a 2px border and
   the corner radius: the close dialog (380×150: "close <name>?", "close" in red,
   "keep"), the switcher (560 wide: "projects · N", then a 42px row per space
@@ -177,11 +179,17 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
   changes, and once a minute while the window is in front.
 - **Tab rows**: click a tab to show it (and give its pane the keys);
   double-click opens a name field where its label is (Enter or a press
-  elsewhere keeps the name, Esc cancels); drag a tab onto another to move it
-  there (a 2px bar shows where); middle-click closes it; right-click opens a
+  elsewhere keeps the name, Esc cancels); drag a tab (5px) to move it: a
+  copy follows the pointer anywhere in the window, a grey ghost at 30% stays
+  in its place, nothing else moves, and a 2px bar in the space's colour shows
+  where it would land, between tabs of its own row or, over the other pane,
+  of that pane's row. A drop there moves it: a terminal (on any machine) keeps
+  running, a view orbit opened starts again; a left tab with several panes,
+  or the left pane's only one, stays on its side. Escape, a drop elsewhere or
+  leaving the window changes nothing; middle-click closes it; right-click opens a
   menu: Rename, then for a terminal herdr's pane items (Split right, Split
   down, Zoom, right-click routing, Close pane). Tabs too many for the width
-  narrow, then scroll sideways; the shown tab and the space's name stay.
+  narrow, then scroll sideways to the shown one.
 - **Closing** a terminal asks first ("close <name>?"); Enter, "close" or the
   same close again confirms, Esc or "keep" keeps it. A view or the picker
   closes at once. Closing a space's last tab closes the space (herdr asks).
@@ -363,8 +371,8 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
     with the keys; `ask()`), `sides.js`
     (what is where, read from shared `"orbit.sides"`: terminals and views on
     the right, the shown one per space, pending pickers, the pane with the
-    keys, names and order), `glass.js` (the blurred backdrop), `rowframe.js` (the tab row's segments
-    and folder tab, drag to move, the name field), `tabmenu.js` (a tab's menu
+    keys, names and order), `glass.js` (the blurred backdrop), `rowframe.js` (the tab row, its
+    outline, the name field), `drag.js` (dragging a tab), `tabmenu.js` (a tab's menu
     items), `labels.js` (tab names and icons).
   - `keys.json`: `{ "layout:orbit": { ... } }`, the keys as `orbit.<command>`.
 - **herdr API**: `spaces`, `panes`, `agents`, `machines`, `updates`,
@@ -390,7 +398,7 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
   `data/orbit-settings/picked`.
 - **Art**: `scripts/space.py` renders the background (procedural, seeded),
   `scripts/blur.py` its blurred copy, `scripts/glyphs.py` the 8 symbols in
-  `mods/orbit-tabs/glyphs/`. The status bar's icons, the fillets and the ⠿
+  `mods/orbit-tabs/glyphs/`. The status bar's icons and the ⠿
   mark are small SVGs in their mods. `layouts/orbit.svg` is the settings
   preview.
 
@@ -411,6 +419,12 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
   `mods/orbit/backgrounds/`; `look.js` uses `mods/orbit-tabs/glyphs/` and
   `labels.js` `mods/orbit-tabs/widget.svg`. Renaming a mod on a name clash
   means changing those paths in every copy.
+- A mod hears no pointer outside its own elements: a dragged tab is followed
+  by a see-through `openOverlay` window over everything, opened when the drag
+  starts, which takes the keys (for Escape) and gives them back.
+- herdr lays blocks out on whole screen pixels, and puts a path's coordinates
+  there too: the outline is a filled path whose edges are on them, with
+  lengths rounded the same way (a ruler element measures the screen's scale).
 - herdr-app clips a pane's content inside its frame and has one focus colour
   per layout, so the outline isn't a pane frame: it's the cap block, the
   `corners` block, the
@@ -555,7 +569,11 @@ On no, nothing changes: no files, no entries, and don't ask again. On yes:
   terminal.
 - At any zoom a view or a terminal starts right under its pane's line and ends
   right above the tab line.
-- Dragging a left tab onto another reorders herdr's tabs; double-click or
+- Showing another tab moves only the outline; every icon and name stays on
+  the same pixels. At any zoom the outline has no step or gap.
+- Dragging a left tab between others reorders herdr's tabs; over the right
+  pane the bar is in its row, and a drop there moves the terminal, still
+  running; double-click or
   Rename in its menu renames it.
 - `ctrl-2` shows the pane's second tab; `ctrl-9` with no ninth tab opens the
   "make tab 9" prompt; `ctrl-shift-space` opens the switcher; `ctrl-tab` goes
