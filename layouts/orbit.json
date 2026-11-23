@@ -11,7 +11,7 @@
   },
   "terminal_padding": [
     8,
-    6
+    0
   ],
   "terminal_opacity": 0,
   "children": [
@@ -82,12 +82,30 @@
                   "id": "left-cap",
                   "type": "block",
                   "size": {
-                    "px": 18
+                    "px": 2
                   },
                   "content": {
                     "mod": "orbit-edge",
                     "props": {
                       "pane": "left"
+                    }
+                  }
+                },
+                {
+                  "id": "left-corners",
+                  "type": "block",
+                  "size": {
+                    "px": 0
+                  },
+                  "padding": [
+                    2000,
+                    0
+                  ],
+                  "content": {
+                    "mod": "orbit-edge",
+                    "props": {
+                      "pane": "left",
+                      "corners": true
                     }
                   }
                 },
@@ -117,7 +135,6 @@
                       "size": {
                         "weight": 1
                       },
-                      "background": "#1616229e",
                       "children": [
                         {
                           "id": "left-tab",
@@ -164,7 +181,7 @@
                   "id": "left-tabs",
                   "type": "block",
                   "size": {
-                    "px": 64
+                    "px": 48
                   },
                   "content": {
                     "mod": "orbit-tabs",
@@ -173,7 +190,8 @@
                     }
                   }
                 }
-              ]
+              ],
+              "resizable": false
             },
             {
               "id": "right-frame",
@@ -188,12 +206,30 @@
                   "id": "right-cap",
                   "type": "block",
                   "size": {
-                    "px": 18
+                    "px": 2
                   },
                   "content": {
                     "mod": "orbit-edge",
                     "props": {
                       "pane": "right"
+                    }
+                  }
+                },
+                {
+                  "id": "right-corners",
+                  "type": "block",
+                  "size": {
+                    "px": 0
+                  },
+                  "padding": [
+                    2000,
+                    0
+                  ],
+                  "content": {
+                    "mod": "orbit-edge",
+                    "props": {
+                      "pane": "right",
+                      "corners": true
                     }
                   }
                 },
@@ -223,7 +259,6 @@
                       "size": {
                         "weight": 1
                       },
-                      "background": "#1616229e",
                       "children": [
                         {
                           "id": "right-pick",
@@ -257,7 +292,7 @@
                   "id": "right-tabs",
                   "type": "block",
                   "size": {
-                    "px": 64
+                    "px": 48
                   },
                   "content": {
                     "mod": "orbit-tabs",
@@ -266,7 +301,8 @@
                     }
                   }
                 }
-              ]
+              ],
+              "resizable": false
             },
             {
               "id": "panel",
@@ -282,12 +318,30 @@
                   "id": "panel-cap",
                   "type": "block",
                   "size": {
-                    "px": 18
+                    "px": 2
                   },
                   "content": {
                     "mod": "orbit-edge",
                     "props": {
                       "pane": "panel"
+                    }
+                  }
+                },
+                {
+                  "id": "panel-corners",
+                  "type": "block",
+                  "size": {
+                    "px": 0
+                  },
+                  "padding": [
+                    2000,
+                    0
+                  ],
+                  "content": {
+                    "mod": "orbit-edge",
+                    "props": {
+                      "pane": "panel",
+                      "corners": true
                     }
                   }
                 },
@@ -317,7 +371,6 @@
                       "size": {
                         "weight": 1
                       },
-                      "background": "#1616229e",
                       "children": [
                         {
                           "id": "panel-pick",
@@ -351,7 +404,7 @@
                   "id": "panel-tabs",
                   "type": "block",
                   "size": {
-                    "px": 64
+                    "px": 48
                   },
                   "content": {
                     "mod": "orbit-tabs",
@@ -360,7 +413,8 @@
                     }
                   }
                 }
-              ]
+              ],
+              "resizable": false
             }
           ],
           "gap": 14

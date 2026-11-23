@@ -8,9 +8,9 @@ export const KEY = "orbit.settings";
 export const DEFAULTS = { density: "comfortable", rounding: null, gap: null, tabs: "bottom", background: null, notify: "all", updates: true, opacity: 0, views: null };
 
 export const DENSITIES = {
-  compact: { radius: 4, gap: 6, header: 30, status: 28, padding: [2, 2], footer: 67, scale: 0.9 / 1.15 },
-  default: { radius: 12, gap: 10, header: 38, status: 34, padding: [4, 4], footer: 75, scale: 1 / 1.15 },
-  comfortable: { radius: 16, gap: 14, header: 46, status: 40, padding: [8, 6], footer: 86, scale: 1 },
+  compact: { radius: 4, gap: 6, header: 30, status: 28, padding: [2, 0], footer: 67, scale: 0.9 / 1.15 },
+  default: { radius: 12, gap: 10, header: 38, status: 34, padding: [4, 0], footer: 75, scale: 1 / 1.15 },
+  comfortable: { radius: 16, gap: 14, header: 46, status: 40, padding: [8, 0], footer: 86, scale: 1 },
 };
 
 export function settings() {
@@ -51,10 +51,11 @@ export function shape(root, s, colors) {
     const frame = find(root, id);
     const kids = frame?.children ?? [];
     const cap = kids.find((c) => c.id.endsWith("-cap")), mid = kids.find((c) => c.id.endsWith("-mid")), row = kids.find((c) => c.id.endsWith("-tabs"));
-    if (!cap || !mid || !row) continue;
-    cap.size = { px: radius + LINE };
-    row.size = { px: L.header + radius + LINE };
-    frame.children = [...(top ? [row, mid, cap] : [cap, mid, row]), ...kids.filter((c) => c !== cap && c !== mid && c !== row)];
+    const corners = kids.find((c) => c.id.endsWith("-corners"));
+    if (!cap || !mid || !row || !corners) continue;
+    cap.size = { px: LINE };
+    row.size = { px: L.header + LINE };
+    frame.children = [...(top ? [row, corners, mid, cap] : [cap, corners, mid, row]), ...kids.filter((c) => c !== cap && c !== mid && c !== row && c !== corners)];
   }
   const space = spaces().find((x) => x.active);
   const sidebar = find(root, "sidebar");
@@ -66,7 +67,7 @@ export function shape(root, s, colors) {
   if (sidePanel) sidePanel.min = PANEL_DRAG_MIN;
   for (const [stack, pane] of [["left", "left"], ["right", "right"], ["panel-body", "panel"]]) {
     const st = find(root, stack);
-    if (st) st.background = glassy;
+    if (st) delete st.background;
     const m = find(root, `${pane}-mid`);
     if (!m) continue;
     delete m.divider;

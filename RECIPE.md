@@ -18,7 +18,7 @@ title bar: `"titlebar": "system"`). Theme `tokyo-night` (Tokyo Night colours:
 background `#161622`, surface `#161622`, border `#414868`, foreground
 `#c0caf5`, muted `#9aa5ce`, accent `#7aa2f7`). Terminals in herdr-app's
 font and size (the layout names none: settings.json's, else JetBrains Mono
-14px), padding `[8, 6]` (horizontal, vertical), fully see-through
+14px), padding `[8, 0]` (horizontal, vertical), fully see-through
 (`terminal_opacity: 0`).
 
 - **Background**: `mods/orbit/backgrounds/space.png` (2560×1600) behind the
@@ -66,8 +66,10 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
     "open folder" (16px, `#a9b1d6`).
 - **Two panes**, sharing the rest of the width (each at least 240px), each in
   an outline 2px wide with corners of radius 16: the one with the keys in the
-  shown space's colour, the other in the border colour. Its top is an 18px cap
-  with the rounded corners; its sides run down to the tab row.
+  shown space's colour, the other in the border colour. Its top is a 2px line
+  with rounded corners (drawn 18px tall, so herdr makes their radius 9); its
+  sides run down to the tab row. What a pane shows touches the outline above
+  and below: no padding, and none for a terminal but half a row's leftover.
   - The left pane shows the shown space's own herdr tabs.
   - The right pane, hidden until it holds something, shows the space's
     terminals and views put there; each space has its own.
@@ -76,8 +78,8 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
     icon, 14px name, a pill "herdr" for herdr's own views, the description at
     13px muted on the right; the chosen row in accent), hints "esc close · ⏎
     open · ↑↓ choose" at 12px.
-- **The tab row**, 64px, the bottom of the pane's outline:
-  - A 6px glass band whose bottom edge is the tab line (2px, outline colour),
+- **The tab row**, 48px, the bottom of the pane's outline:
+  - The tab line (2px, outline colour), right under the content,
     then the row, then the row's edge (2px) with rounded bottom corners, in a
     muted colour: on the pane with the keys, the space colour 30% of the way
     from the border, then 60% of the way to its own grey (`#676579` for
@@ -136,16 +138,16 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
 
   | | corners | gap | tab row text | status bar | terminal padding | sidebar foot | sidebar scale |
   |---|---|---|---|---|---|---|---|
-  | compact | 4 | 6 | 30 | 28 | `[2, 2]` | 67 | 0.9/1.15 |
-  | default | 12 | 10 | 38 | 34 | `[4, 4]` | 75 | 1/1.15 |
-  | comfortable | 16 | 14 | 46 | 40 | `[8, 6]` | 86 | 1 |
+  | compact | 4 | 6 | 30 | 28 | `[2, 0]` | 67 | 0.9/1.15 |
+  | default | 12 | 10 | 38 | 34 | `[4, 0]` | 75 | 1/1.15 |
+  | comfortable | 16 | 14 | 46 | 40 | `[8, 0]` | 86 | 1 |
 
   Corners (auto: the density's, or 0, 4, 8, 12) round the pane outlines,
   their tab rows and, with a gap, the sidebar and status bar. The gap (auto,
   none, 4, 8, 12, 16) sets the panels apart and from the window's edges; the
   block under the status bar is the gap, at least 4px. With no gap the
-  panels touch and the sidebar and status bar have square corners. Each pane's cap is corners + 2
-  tall and its tab row text + corners + 2. With the tab rows on top, each
+  panels touch and the sidebar and status bar have square corners. Each pane's cap is 2
+  tall and its tab row text + 2. With the tab rows on top, each
   pane's frame is upside down: its row on top, the shown tab open downwards,
   its cap at the bottom. A picture of the person's replaces the background;
   the glass over it is the plain surface at 62%.
@@ -281,11 +283,12 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
     - `sidebar`, a column (400px, 44–560, `resizable: false`): `spaces`
       (`orbit-spaces`), `agents` (herdr's `agents`, hidden), `sidebar-footer`
       (86px, `orbit-sidebar-footer`).
-    - `work`, a row of three frames. Each frame is a column: `<x>-cap` (18px,
-      `orbit-edge` with `props.pane`), `<x>-mid` (a row, `resizable: false`,
+    - `work`, a row of three frames. Each frame is a column: `resizable: false`: `<x>-cap` (2px,
+      `orbit-edge` with `props.pane`), `<x>-corners` (0px, padding `[2000, 0]`,
+      `orbit-edge` with `props: { pane, corners: true }`), `<x>-mid` (a row, `resizable: false`,
       no divider: a 2px `orbit-edge` block with `props: { pane, side: true }`
       (one of the outline's sides), the content, another such block),
-      `<x>-tabs` (64px, the tab row mod).
+      `<x>-tabs` (48px, the tab row mod).
       - `left-frame` (min 240): content the stack `left` with the block
         `left-tab` (`{ "tab": "active" }`, pane frame gap 0, radius 0,
         transparent, no border) and `left-pick` (`orbit-add`,
@@ -307,8 +310,7 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
 - **Mods** (all `place: "none"`):
   - `orbit`: keeps the layout file in step. On start, when `layouts/` changes
     and when the theme changes, it writes into `layouts/orbit.json` the glass
-    colour (`surface` + `9e`) on `sidebar`, `left`, `right` and `panel-body`,
-    the side blocks of `left-mid` / `right-mid` / `panel-mid`, the right
+    colour (`surface` + `9e`) on `sidebar`, the side blocks of `left-mid` / `right-mid` / `panel-mid`, the right
     pane's children and the panel's views. The outline's colour isn't in the
     file: `orbit-edge` and the tab rows draw it from shared `"orbit.sides"`
     and `"orbit.identity"`, so a keys move or a space switch recolours the
@@ -333,9 +335,11 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
   - `orbit-spaces`: a restyled clone of herdr-app's `spaces` mod.
   - `orbit-tabs`: the panes' rows (`pane.js`, `props.stack` `left` /
     `right`) and the side panel's (`panel.js`, `props.stack: "panel-body"`).
-  - `orbit-sidebar-footer`, `orbit-status`, `orbit-edge` (the cap with
-    `props.pane`, rounded at its top, or its bottom with the rows on top;
-    with no props it draws nothing).
+  - `orbit-sidebar-footer`, `orbit-status`, `orbit-edge` (with
+    `props.pane`, the cap: the outline's line at the top, or the bottom with
+    the rows on top; with `corners`, under the content, the corners' curves and
+    the pane's glass, as tall as its side blocks say they are in shared
+    `"orbit.mid.<pane>"`; with no props it draws nothing).
   - `themes/*.json`: the six others, the same keys as `tokyo-night.json`.
   - The settings in shared `"orbit.settings"`: `{ density, rounding, gap,
     tabs, background, opacity, views }` (`null`: the density's). The `orbit` mod's
@@ -409,10 +413,17 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
   means changing those paths in every copy.
 - herdr-app clips a pane's content inside its frame and has one focus colour
   per layout, so the outline isn't a pane frame: it's the cap block, the
+  `corners` block, the
   middle row's two side blocks, and the tab row, all mods reading the same
   shared state (a layout divider's colour would need a file write, landing
   later than the mods). The tab
   block's own pane frame stays invisible.
+- herdr lays no two blocks over each other, so a rounded corner would keep the
+  content its height away. But a block whose padding is more than its size is
+  as large as its padding, and isn't cut to its place: the `corners` blocks
+  (0px, padding 2000) reach under the content that comes after them. Nothing
+  can be drawn over the content: a view with a background and square corners
+  covers the outline's curves.
 - herdr has no backdrop blur: each glass block draws the blurred picture as
   its bottom layer, placed with the root's cover maths from the window size
   (`viewport_size`) and its own place, divided by the zoom (herdr scales
@@ -542,6 +553,8 @@ On no, nothing changes: no files, no entries, and don't ask again. On yes:
   and brings it back with the terminal still running.
 - Middle-clicking a terminal tab asks "close <name>?"; Enter closes only that
   terminal.
+- At any zoom a view or a terminal starts right under its pane's line and ends
+  right above the tab line.
 - Dragging a left tab onto another reorders herdr's tabs; double-click or
   Rename in its menu renames it.
 - `ctrl-2` shows the pane's second tab; `ctrl-9` with no ninth tab opens the

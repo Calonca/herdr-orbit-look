@@ -17,16 +17,10 @@ export function rowKit(t, L, line, low, fillets) {
   const top = L.top;
   const R = L.radius;
   const TAB = Math.min(6, L.radius);
-  const band = R + LINE;
+  const band = LINE;
   const glass = t.surface.slice(0, 7) + "9e";
 
-  const bandOf = (first, last) => {
-    let b = div().w_full().h(band).flex_none().bg(glass).border_color(line);
-    b = top ? b.border_t(LINE) : b.border_b(LINE);
-    if (first) b = b.border_l(LINE);
-    if (last) b = b.border_r(LINE);
-    return b;
-  };
+  const bandOf = () => div().w_full().h(band).flex_none().bg(line);
   const lowerOf = (el, first, last) => {
     let b = el.flex_1().min_h(0).border_color(low);
     b = top ? b.border_t(LINE) : b.border_b(LINE);
@@ -37,7 +31,7 @@ export function rowKit(t, L, line, low, fillets) {
 
   const stack = (bandEl, lower) => (top ? v_flex().child(lower).child(bandEl) : v_flex().child(bandEl).child(lower));
   const seg = (lower, { first = false, last = false } = {}) =>
-    stack(bandOf(first, last), lowerOf(lower, first, last)).h_full().flex_none();
+    stack(bandOf(), lowerOf(lower, first, last)).h_full().flex_none();
 
   const shownSeg = (inner) => {
     const curve = (left) => {
@@ -53,9 +47,8 @@ export function rowKit(t, L, line, low, fillets) {
       return c.child(wedge);
     };
     const beside = () => {
-      const glassPart = div().w_full().h(band - LINE).flex_none().bg(glass);
       const rest = lowerOf(div().w_full(), false, false);
-      return v_flex().h_full().w(TAB).flex_none().children(top ? [rest, glassPart] : [glassPart, rest]);
+      return v_flex().h_full().w(TAB).flex_none().child(rest);
     };
     let body = h_flex().flex_1().min_h(0).items_center().border_color(line).border_l(LINE).border_r(LINE);
     body = top ? body.border_t(LINE).rounded_t(TAB) : body.border_b(LINE).rounded_b(TAB);
@@ -75,7 +68,7 @@ export function rowGlass(host, L, blockId, fill) {
   const at = seen ?? shared("orbit.places")?.[blockId] ?? null;
   const w = own?.width ?? at?.width, h = own?.height ?? at?.height;
   if (!w || !h) return null;
-  const band = (L.radius + LINE) * z;
+  const band = LINE * z;
   const top = L.top;
   const el = backdrop({ x: at?.x, y: at == null ? undefined : top ? at.y : at.y + band, w, h: h - band,
     radius: L.radius * z, corners: top ? "tl tr" : "bl br", fill });
