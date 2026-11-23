@@ -144,13 +144,13 @@ export async function renamePanelView(id, title) {
   await apply({ views: panelViews().map((v) => (viewId(v) === id ? { ...v, title: name } : v)) });
 }
 
-export async function movePanelView(id, to) {
+export async function movePanelView(id, before) {
   const views = panelViews();
   const from = views.findIndex((v) => viewId(v) === id);
-  const at = views.findIndex((v) => viewId(v) === to);
-  if (from < 0 || at < 0 || from === at) return;
+  if (from < 0 || id === before) return;
   const [view] = views.splice(from, 1);
-  views.splice(at, 0, view);
+  const at = views.findIndex((v) => viewId(v) === before);
+  views.splice(at < 0 ? views.length : at, 0, view);
   await apply({ views });
 }
 

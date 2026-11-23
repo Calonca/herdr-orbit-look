@@ -38,6 +38,16 @@ Scenarios:
   tabs    the shown space's accent (the band behind its sidebar row and its
           taskbar card) is its colour, and the text stays white there and in
           the panes' shown tabs, for two spaces, back and forth
+  row     the tab row: the first tab's outline is the pane's own left edge, no
+          gap before it; showing another tab moves only the outline (every
+          icon and label on the same pixels with each tab shown); the outline
+          is one line, each of the shown tab's top corners a quarter circle
+          as thick as the lines it joins, at zoom 1, 1.2 and 1.4
+  tabdrag dragging a tab: a pale grey ghost in its place, a copy at the
+          pointer, the bar where it would land, nothing else changed; moved
+          in its row and to the other pane's row and back, at the bar's
+          place, its terminal the same process; Escape, a drop on the sidebar
+          or outside the window: nothing changed, the keys where they were
   identity  a space's colour and symbol come from its repository: the same
           repo at another path (as on another machine), a worktree and its
           main checkout, with or without an origin, look the same; another
@@ -1056,6 +1066,336 @@ def tabs(ids):
     select(ids["shown"][0])
 
 
+def rows():
+    return {k: shared().get(f"orbit.row.{k}") for k in ("left", "right")}
+
+
+def labels(side):
+    return [t["label"] for t in (rows()[side] or {}).get("tabs", [])]
+
+
+def keys_of(side):
+    return [t["key"] for t in (rows()[side] or {}).get("tabs", [])]
+
+
+def at_tab(r, t):
+    """The middle of a tab's label area, in window pixels."""
+    return r["x"] + t["x"] + t["w"] / 2, r["y"] + r["band"] + (r["h"] - r["band"]) / 2
+
+
+def row_space(name, left=3, right=0):
+    """A space with that many terminals in its left and right panes."""
+    sid = do("space.new", {"name": name, "folder": "/tmp"}).get("space")
+    time.sleep(1)
+    for _ in range(left - 1):
+        do("tab.new", {"space": sid})
+        time.sleep(0.5)
+    do("space.select", {"id": sid})
+    time.sleep(1)
+    for _ in range(right):
+        sb("do", "orbit.new-terminal " + json.dumps({"space": sid, "side": "right"}))
+        time.sleep(2)
+    time.sleep(1.5)
+    wait(lambda: len(labels("left")) == left and (not right or len(labels("right")) == right), 8)
+    return sid
+
+
+def set_zoom(z):
+    path = f"{HOME}/settings.json"
+    st = json.load(open(path))
+    json.dump({**st, "zoom": z}, open(path, "w"))
+    time.sleep(2.5)
+
+
+def stroke(img, color, cx, cy, dx, dy, reach):
+    """How thick (in screen pixels) a line of `color` is where a ray from
+    (cx, cy) along the unit (dx, dy) crosses it, and how far out its middle
+    is: how much of the colour each step shows, summed along the ray."""
+    import math
+    px = img.load()
+    def at(x, y):
+        x, y = min(max(x, 0), img.width - 1.001), min(max(y, 0), img.height - 1.001)
+        x0, y0 = int(x), int(y)
+        fx, fy = x - x0, y - y0
+        out = [0, 0, 0]
+        for ix, iy, w in ((x0, y0, (1 - fx) * (1 - fy)), (x0 + 1, y0, fx * (1 - fy)), (x0, y0 + 1, (1 - fx) * fy), (x0 + 1, y0 + 1, fx * fy)):
+            for c in range(3):
+                out[c] += px[ix, iy][c] * w
+        return out
+    step, lo, hi = 0.1, reach[0], reach[1]
+    ends = [at(cx + dx * d - 0.5, cy + dy * d - 0.5) for d in (lo, hi)]
+    back = [(a + b) / 2 for a, b in zip(*ends)]
+    span = math.dist(back, color)
+    if span < 1:
+        return 0, 0
+    total = weighted = 0
+    for k in range(int((hi - lo) / step)):
+        d = lo + (k + 0.5) * step
+        v = at(cx + dx * d - 0.5, cy + dy * d - 0.5)
+        share = min(1, max(0, 1 - math.dist(v, color) / span))
+        share = 0 if share < 0.12 else share
+        total += share * step
+        weighted += share * step * d
+    return total, (weighted / total if total else 0)
+
+
+def moved(a, b):
+    """By how many pixels b's profile (its ink per column or row) is a's,
+    moved: the shift they match best at, whatever each one's brightness."""
+    import math
+    if not any(a) or not any(b):
+        return None
+    norm = lambda v: math.sqrt(sum(q * q for q in v)) or 1
+    na, nb = norm(a), norm(b)
+    fit = lambda s: sum(a[i] * b[i + s] for i in range(len(a)) if 0 <= i + s < len(b)) / (na * nb)
+    return max(range(-4, 5), key=lambda s: (fit(s), -abs(s)))
+
+
+def row(ids):
+    import math
+    sid = row_space("row")
+    try:
+        for z in (1, 1.2, 1.4):
+            set_zoom(z)
+            r = wait(lambda: (lambda v: v if v and len(v["tabs"]) == 3 and abs(v["line"] - round(2 * z * SCALE) / SCALE) < 0.01 and abs(v["w"] - shared()["orbit.places"]["left-tabs"]["width"]) <= 1.5 else None)(rows()["left"]), 12)
+            if not r:
+                check("row", f"zoom {z}: three tabs", False, str(rows()["left"]))
+                continue
+            # A press tells the row where it is, to the pixel.
+            click(*at_tab(r, r["tabs"][0]))
+            time.sleep(0.5)
+            away()
+            time.sleep(1)
+            r, place = rows()["left"], shared()["orbit.places"]["left-tabs"]
+            check("row", f"zoom {z}: the first tab starts at the pane's left edge", r["tabs"][0]["x"] == 0 and abs(r["x"] - place["x"]) <= 2, f"{r} {place}")
+            box = lambda: tuple(int(v * SCALE) for v in (r["x"], r["y"] - 40, r["x"] + r["w"], r["y"] + r["h"]))
+            S, line = SCALE, r["line"] * SCALE
+            ink, geom = [], []
+            for i, t in enumerate(r["tabs"]):
+                click(*at_tab(r, t))
+                away()
+                wait(lambda: shared().get("orbit.sides", {}).get("last", {}).get(sid) == t["key"], 6)
+                time.sleep(1.5)
+                img = grab(f"row-{z}-{i}").crop(box())
+                now = rows()["left"]
+                geom.append([(q["x"], q["w"]) for q in now["tabs"]])
+                top = 40 * S + r["band"] * S
+                got = []
+                for q in now["tabs"]:
+                    x0, x1 = int((q["x"] + 5 * z) * S), int((q["x"] + q["w"] - 5 * z) * S)
+                    y0, y1 = int(top + 8 * z * S), int(img.height - 8 * z * S)
+                    g = img.crop((x0, y0, x1, y1)).convert("L")
+                    bg = sorted(g.tobytes())[len(g.tobytes()) // 2]
+                    d = [[max(0, g.getpixel((xx, yy)) - bg - 12) for yy in range(g.height)] for xx in range(g.width)]
+                    got.append(([sum(col) for col in d], [sum(d[xx][yy] for xx in range(g.width)) for yy in range(g.height)]))
+                ink.append(got)
+                if i == 1:
+                    color = img.getpixel((int(S), int(4 * S)))
+                    h = line / 2
+                    xa, xb = t["x"] * S + h, (t["x"] + t["w"]) * S - h
+                    y = 40 * S + r["band"] * S - h
+                    c = round(6 * z * S) - h
+                    reach = (c - 3 * line if c > 3 * line else 0, c + 3 * line)
+                    straight = [stroke(img, color, xa - c - 4 * S, y - 3 * line, 0, 1, (0, 6 * line))[0],
+                                stroke(img, color, xa - 3 * line, y + c + 6 * S, 1, 0, (0, 6 * line))[0],
+                                stroke(img, color, xb - 3 * line, y + c + 6 * S, 1, 0, (0, 6 * line))[0],
+                                stroke(img, color, xb + c + 4 * S, y - 3 * line, 0, 1, (0, 6 * line))[0]]
+                    check("row", f"zoom {z}: the lines are {r['line']} thick", all(abs(v - line) <= 0.35 * S for v in straight), f"{straight} want {line}")
+                    for name, cx, sign in (("left", xa - c, 1), ("right", xb + c, -1)):
+                        arc = [stroke(img, color, cx, y + c, sign * math.sin(math.radians(a)), -math.cos(math.radians(a)), reach) for a in range(0, 91, 5)]
+                        off = [(round(w, 1), round(d, 1)) for w, d in arc if abs(w - line) > 0.4 * S or abs(d - c) > 0.4 * S]
+                        check("row", f"zoom {z}: the {name} top corner is a quarter circle of that thickness", not off, f"want ({line}, {c}), off: {off}")
+                if i == 0:
+                    color = img.getpixel((int(S), int(4 * S)))
+                    edge = [img.getpixel((int(S), yy)) for yy in range(0, img.height - int(20 * z * S))]
+                    check("row", f"zoom {z}: the first tab's side is the pane's left edge, unbroken", all(math.dist(p, color) < 30 for p in edge),
+                          f"{sum(math.dist(p, color) >= 30 for p in edge)} pixels off")
+            check("row", f"zoom {z}: with any tab shown, the tabs are where they were", geom[0] == geom[1] == geom[2], str(geom))
+            off = [(i, k, axis, moved(ink[0][k][axis], ink[i][k][axis])) for i in (1, 2) for k in range(3) for axis in (0, 1)]
+            check("row", f"zoom {z}: every icon and label on the same pixels", all(v[3] == 0 for v in off), f"(shown, tab, x/y, moved by): {off}")
+    finally:
+        set_zoom(ZOOM)
+        if sid:
+            do("space.close", {"id": sid, "confirmed": True})
+        do("space.select", {"id": ids["shown"][0]})
+        time.sleep(1)
+
+
+def pid_of(term):
+    """The shell's own process id, as it prints it."""
+    sb("hc", "send", term, "echo pid=$$.")
+    time.sleep(0.8)
+    import re
+    found = re.findall(r"pid=(\d+)\.", sb("hc", "read", term))
+    return found[-1] if found else None
+
+
+def hold(start, *points):
+    """Presses at `start`, drags over the points, and holds."""
+    x("mousemove", "--window", win(), *start, "sleep", 0.3, "mousedown", 1, "sleep", 0.2, "mousemove", "--window", win(), start[0] + 9, start[1])
+    wait(lambda: overlays() == ["orbit-tabs"], 6)
+    time.sleep(0.8)
+    for pt in points:
+        x("mousemove", "--window", win(), *pt)
+        time.sleep(0.6)
+    time.sleep(1)
+
+
+def drop():
+    x("mouseup", 1)
+    wait(lambda: not shared().get("orbit.drag") and overlays() == [], 6)
+    time.sleep(2)
+    away()
+    time.sleep(0.4)
+
+
+def tabdrag(ids):
+    from PIL import ImageChops
+    dragging = lambda: shared().get("orbit.drag")
+    sid = row_space("tabdrag", 3, 2)
+    terms = {}
+    try:
+        do("space.select", {"id": sid})
+        time.sleep(1)
+        L, R = rows()["left"], rows()["right"]
+        check("tabdrag", "both rows there", L and R and len(L["tabs"]) == 3 and len(R["tabs"]) == 2, f"{L} {R}")
+        tabs = {t["id"]: t for s in json.loads(sb("ls") or "{}").get("spaces", []) for t in s.get("tabs", [])}
+        alive = lambda: {t["address"]: t["state"] for t in json.loads(sb("hc", "ls")).get("terminals", [])}
+        before_alive = alive()
+        away()
+        time.sleep(0.5)
+        clean = grab("tabdrag-0")
+        t = L["tabs"][2]
+        sx, sy = at_tab(L, t)
+        hold((sx, sy), (sx + 60, sy - 200), (R["x"] + 60, R["y"] - 150))
+        d = dragging()
+        check("tabdrag", "over the other pane: it would land in its row", d and (d.get("over") or {}).get("row") == "right", str(d))
+        held = grab("tabdrag-held")
+        s = SCALE
+        rect = lambda x0, y0, x1, y1: tuple(int(v * s) for v in (x0, y0, x1, y1))
+        gx0, gx1 = L["x"] + t["x"], L["x"] + t["x"] + t["w"]
+        ghost = rect(gx0 + 4, L["y"] + L["band"], gx1 - 4, L["y"] + L["h"] - 4)
+        sat = lambda im: max(max(p) - min(p) for p in (im.getpixel((i, j)) for i in range(im.width) for j in range(im.height)))
+        def contrast(im):
+            g = sorted(im.convert("L").tobytes())
+            return g[-1] - g[len(g) // 2]
+        a, b = clean.crop(ghost), held.crop(ghost)
+        check("tabdrag", "the ghost: paler and greyer than the tab", b.tobytes() != a.tobytes() and contrast(b) < 0.5 * contrast(a) and sat(b) < sat(a),
+              f"contrast {contrast(a)} -> {contrast(b)}, saturation {sat(a)} -> {sat(b)}")
+        fx0, fy0 = R["x"] + 60 - d["grab"]["x"], R["y"] - 150 - d["grab"]["y"]
+        follow = (fx0, fy0, fx0 + d["w"], fy0 + 26 * ZOOM)
+        check("tabdrag", "a copy of the tab at the pointer", ImageChops.difference(clean.crop(rect(*follow)), held.crop(rect(*follow))).getbbox() is not None)
+        index = d["over"]["index"]
+        edge = R["tabs"][index - 1]["x"] + R["tabs"][index - 1]["w"] if index else 0
+        bar = (R["x"] + edge - 4, R["y"] + R["band"], R["x"] + edge + 12, R["y"] + R["h"] - 4)
+        check("tabdrag", "the bar, between that row's tabs", ImageChops.difference(clean.crop(rect(*bar)), held.crop(rect(*bar))).getbbox() is not None, str(bar))
+        diff = ImageChops.difference(clean, held).convert("L").point(lambda v: 255 if v > 12 else 0)
+        for box in [(gx0 - 8, L["y"], gx1 + 8, L["y"] + L["h"]), (follow[0] - 2, follow[1] - 2, follow[2] + 2, follow[3] + 2), bar]:
+            diff.paste(0, rect(*box))
+        # The terminals' cursors go hollow while the layer has the keys (the
+        # panes' first lines); the bar's figures and clock change by themselves.
+        rest = diff.crop(rect(0, 110, W, R["y"] + R["h"])).getbbox()
+        check("tabdrag", "nothing else changes while dragging", rest is None, f"{rest} (from y 110)")
+        check("tabdrag", "no tab shifted, no pane resized", [(q["x"], q["w"]) for q in rows()["left"]["tabs"] + rows()["right"]["tabs"]] ==
+              [(q["x"], q["w"]) for q in L["tabs"] + R["tabs"]] and rows()["right"]["w"] == R["w"], str(rows()))
+        x("key", "Escape")
+        wait(lambda: dragging() is None and overlays() == [], 6)
+        check("tabdrag", "Escape ends it", dragging() is None and overlays() == [], f"{dragging()} {overlays()}")
+        x("mouseup", 1)
+        time.sleep(1)
+        same = lambda: keys_of("left") == [q["key"] for q in L["tabs"]] and keys_of("right") == [q["key"] for q in R["tabs"]]
+        check("tabdrag", "Escape: nothing changed", same(), str(rows()))
+        hold((sx, sy), (100, 300))
+        check("tabdrag", "over the sidebar: no landing place", dragging() and dragging().get("over") is None, str(dragging()))
+        drop()
+        check("tabdrag", "dropped on the sidebar: nothing changed", same() and dragging() is None and overlays() == [], str(rows()))
+        # The window fills the screen: smaller, so the pointer can leave it.
+        sb("x", "windowsize", win(), str(int((W - 120) * SCALE)), str(int(H * SCALE)))
+        time.sleep(3)
+        away()
+        time.sleep(1)
+        small = rows()["left"]
+        hold(at_tab(small, small["tabs"][2]), (W - 150, 300), (W - 40, 300))
+        wait(lambda: dragging() is None and overlays() == [], 6)
+        check("tabdrag", "outside the window: it goes back", dragging() is None and overlays() == [], f"{dragging()} {overlays()}")
+        drop()
+        check("tabdrag", "outside the window: nothing changed", same(), str(rows()))
+        sb("x", "windowsize", win(), str(int(W * SCALE)), str(int(H * SCALE)))
+        time.sleep(3)
+        away()
+        time.sleep(1)
+        L, R = rows()["left"], rows()["right"]
+        t = L["tabs"][2]
+        sx, sy = at_tab(L, t)
+
+        term = lambda key: key[3:] if key.startswith("rt-") else None
+        hold((sx, sy), at_tab(L, L["tabs"][0]))
+        hold_over = (dragging() or {}).get("over")
+        drop()
+        want = [L["tabs"][i]["key"] for i in (0, 2, 1)]
+        first = [L["tabs"][i]["key"] for i in (2, 0, 1)]
+        got = wait(lambda: keys_of("left") in (want, first) and keys_of("left"), 3)
+        check("tabdrag", "moved in the left row, where the bar was", got and got.index(t["key"]) == hold_over["index"], f"{hold_over} {keys_of('left')}")
+
+        R = rows()["right"]
+        L = rows()["left"]
+        mine = next(q for q in L["tabs"] if q["key"] == t["key"])
+        rt = R["tabs"][1]
+        hold(at_tab(L, mine), (R["x"] + rt["x"] + 8, at_tab(R, rt)[1]))
+        over = (dragging() or {}).get("over") or {}
+        check("tabdrag", "over the other row: the bar before its second tab", over.get("row") == "right" and over.get("index") == 1, str(over))
+        drop()
+        got = wait(lambda: len(keys_of("right")) == 3 and keys_of("right"), 5) or []
+        check("tabdrag", "moved to the right row, at the bar's place", len(got) == 3 and [got[0], got[2]] == [q["key"] for q in R["tabs"]] and len(keys_of("left")) == 2, f"{got} {keys_of('left')}")
+        moved = got[1] if len(got) == 3 else None
+        tid = term(moved) if moved else None
+        check("tabdrag", "every terminal still runs", alive() == before_alive, f"{before_alive} -> {alive()}")
+        pid = pid_of(tid) if tid else None
+        sb("hc", "send", tid, "sleep 987654 &")
+        R, L = rows()["right"], rows()["left"]
+        mine = next(q for q in R["tabs"] if q["key"] == moved)
+        hold(at_tab(R, mine), (L["x"] + 12, L["y"] - 100))
+        over = (dragging() or {}).get("over") or {}
+        check("tabdrag", "back over the left pane: before its first tab", over.get("row") == "left" and over.get("index") == 0, str(over))
+        drop()
+        got = wait(lambda: len(keys_of("left")) == 3 and keys_of("left"), 5) or []
+        check("tabdrag", "moved to the left row, at the bar's place", got[:1] == [t["key"]] and len(keys_of("right")) == 2, f"{got} {keys_of('right')}")
+        again = pid_of(tid) if tid else None
+        jobs = sb("hc", "read", tid)
+        check("tabdrag", "its terminal is the same process, its job still there", pid and pid == again, f"{pid} {again}")
+        sb("hc", "send", tid, "kill %1")
+        check("tabdrag", "every terminal still runs", alive() == before_alive, f"{before_alive} -> {alive()}")
+
+        time.sleep(1)
+        R, L = rows()["right"], rows()["left"]
+        a, b = R["tabs"]
+        hold(at_tab(R, b), (R["x"] + 6, at_tab(R, a)[1]))
+        drop()
+        check("tabdrag", "moved in the right row", wait(lambda: keys_of("right") == [b["key"], a["key"]], 3), str(keys_of("right")))
+        x("mousemove", "--window", win(), *at_tab(L, L["tabs"][1]), "sleep", 0.3, "click", 1)
+        away()
+        shown = lambda: shared().get("orbit.sides", {}).get("last", {}).get(sid)
+        check("tabdrag", "a click still shows a tab", wait(lambda: shown() == L["tabs"][1]["key"], 3), f"{shown()}")
+        kept = sb("status")
+        hold(at_tab(L, L["tabs"][0]), (100, 300))
+        drop()
+        one = json.loads(kept).get("focused_pane")
+        two = json.loads(sb("status")).get("focused_pane")
+        check("tabdrag", "the keys are where they were", one and one == two, f"{one} {two}")
+        sb("x", "windowfocus", win())
+        sb("x", "type", "echo typed-here")
+        sb("x", "key", "Return")
+        time.sleep(1)
+        seen = [q for q in alive() if "typed-here" in sb("hc", "read", q)]
+        check("tabdrag", "and typing goes there", len(seen) == 1, str(seen))
+    finally:
+        x("mouseup", 1)
+        if sid:
+            do("space.close", {"id": sid, "confirmed": True})
+        do("space.select", {"id": ids["shown"][0]})
+        time.sleep(1)
+
+
 def identity(ids):
     base = f"{ROOT}/repos"
     subprocess.run(["rm", "-rf", base])
@@ -1429,7 +1769,7 @@ def update_pill(ids):
     check("update", "Herdr's pill showing: the card above it", c and c["y"] + c["h"] * ZOOM <= herdr_pill() - 4, f"{c} pill top {herdr_pill()}")
 
 
-SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("terminal", terminal), ("padding", padding), ("spacing", spacing), ("toast", toast), ("keep", keep), ("split", split), ("update", update), ("update-pill", update_pill)]
+SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("row", row), ("tabdrag", tabdrag), ("identity", identity), ("settings", settings), ("terminal", terminal), ("padding", padding), ("spacing", spacing), ("toast", toast), ("keep", keep), ("split", split), ("update", update), ("update-pill", update_pill)]
 
 
 def main():
