@@ -15,12 +15,14 @@ import { face, remember } from "./rowframe.js";
 
 const DRAG = "orbit.drag";
 const START = 5;
+// A drag nothing ended (the layer's mod failed, say) is none after this long.
+const STALE = 120000;
 
 const pointer = () => globalThis.window?.mouse_position?.() ?? null;
 
 export function dragged() {
   const d = shared(DRAG);
-  return d && d.space === spaces().find((s) => s.active)?.id ? d : null;
+  return d && Date.now() - d.n < STALE && d.space === spaces().find((s) => s.active)?.id ? d : null;
 }
 
 // Where a row's tabs are, for the drag (and tools/regress.py's probe).
@@ -37,7 +39,7 @@ export function dragKit(host, row, color, double = null) {
     const p = host.press;
     host.press = null;
     const view = viewport(), space = spaces().find((s) => s.active);
-    if (!p?.face.drag || !view || !space || shared(DRAG)) return;
+    if (!p?.face.drag || !view || !space || dragged()) return;
     const { key, label, dot, ring, icon, tint } = p.face;
     const f = focused();
     setShared(DRAG, { n: Date.now(), space: space.id, row, key, to: p.face.drag.to, color, over: null, at, grab: p.grab, w: p.w,

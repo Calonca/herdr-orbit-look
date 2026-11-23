@@ -1241,8 +1241,30 @@ def hold(start, *points):
     time.sleep(1)
 
 
-def drop():
+def release():
     x("mouseup", 1)
+
+
+def press_key(name):
+    x("key", name)
+
+
+def type_line(text):
+    sb("x", "windowfocus", win())
+    sb("x", "type", text)
+    press_key("Return")
+
+
+def resize_window(w, h):
+    """The sandbox's window, in logical pixels."""
+    sb("x", "windowsize", win(), str(int(w * SCALE)), str(int(h * SCALE)))
+    time.sleep(3)
+    away()
+    time.sleep(1)
+
+
+def drop():
+    release()
     wait(lambda: not shared().get("orbit.drag") and overlays() == [], 6)
     time.sleep(2)
     away()
@@ -1298,10 +1320,10 @@ def tabdrag(ids):
         check("tabdrag", "nothing else changes while dragging", rest is None, f"{rest} (from y 110)")
         check("tabdrag", "no tab shifted, no pane resized", [(q["x"], q["w"]) for q in rows()["left"]["tabs"] + rows()["right"]["tabs"]] ==
               [(q["x"], q["w"]) for q in L["tabs"] + R["tabs"]] and rows()["right"]["w"] == R["w"], str(rows()))
-        x("key", "Escape")
+        press_key("Escape")
         wait(lambda: dragging() is None and overlays() == [], 6)
         check("tabdrag", "Escape ends it", dragging() is None and overlays() == [], f"{dragging()} {overlays()}")
-        x("mouseup", 1)
+        release()
         time.sleep(1)
         same = lambda: keys_of("left") == [q["key"] for q in L["tabs"]] and keys_of("right") == [q["key"] for q in R["tabs"]]
         check("tabdrag", "Escape: nothing changed", same(), str(rows()))
@@ -1310,20 +1332,14 @@ def tabdrag(ids):
         drop()
         check("tabdrag", "dropped on the sidebar: nothing changed", same() and dragging() is None and overlays() == [], str(rows()))
         # The window fills the screen: smaller, so the pointer can leave it.
-        sb("x", "windowsize", win(), str(int((W - 120) * SCALE)), str(int(H * SCALE)))
-        time.sleep(3)
-        away()
-        time.sleep(1)
+        resize_window(W - 120, H)
         small = rows()["left"]
         hold(at_tab(small, small["tabs"][2]), (W - 150, 300), (W - 40, 300))
         wait(lambda: dragging() is None and overlays() == [], 6)
         check("tabdrag", "outside the window: it goes back", dragging() is None and overlays() == [], f"{dragging()} {overlays()}")
         drop()
         check("tabdrag", "outside the window: nothing changed", same(), str(rows()))
-        sb("x", "windowsize", win(), str(int(W * SCALE)), str(int(H * SCALE)))
-        time.sleep(3)
-        away()
-        time.sleep(1)
+        resize_window(W, H)
         L, R = rows()["left"], rows()["right"]
         t = L["tabs"][2]
         sx, sy = at_tab(L, t)
@@ -1372,7 +1388,7 @@ def tabdrag(ids):
         hold(at_tab(R, b), (R["x"] + 6, at_tab(R, a)[1]))
         drop()
         check("tabdrag", "moved in the right row", wait(lambda: keys_of("right") == [b["key"], a["key"]], 3), str(keys_of("right")))
-        x("mousemove", "--window", win(), *at_tab(L, L["tabs"][1]), "sleep", 0.3, "click", 1)
+        click(*at_tab(L, L["tabs"][1]))
         away()
         shown = lambda: shared().get("orbit.sides", {}).get("last", {}).get(sid)
         check("tabdrag", "a click still shows a tab", wait(lambda: shown() == L["tabs"][1]["key"], 3), f"{shown()}")
@@ -1382,14 +1398,12 @@ def tabdrag(ids):
         one = json.loads(kept).get("focused_pane")
         two = json.loads(sb("status")).get("focused_pane")
         check("tabdrag", "the keys are where they were", one and one == two, f"{one} {two}")
-        sb("x", "windowfocus", win())
-        sb("x", "type", "echo typed-here")
-        sb("x", "key", "Return")
+        type_line("echo typed-here")
         time.sleep(1)
         seen = [q for q in alive() if "typed-here" in sb("hc", "read", q)]
         check("tabdrag", "and typing goes there", len(seen) == 1, str(seen))
     finally:
-        x("mouseup", 1)
+        release()
         if sid:
             do("space.close", {"id": sid, "confirmed": True})
         do("space.select", {"id": ids["shown"][0]})
