@@ -54,9 +54,14 @@ Scenarios:
           terminal background is written into the layout,
           show, and the copy still hashes as installed
   padding a terminal's cells near its pane's outline at each density: the
-          line and the padding on the left (compact [2, 2] < default [4, 4]
-          < comfortable [8, 6], all below the old [8, 6] [14, 12] [18, 16]),
+          line and the padding on the left (compact [2, 0] < default [4, 0]
+          < comfortable [8, 0], all below the old [8, 6] [14, 12] [18, 16]),
           less than a cell more on the right, half a row at the bottom
+  spacing nothing between the pane's outline and its content, above or below:
+          Files, Changes and a plain mod touch it at the top and the bottom;
+          a terminal (in either pane) has half of what whole
+          rows leave over above it and half below; at zoom 1, 1.2 and 1.4, in
+          each density, tabs at the bottom and on top
   toast   a notify() of each level (info, success, warning, error): with
           notifications "all" each shows (orbit-toast, the layout's "toast");
           with "errors only" (asked of the orbit mod as the settings dialog
@@ -574,7 +579,7 @@ def settings(ids):
     check("settings", "again: still one", len(mine()) == 1, str(mine()))
 
 
-PADDING = {"compact": (2, 2), "default": (4, 4), "comfortable": (8, 6)}
+PADDING = {"compact": (2, 0), "default": (4, 0), "comfortable": (8, 0)}
 OLD_PADDING = {"compact": (8, 6), "default": (14, 12), "comfortable": (18, 16)}
 
 
@@ -638,6 +643,146 @@ def padding(ids):
     left = [gaps[d]["left"] for d in ["compact", "default", "comfortable"]]
     check("padding", "it grows from compact to default to comfortable", left[0] < left[1] < left[2], said)
     print(f"      gaps: {said}", flush=True)
+
+
+def set_zoom(z):
+    path = f"{HOME}/settings.json"
+    st = json.load(open(path))
+    json.dump({**st, "zoom": z}, open(path, "w"))
+    wait(lambda: abs(status().get("zoom", 0) - z) < 0.01, 5)
+    quiet()
+
+
+FILLER = """import { View, div } from "gpui-kit";
+// tools/regress.py: fills its pane with one colour.
+export default class Filler extends View { render() { return div().size_full().bg("#ff00ff"); } }
+"""
+
+
+def edge_gaps(img, sid, side, top):
+    """Where a shown pane's outline is, in screen pixels: `first` and `last`,
+    the rows just inside it above and below, read down one column of the shot
+    (`col`, beside the right corner: the shown tab has no tab line); `left`, the
+    line's width at its left edge, `x0` (shared "orbit.places" is within a
+    pixel or two of it). The pane has the keys, so its line is the space's
+    colour. None when there is no such outline."""
+    import math
+    place = shared().get("orbit.places", {}).get(f"{side}-tabs")
+    if not place:
+        return None
+    px = img.load()
+    near = lambda a, b, d=12: math.dist(a, b) <= d
+    z = current_zoom()
+    x0, x1 = round(place["x"] * SCALE), min(img.width, round((place["x"] + place["width"]) * SCALE))
+    row_y, row_h = round(place["y"] * SCALE), round(place["height"] * SCALE)
+    mid = (img.height * 2) // 5
+    hex_ = shared().get("orbit.identity", {}).get(sid, {}).get("color", "#000000")
+    line = tuple(int(hex_[i:i + 2], 16) for i in (1, 3, 5))
+    x0 = next((x for x in range(max(0, x0 - 8), x0 + 9) if near(px[x, mid], line)), None)
+    if x0 is None:
+        return None
+    x = x0
+    while near(px[x, mid], line) and x < x1:
+        x += 1
+    col = x1 - round(30 * z * SCALE)
+    y0, y1 = (row_y, img.height - 1) if top else (0, row_y + row_h)
+    ys = [y for y in range(y0, y1) if near(px[col, y], line)]
+    up = [y for y in ys if y < mid]
+    down = [y for y in ys if y > mid]
+    if not up or not down:
+        return None
+    return {"line": line, "left": x - x0, "x0": x0, "x1": x1, "col": col, "first": up[-1] + 1, "last": down[0] - 1, "px": px, "near": near, "mid": mid}
+
+
+def current_zoom():
+    return json.load(open(f"{HOME}/settings.json")).get("zoom", 1)
+
+
+def spacing(ids):
+    os.makedirs(f"{HOME}/mods/regress-filler", exist_ok=True)
+    open(f"{HOME}/mods/regress-filler/main.js", "w").write(FILLER)
+    open(f"{HOME}/mods/regress-filler/mod.json", "w").write('{ "place": "none" }\n')
+    time.sleep(1.5)
+    cells = {"argv": [f"{REPO}/tools/fill-cells.sh"]}
+    r = do("space.new", {"name": "spacing", "folder": REPO, **cells})
+    sid, tab = r.get("space"), r.get("tab")
+    time.sleep(2)
+    sides = lambda: shared().get("orbit.sides", {})
+    mine = lambda: [m["id"] for m in sides().get("mods", []) if m["space"] == sid]
+    right = lambda i: lambda: sb("do", "orbit.show " + json.dumps({"space": sid, "side": "right", "id": i}))
+    left = lambda i: lambda: do("tab.select", {"id": i})
+    shows = [("left", "terminal", left(tab))]
+    try:
+        for mod in ("files", "changes", "regress-filler"):
+            had = mine()
+            sb("do", "orbit.new-mod " + json.dumps({"space": sid, "side": "right", "title": mod[0], "mod": mod}))
+            new = wait(lambda: [m for m in mine() if m not in had], 5)
+            shows.append(("right", mod, right(new[0] if new else None)))
+        had = set(sides().get("right", {}).values())
+        sb("do", "orbit.new-terminal " + json.dumps({"space": sid, "side": "right", "extra": cells}))
+        new = wait(lambda: set(sides().get("right", {}).values()) - had, 8)
+        shows.append(("right", "terminal", right(f"rt-{next(iter(new), None)}")))
+        own = do("tab.new", {"space": sid, "mod": "regress-filler"}).get("tab")
+        shows.append(("left", "regress-filler", left(own)))
+        time.sleep(1)
+        spacing_cases(sid, shows)
+    finally:
+        do("orbit.settings " + json.dumps({"density": "comfortable", "tabs": "bottom"}))
+        set_zoom(ZOOM)
+        if sid:
+            do("space.close", {"id": sid, "confirmed": True})
+        do("space.select", {"id": ids["shown"][0]})
+        time.sleep(1)
+
+
+def spacing_cases(sid, shows):
+    green = lambda p: p[1] > 200 and p[0] < 60 and p[2] < 60
+    said = []
+
+    def gaps(g, what):
+        """The rows between the outline and the pane's content: a terminal's
+        green cells, or a view's own edge (its colour as at the left)."""
+        px, near = g["px"], g["near"]
+        if what == "terminal":
+            ys = [y for y in range(g["first"], g["last"] + 1) if green(px[(g["x0"] + g["x1"]) // 2, y])]
+        else:
+            edge = px[g["x0"] + g["left"], g["mid"]]
+            ys = [y for y in range(g["first"], g["last"] + 1) if near(px[g["col"], y], edge)]
+        return (ys[0] - g["first"], g["last"] - ys[-1]) if ys else None
+
+    for z in (1, 1.2, 1.4):
+        set_zoom(z)
+        cell = 1.15 * 1.3 * 14 * z * SCALE
+        for tabs in ("bottom", "top"):
+            for d in PADDING:
+                do("orbit.settings " + json.dumps({"density": d, "tabs": tabs}))
+                wait(lambda: (lambda L: L.get("density") == d and L.get("top") == (tabs == "top"))(shared().get("orbit.look", {})), 5)
+                time.sleep(1)
+                row = {}
+                for side, what, show in shows:
+                    show()
+                    sb("do", "orbit.focus " + json.dumps({"side": side}))
+                    ok = (lambda r: bool(r) and abs(r[0] - r[1]) <= 2 * SCALE and sum(r) < cell) if what == "terminal" else (lambda r: r == (0, 0))
+                    got = None
+                    # A resize, and the pane's program's redraw, take a moment.
+                    for _ in range(8):
+                        time.sleep(0.5)
+                        g = edge_gaps(grab(f"spacing-{z}-{tabs}-{d}-{side}-{what}"), sid, side, tabs == "top")
+                        got = g and gaps(g, what)
+                        if ok(got):
+                            break
+                    row[f"{side} {what}"] = got
+                    if g:
+                        # The left side, between the rounded end's curve and the tab line.
+                        curve = round((shared()["orbit.look"]["radius"] + 2) * z * SCALE / 2) + 1
+                        rows = range(g["first"], g["last"] + 1 - curve) if tabs == "top" else range(g["first"] + curve, g["last"] + 1)
+                        off = [y for y in rows if not g["near"](g["px"][g["x0"] + 1, y], g["line"], 30)]
+                        if off:
+                            check("spacing", f"zoom {z}, tabs {tabs}, {d}: the {side} pane's side is unbroken", False, f"rows {off[:5]}")
+                    said_so = "has only what whole rows leave over" if what == "terminal" else "touches the outline above and below"
+                    check("spacing", f"zoom {z}, tabs {tabs}, {d}: {side} {what} {said_so}", ok(got), f"rows of pixels {got}")
+                said.append(f"zoom {z}, tabs {tabs}, {d}: {row}")
+    print("      rows of pixels above and below:\n" + "\n".join("      " + s for s in said), flush=True)
 
 
 COUNTER = """import { View, div } from "gpui-kit";
@@ -1284,7 +1429,7 @@ def update_pill(ids):
     check("update", "Herdr's pill showing: the card above it", c and c["y"] + c["h"] * ZOOM <= herdr_pill() - 4, f"{c} pill top {herdr_pill()}")
 
 
-SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("terminal", terminal), ("padding", padding), ("toast", toast), ("keep", keep), ("split", split), ("update", update), ("update-pill", update_pill)]
+SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("identity", identity), ("settings", settings), ("terminal", terminal), ("padding", padding), ("spacing", spacing), ("toast", toast), ("keep", keep), ("split", split), ("update", update), ("update-pill", update_pill)]
 
 
 def main():

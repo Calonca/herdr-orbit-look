@@ -7,6 +7,7 @@ them, and the look's update card shows them.
 
 - **A bar for every machine.** cpu, ram and disk in the status bar show a bar for each of your Herdr machines, one over the other: this computer, then the others by name. An offline machine's bar is empty; the tooltip names each.
 - **Smaller meters.** Their bars are shorter (22px, was 34) and sit closer together.
+- **No empty strips in a pane.** What a pane shows touches its outline at the top and the bottom, at every zoom, density and tab row place: no gap as tall as the corners, and no padding above and below a terminal's rows. The sides are as they were.
 
 ## 0.5.4
 

@@ -383,6 +383,18 @@ class RepeatedValues(unittest.TestCase):
                          "PADDING in tools/regress.py (the padding its screenshot check expects) is a copy of each "
                          "density's padding in DENSITIES in mods/orbit/layout.js. Change it with them.")
 
+    def test_corners_reach(self):
+        reach = J.const(J.lex_file("mods/orbit-edge/main.js"), "REACH", "mods/orbit-edge/main.js")
+        nodes, walk = {}, [json.loads(read("layouts/orbit.json"))]
+        while walk:
+            n = walk.pop()
+            nodes[n["id"]] = n
+            walk += n.get("children", [])
+        for pane in ("left", "right", "panel"):
+            self.assertEqual(nodes[f"{pane}-corners"]["padding"], [reach, 0],
+                             "orbit-edge draws a pane's corners REACH above where its corners block's padding in "
+                             "layouts/orbit.json puts it. Change them together.")
+
     def test_start_is_comfortable(self):
         start = J.const(J.lex_file("mods/orbit/look.js"), "START", "mods/orbit/look.js")
         densities = J.const(J.lex_file(LAYOUT_JS), "DENSITIES", LAYOUT_JS)
