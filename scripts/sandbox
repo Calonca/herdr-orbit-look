@@ -4,13 +4,23 @@
 # config or the desktop. Adapted from herdr-app's own scripts/sandbox, but it
 # runs the installed herdr-app (no build) and never sends telemetry.
 #
+# The display is headless sway on the GPU, in a runtime directory of its own,
+# with no X server; it needs sway and a render node (/dev/dri/renderD*), and
+# does not fall back to drawing in software. SANDBOX_WIDTH and SANDBOX_HEIGHT
+# are its size in pixels (1600x1000), SANDBOX_SCALE its scale (1).
+#
 #   scripts/sandbox up            start the display, the core and the window, install this repo
 #   scripts/sandbox restart       restart the window (terminals live on)
 #   scripts/sandbox do <action> [json] | status | ls | check <dir>   drive it
+#   scripts/sandbox input <command>...   its mouse and keyboard, in logical pixels:
+#       mousemove X Y | mousedown [B] | mouseup [B] | click [B] | type TEXT |
+#       key KEY | keydown KEY | keyup KEY | sleep SECONDS  (scripts/sandbox-input)
+#   scripts/sandbox size W H      the window's size, in logical pixels, at the top left
+#   scripts/sandbox size full     the window fills the display again
 #   scripts/sandbox shot [file]   the window's own last frame (herdr-app shot)
+#   scripts/sandbox clipboard     the text on its clipboard (needs wl-clipboard)
 #   scripts/sandbox log           the window's log
 #   scripts/sandbox hc <args>     hc against the sandbox core
-#   scripts/sandbox x <args>      xdotool on the sandbox's own display (X11 only)
 #   scripts/sandbox down          stop everything and delete it
 set -euo pipefail
 
@@ -21,35 +31,27 @@ root=/var/tmp/herdr-app-$name
 bin=${HERDR_APP_BIN:-$(command -v herdr-app)}
 export HC_SESSION=herdr-app-$name HERDR_APP_HOME=$root/home XDG_STATE_HOME=$root/state
 export HERDR_APP_NO_SOUND=1 DO_NOT_TRACK=1 HERDR_TELEMETRY=0
-export XDG_RUNTIME_DIR=$root/run WAYLAND_DISPLAY=herdr-app-$name
-unset DISPLAY
-width=${SANDBOX_WIDTH:-1600} height=${SANDBOX_HEIGHT:-1000}
-x11=${SANDBOX_X11:-}
-if [[ -n $x11 ]]; then
-  xnum=$((100 + $(printf '%s' "$name" | cksum | cut -d' ' -f1) % 400))
-  export DISPLAY=:$xnum
-  unset WAYLAND_DISPLAY
-fi
+# Every path and socket of the display: the person's own is never in reach.
+export XDG_RUNTIME_DIR=$root/run WAYLAND_DISPLAY=wayland-1 SWAYSOCK=$root/run/sway.sock
+unset DISPLAY HC_TERMINAL_ID HC_TERMINAL_SOCKET
+input=$root/run/input.sock
+width=${SANDBOX_WIDTH:-1600} height=${SANDBOX_HEIGHT:-1000} scale=${SANDBOX_SCALE:-1}
 
 ours() { { tr '\0' '\n' <"/proc/$1/environ"; } 2>/dev/null | grep -qx "HERDR_APP_HOME=$HERDR_APP_HOME"; }
 
-start_xvfb() {
-  mkdir -p "$root"
-  if [[ -f $root/xpid ]] && kill -0 "$(cat "$root/xpid")" 2>/dev/null; then return 0; fi
-  rm -f "/tmp/.X11-unix/X$xnum" "/tmp/.X$xnum-lock"
-  Xvfb "$DISPLAY" -screen 0 "${width}x${height}x24" -nolisten tcp >"$root/xvfb.log" 2>&1 &
-  echo $! >"$root/xpid"
-  for _ in $(seq 50); do
-    [[ -S /tmp/.X11-unix/X$xnum ]] && return 0
-    sleep 0.1
-  done
-  echo "the sandbox X display did not start; see $root/xvfb.log" >&2
-  return 1
+# The sandbox's sway, if it runs: by its command line, since its environment is
+# not readable (it has a file capability).
+display_pid() {
+  local pid
+  pid=$(cat "$root/display.pid" 2>/dev/null) || return 1
+  { tr '\0' ' ' <"/proc/$pid/cmdline"; } 2>/dev/null | grep -qF -- "sway -c $root/sway.conf " && echo "$pid"
 }
 
 make_home() {
   local h=$root/userhome
-  mkdir -p "$h/.local/bin" "$h/.config" "$h/.cache"
+  mkdir -p "$h/.local/bin" "$h/.local/share" "$h/.config" "$h/.cache"
+  # herdr-app's own files (a launcher in ~/.local/bin may start it from there).
+  [[ -d $HOME/.local/share/herdr-app ]] && ln -sfn "$HOME/.local/share/herdr-app" "$h/.local/share/herdr-app"
   [[ -e $h/.zshrc ]] || echo "# sandbox" >"$h/.zshrc"
   [[ -e $HOME/.local/bin/wasm-mods-host ]] && ln -sfn "$HOME/.local/bin/wasm-mods-host" "$h/.local/bin/wasm-mods-host"
   [[ -d $HOME/.config/wasm-mods && ! -e $h/.config/wasm-mods ]] && cp -r "$HOME/.config/wasm-mods" "$h/.config/wasm-mods"
@@ -61,19 +63,36 @@ make_home() {
 }
 
 start_display() {
-  if [[ -n $x11 ]]; then start_xvfb; return; fi
+  if display_pid >/dev/null; then return 0; fi
+  command -v sway >/dev/null || { echo "the sandbox's display needs sway" >&2; return 1; }
+  local node gpu=
+  for node in /dev/dri/renderD*; do [[ -r $node && -w $node ]] && gpu=$node && break; done
+  [[ -n $gpu ]] || { echo "the sandbox needs the GPU: no /dev/dri/renderD* to open here (it does not draw in software)" >&2; return 1; }
   mkdir -p "$root"
   mkdir -p -m 700 "$XDG_RUNTIME_DIR"
-  if [[ -f $root/xpid ]] && kill -0 "$(cat "$root/xpid")" 2>/dev/null; then return 0; fi
-  rm -f "$root/weston.log"
-  weston --backend=headless --renderer=gl --fake-seat --idle-time=0 --socket="$WAYLAND_DISPLAY" --width="$width" --height="$height" \
-    --log="$root/weston.log" >/dev/null 2>&1 &
-  echo $! >"$root/xpid"
-  for _ in $(seq 50); do
-    [[ -S $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY ]] && return 0
+  rm -f "$XDG_RUNTIME_DIR"/wayland-* "$SWAYSOCK" "$input"
+  local w h
+  w=$(awk "BEGIN { print int($width / $scale) }") h=$(awk "BEGIN { print int($height / $scale) }")
+  # The helper that holds the mouse and the keyboard lives as long as sway.
+  cat >"$root/sway.conf" <<CONF
+xwayland disable
+swaybg_command -
+output HEADLESS-1 resolution ${width}x${height} scale $scale
+default_border none
+default_floating_border none
+focus_follows_mouse no
+exec "$here/sandbox-input" serve "$input" $w $h
+CONF
+  WLR_BACKENDS=headless WLR_RENDERER=gles2 WLR_RENDER_DRM_DEVICE=$gpu WLR_LIBINPUT_NO_DEVICES=1 \
+    setsid sway -c "$root/sway.conf" >"$root/sway.log" 2>&1 </dev/null &
+  echo $! >"$root/display.pid"
+  for _ in $(seq 100); do
+    [[ -S $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY && -S $input ]] && return 0
+    kill -0 "$(cat "$root/display.pid")" 2>/dev/null || break
     sleep 0.1
   done
-  echo "the sandbox display did not start; see $root/weston.log" >&2
+  echo "the sandbox display did not start; see $root/sway.log:" >&2
+  tail -5 "$root/sway.log" >&2
   return 1
 }
 
@@ -83,9 +102,21 @@ stop_window() {
   pid=$(cat "$root/pid")
   if ours "$pid"; then
     kill "$pid"
-    for _ in $(seq 50); do ours "$pid" || break; sleep 0.1; done
+    # Gone, not just going (its environment goes first): a new window would
+    # find this one and leave.
+    for _ in $(seq 100); do kill -0 "$pid" 2>/dev/null || break; sleep 0.05; done
   fi
   rm -f "$root/pid"
+}
+
+on_gpu() {
+  # (A window that draws in software has no render node open.)
+  for _ in $(seq 20); do
+    readlink "/proc/$(cat "$root/pid")"/fd/* 2>/dev/null | grep -q '^/dev/dri/renderD' && return 0
+    sleep 0.1
+  done
+  echo "sandbox $name: the window is not drawing on the GPU; see $root/app.log" >&2
+  return 1
 }
 
 start_window() {
@@ -98,13 +129,12 @@ start_window() {
   HERDR_APP_HOME=$HERDR_APP_HOME "$repo/install.sh" >/dev/null
   # Skip the first-run welcome: it would cover every screenshot.
   [[ -f $HERDR_APP_HOME/shared.json ]] || echo '{"frame.welcomed":"skipped","layout":"orbit"}' >"$HERDR_APP_HOME/shared.json"
-  local env=()
-  if [[ -n $x11 ]]; then make_home; env=(HOME="$root/userhome"); fi
-  env "${env[@]}" PATH="$root/bin:$PATH" setsid "$bin" >"$root/app.log" 2>&1 </dev/null &
+  make_home
+  env HOME="$root/userhome" PATH="$root/bin:$PATH" setsid "$bin" >"$root/app.log" 2>&1 </dev/null &
   echo $! >"$root/pid"
   for _ in $(seq 100); do
-    "$bin" status >/dev/null 2>&1 && { echo "sandbox $name is up on ${WAYLAND_DISPLAY:-$DISPLAY} (home: $HERDR_APP_HOME)"; return 0; }
-    ours "$(cat "$root/pid")" || { cat "$root/app.log"; echo "sandbox $name died" >&2; return 1; }
+    "$bin" status >/dev/null 2>&1 && { on_gpu && echo "sandbox $name is up (home: $HERDR_APP_HOME)"; return; }
+    kill -0 "$(cat "$root/pid")" 2>/dev/null || { cat "$root/app.log"; echo "sandbox $name died" >&2; return 1; }
     sleep 0.2
   done
   echo "sandbox $name did not answer; see $root/app.log" >&2
@@ -116,10 +146,10 @@ case ${1:-} in
   down)
     stop_window
     hc server stop >/dev/null 2>&1 || true
-    if [[ -f $root/xpid ]]; then
-      xp=$(cat "$root/xpid")
-      kill "$xp" 2>/dev/null || true
-      for _ in $(seq 50); do kill -0 "$xp" 2>/dev/null || break; sleep 0.1; done
+    if dp=$(display_pid); then
+      kill "$dp"
+      for _ in $(seq 50); do kill -0 "$dp" 2>/dev/null || break; sleep 0.1; done
+      kill -9 "$dp" 2>/dev/null || true
     fi
     rm -rf "$root"
     echo "sandbox $name is gone"
@@ -128,9 +158,11 @@ case ${1:-} in
   shot) exec "$bin" shot "${2:-$root/shot.png}" ;;
   log) cat "$root/app.log" ;;
   hc) shift; exec hc "$@" ;;
-  x)
-    [[ -n $x11 ]] || { echo "x needs SANDBOX_X11=1" >&2; exit 2; }
-    [[ $DISPLAY != ":0" && $DISPLAY != ":1" ]] || { echo "refusing display $DISPLAY" >&2; exit 2; }
-    shift; exec xdotool "$@" ;;
+  input) shift; exec "$here/sandbox-input" do "$input" "$@" ;;
+  size)
+    if [[ ${2:-} == full ]]; then swaymsg -q '[all] floating disable'
+    else swaymsg -q "[all] floating enable, resize set ${2:?width} px ${3:?height} px, move absolute position 0 px 0 px"; fi
+    ;;
+  clipboard) exec wl-paste --no-newline ;;
   *) awk 'NR > 1 && !/^#/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0"; exit 2 ;;
 esac

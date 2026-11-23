@@ -1,0 +1,269 @@
+#!/usr/bin/env python3
+"""The sandbox's mouse and keyboard (scripts/sandbox starts this with its
+display; only Python's standard library and libxkbcommon, which sway needs too).
+
+    scripts/sandbox-input serve <socket> <width> <height>
+        a Wayland client of $WAYLAND_DISPLAY that holds one virtual pointer and
+        one virtual keyboard as long as the display lives (a headless display
+        has no other), and does what it is told on the Unix socket. Width and
+        height: the display's, in logical pixels.
+    scripts/sandbox-input do <socket> <command>...
+        one call, any number of commands, done in order:
+        mousemove X Y | mousedown [B] | mouseup [B] | click [B] | type TEXT
+        key KEY | keydown KEY | keyup KEY | sleep SECONDS
+        X and Y are logical pixels of the display. B: 1 left, 2 middle,
+        3 right; click 4 and 5 scroll up and down. KEY: an xkb name, with
+        modifiers before it (Escape, ctrl+shift+p). Buttons and keys stay down
+        from one call to the next. `type` takes what a US keyboard has.
+"""
+import ctypes, json, os, socket, struct, sys, threading, time
+
+BUTTONS = {1: 0x110, 2: 0x112, 3: 0x111}
+MODIFIERS = {"shift": ("Shift_L", "Shift"), "ctrl": ("Control_L", "Control"), "control": ("Control_L", "Control"),
+             "alt": ("Alt_L", "Mod1"), "super": ("Super_L", "Mod4")}
+
+
+class Keymap:
+    """The US keymap: its text, and where each symbol is on it."""
+    def __init__(self):
+        xkb = self.xkb = ctypes.CDLL("libxkbcommon.so.0")
+        for f in (xkb.xkb_context_new, xkb.xkb_keymap_new_from_names):
+            f.restype = ctypes.c_void_p
+        xkb.xkb_keymap_get_as_string.restype = ctypes.c_char_p
+        rules = (ctypes.c_char_p * 5)(b"evdev", b"pc105", b"us", b"", b"")
+        self.map = ctypes.c_void_p(xkb.xkb_keymap_new_from_names(ctypes.c_void_p(xkb.xkb_context_new(0)), rules, 0))
+        self.text = xkb.xkb_keymap_get_as_string(self.map, 1) + b"\0"
+        self.where = {}
+        syms = ctypes.POINTER(ctypes.c_uint32)()
+        for level in (0, 1):
+            for code in range(xkb.xkb_keymap_min_keycode(self.map), xkb.xkb_keymap_max_keycode(self.map) + 1):
+                if xkb.xkb_keymap_key_get_syms_by_level(self.map, code, 0, level, ctypes.byref(syms)) == 1:
+                    self.where.setdefault(syms[0], (code - 8, level))
+
+    def named(self, name):
+        sym = self.xkb.xkb_keysym_from_name(name.encode(), 0) or self.xkb.xkb_keysym_from_name(name.encode(), 1)
+        return self.at(sym, name)
+
+    def char(self, c):
+        return self.at(self.xkb.xkb_utf32_to_keysym(ord({"\n": "\r"}.get(c, c))), c)
+
+    def at(self, sym, what):
+        if sym not in self.where:
+            raise ValueError(f"no key for {what!r}")
+        return self.where[sym]
+
+    def bit(self, modifier):
+        return 1 << self.xkb.xkb_keymap_mod_get_index(self.map, modifier.encode())
+
+
+class Display:
+    """The Wayland wire protocol, as much of it as a pointer and a keyboard
+    take: wayland.xml, wlr-virtual-pointer and virtual-keyboard, by opcode."""
+    def __init__(self, width, height):
+        path = os.path.join(os.environ["XDG_RUNTIME_DIR"], os.environ["WAYLAND_DISPLAY"])
+        self.sock = socket.socket(socket.AF_UNIX)
+        self.sock.connect(path)
+        self.size, self.last, self.globals, self.synced = (width, height), 1, {}, set()
+        self.cond = threading.Condition()
+        self.registry = self.new()
+        self.send(1, 1, self.registry)                          # wl_display.get_registry
+        threading.Thread(target=self.listen, daemon=True).start()
+        self.sync()
+        seat, pointers, keyboards = (self.bind(n) for n in
+                                     ("wl_seat", "zwlr_virtual_pointer_manager_v1", "zwp_virtual_keyboard_manager_v1"))
+        self.pointer, self.keyboard = self.new(), self.new()
+        self.send(pointers, 0, seat, self.pointer)
+        self.send(keyboards, 0, seat, self.keyboard)
+        self.keys, self.mods = Keymap(), 0
+        fd = os.memfd_create("keymap")
+        os.write(fd, self.keys.text)
+        self.send(self.keyboard, 0, 1, len(self.keys.text), fd=fd)
+        os.close(fd)
+        self.sync()
+
+    def new(self):
+        self.last += 1
+        return self.last
+
+    def send(self, obj, opcode, *args, fd=None):
+        body = b"".join(a if isinstance(a, bytes) else struct.pack("=i" if a < 0 else "=I", a) for a in args)
+        data = struct.pack("=II", obj, (8 + len(body)) << 16 | opcode) + body
+        if fd is None:
+            self.sock.sendall(data)
+        else:
+            socket.send_fds(self.sock, [data], [fd])
+
+    def bind(self, interface):
+        if interface not in self.globals:
+            raise RuntimeError(f"the display has no {interface}")
+        name, obj = self.globals[interface], self.new()
+        text = interface.encode() + b"\0"
+        text = struct.pack("=I", len(text)) + text + b"\0" * (-len(text) % 4)
+        self.send(self.registry, 0, name, text, 1, obj)         # wl_registry.bind
+        return obj
+
+    def sync(self):
+        """Until the display has done everything sent so far."""
+        with self.cond:
+            cb = self.new()
+            self.send(1, 0, cb)                                 # wl_display.sync
+            if not self.cond.wait_for(lambda: cb in self.synced, 10):
+                raise RuntimeError("the display does not answer")
+            self.synced.discard(cb)
+
+    def listen(self):
+        """Reads what the display says; the process ends with the display."""
+        buf = b""
+        while True:
+            try:
+                data = self.sock.recv(65536)
+            except OSError:
+                data = b""
+            if not data:
+                os._exit(0)
+            buf += data
+            while len(buf) >= 8 and len(buf) >= (size := struct.unpack_from("=I", buf, 4)[0] >> 16):
+                obj, op = struct.unpack_from("=I", buf)[0], buf[4] | buf[5] << 8
+                body, buf = buf[8:size], buf[size:]
+                with self.cond:
+                    if obj == 1 and op == 0:                    # wl_display.error
+                        n = struct.unpack_from("=I", body, 8)[0]
+                        print("display:", body[12:11 + n].decode(), file=sys.stderr, flush=True)
+                        os._exit(1)
+                    elif obj == 1:                              # wl_display.delete_id
+                        self.synced.add(struct.unpack("=I", body)[0])
+                        self.cond.notify_all()
+                    elif obj == self.registry and op == 0:
+                        name, n = struct.unpack_from("=II", body)
+                        self.globals[body[8:7 + n].decode()] = name
+
+    def now(self):
+        return int(time.monotonic() * 1000) & 0xFFFFFFFF
+
+    def move(self, px, py):
+        w, h = self.size
+        at = lambda v, top: min(max(0, round(float(v) * 100)), top * 100 - 1)
+        self.send(self.pointer, 1, self.now(), at(px, w), at(py, h), w * 100, h * 100)
+        self.send(self.pointer, 4)
+
+    def button(self, b, down):
+        self.send(self.pointer, 2, self.now(), BUTTONS[b], int(down))
+        self.send(self.pointer, 4)
+
+    def click(self, b):
+        if b in (4, 5):
+            way = 1 if b == 5 else -1
+            self.send(self.pointer, 5, 0)
+            self.send(self.pointer, 7, self.now(), 0, way * 15 * 256, way)
+            self.send(self.pointer, 4)
+        else:
+            self.button(b, True)
+            self.button(b, False)
+
+    def key(self, code, down, mods=0):
+        self.send(self.keyboard, 1, self.now(), code, int(down))
+        mods = self.mods | mods if down else self.mods & ~mods
+        if mods != self.mods:
+            self.mods = mods
+            self.send(self.keyboard, 2, mods, 0, 0, 0)
+
+    def chord(self, text):
+        """ctrl+shift+p as (code, modifier bits) pairs, in pressing order."""
+        *mods, name = text.split("+") if text != "+" else ["plus"]
+        out = []
+        if name.lower() in MODIFIERS:
+            mods, name = [*mods, name], None
+        for m in mods:
+            sym, bit = MODIFIERS[m.lower()]
+            out.append((self.keys.named(sym)[0], self.keys.bit(bit)))
+        if name:
+            code, level = self.keys.named(name)
+            if level and "shift" not in [m.lower() for m in mods]:
+                out.append((self.keys.named("Shift_L")[0], self.keys.bit("Shift")))
+            out.append((code, 0))
+        return out
+
+    def type(self, text):
+        for c in text:
+            code, level = self.keys.char(c)
+            shift = [(self.keys.named("Shift_L")[0], self.keys.bit("Shift"))] if level else []
+            self.tap([*shift, (code, 0)])
+
+    def tap(self, chord):
+        for code, bit in chord:
+            self.key(code, True, bit)
+        for code, bit in reversed(chord):
+            self.key(code, False, bit)
+
+    def run(self, words):
+        words = [str(w) for w in words]
+        while words:
+            word = words.pop(0)
+            button = lambda: int(words.pop(0)) if words and words[0].isdigit() else 1
+            if word == "mousemove":
+                self.move(words.pop(0), words.pop(0))
+            elif word in ("mousedown", "mouseup"):
+                self.button(button(), word == "mousedown")
+            elif word == "click":
+                self.click(button())
+            elif word == "key":
+                self.tap(self.chord(words.pop(0)))
+            elif word == "keydown":
+                for code, bit in self.chord(words.pop(0)):
+                    self.key(code, True, bit)
+            elif word == "keyup":
+                for code, bit in reversed(self.chord(words.pop(0))):
+                    self.key(code, False, bit)
+            elif word == "type":
+                self.type(words.pop(0))
+            elif word == "sleep":
+                self.sync()
+                time.sleep(float(words.pop(0)))
+            else:
+                raise ValueError(f"no input command {word!r}")
+        self.sync()
+
+
+def serve(path, width, height):
+    display = Display(int(width), int(height))
+    server = socket.socket(socket.AF_UNIX)
+    if os.path.exists(path):
+        os.unlink(path)
+    server.bind(path)
+    server.listen()
+    while True:
+        conn, _ = server.accept()
+        with conn:
+            try:
+                display.run(json.loads(conn.makefile().readline()))
+                answer = "ok"
+            except IndexError:
+                answer = "the last command is incomplete"
+            except Exception as e:
+                answer = f"{type(e).__name__}: {e}"
+            try:
+                conn.sendall(answer.encode() + b"\n")
+            except OSError:
+                pass
+
+
+def send(path, words):
+    """Does the commands in `words` on the sandbox's input; raises if it can't."""
+    with socket.socket(socket.AF_UNIX) as s:
+        s.connect(path)
+        s.sendall(json.dumps([str(w) for w in words]).encode() + b"\n")
+        answer = s.makefile().readline().strip()
+    if answer != "ok":
+        raise RuntimeError(answer or "the input helper stopped")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) == 5 and sys.argv[1] == "serve":
+        serve(*sys.argv[2:])
+    elif len(sys.argv) > 3 and sys.argv[1] == "do":
+        try:
+            send(sys.argv[2], sys.argv[3:])
+        except (OSError, RuntimeError) as e:
+            sys.exit(f"sandbox input: {e}")
+    else:
+        sys.exit(__doc__)

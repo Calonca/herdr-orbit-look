@@ -282,13 +282,17 @@ sidebar, `ctrl-shift-l` the layout).
   herdr-app's home when you have none
 - `scripts/space.py` and `scripts/blur.py` make the background and its blurred
   copy; `scripts/glyphs.py` the symbols. Only needed to change them.
-- `scripts/sandbox`: a throwaway herdr-app on its own core, home and display
-  (headless, or a private Xvfb with `SANDBOX_X11=1`), to try changes in.
+- `scripts/sandbox`: a throwaway herdr-app on its own core, home and display,
+  to try changes in. The display is headless Wayland on the GPU, with no X
+  server: it needs `sway` (and `wl-clipboard` for its clipboard) and a render
+  node (`/dev/dri/renderD*`). `scripts/sandbox input` is its mouse and
+  keyboard, held by `scripts/sandbox-input` as long as the display lives.
   `tools/regress.py` clicks through the status bar there (its popups and
   menus where they open, the taskbar's order, pins and drag, the look
-  settings), by default on a HiDPI screen (scale 2) at zoom 1.2; `node tools/taskbar-test.mjs` and
-  `node tools/identity-test.mjs` check the taskbar's order and what a space's
-  colour is keyed on, without a window.
+  settings), by default on a HiDPI screen (scale 2) at zoom 1.2; `--reuse`
+  runs on the sandbox the last run left up. It needs Pillow.
+  `node tools/taskbar-test.mjs` and `node tools/identity-test.mjs` check the
+  taskbar's order and what a space's colour is keyed on, without a window.
 
 ## Credits
 
