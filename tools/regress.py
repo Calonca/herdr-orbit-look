@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Regression suite for the orbit look's status bar: real clicks on an X11
-sandbox (scripts/sandbox with SANDBOX_X11=1: a private Xvfb display, its own
+"""Regression suite for the orbit look's status bar: real clicks in a sandbox
+(scripts/sandbox: a headless Wayland display of its own, on the GPU, its own
 app home and herdr core; never the person's display or app), then state checks.
 
     tools/regress.py            a fresh sandbox (HERDR_APP_SANDBOX, default
@@ -8,6 +8,11 @@ app home and herdr core; never the person's display or app), then state checks.
                                 the sandbox stays up
     tools/regress.py --down     the same, then the sandbox goes
     tools/regress.py -k drag    only scenarios whose name has "drag"
+    tools/regress.py --reuse -k drag   on the sandbox the last run left up (same
+                                size, scale and zoom): the mods are installed
+                                again and reload live, its spaces are kept, no
+                                new start; a fresh one (3 s) if there is none
+                                or its agents are not as they were at the start
 
 Shots go to $REGRESS_OUT (default /tmp/herdr-regress). Exit 1 if anything fails.
 
@@ -69,7 +74,7 @@ Scenarios:
           notifications" turns the setting off: no card, no request; the
           status bar's update pill is gone
 """
-import argparse, json, os, subprocess, sys, threading, time
+import argparse, hashlib, json, os, subprocess, sys, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -81,8 +86,8 @@ W, H = (int(v) for v in os.environ.get("REGRESS_SIZE", "1280x706").split("x"))
 SCALE = float(os.environ.get("REGRESS_SCALE", "2"))
 ZOOM = float(os.environ.get("REGRESS_ZOOM", "1.2"))
 CORES = 32
-ENV = {**os.environ, "HERDR_APP_SANDBOX": NAME, "SANDBOX_X11": "1", "SANDBOX_WIDTH": str(int(W * SCALE)),
-       "SANDBOX_HEIGHT": str(int(H * SCALE)), "GPUI_X11_SCALE_FACTOR": str(SCALE),
+ENV = {**os.environ, "HERDR_APP_SANDBOX": NAME, "SANDBOX_WIDTH": str(int(W * SCALE)),
+       "SANDBOX_HEIGHT": str(int(H * SCALE)), "SANDBOX_SCALE": str(SCALE),
        "DO_NOT_TRACK": "1", "HERDR_TELEMETRY": "0"}
 
 results = []
@@ -103,26 +108,23 @@ def do(action, args=None):
         return {}
 
 
-_win = None
 def win():
-    global _win
-    if _win is None:
-        _win = sb("x", "search", "--onlyvisible", "--name", ".").split()[0]
-    return _win
+    """The window, for x()'s `--window`: the sandbox has the one."""
+    return "herdr"
 
 
 def x(*args):
-    """xdotool on the sandbox's display: the two numbers after each
-    `--window <id>` are logical window pixels, scaled to the screen's."""
-    out, i = [], 0
-    while i < len(args):
-        out.append(args[i])
-        if args[i] == "--window" and i + 3 < len(args):
-            out += [args[i + 1], round(float(args[i + 2]) * SCALE), round(float(args[i + 3]) * SCALE)]
-            i += 4
-            continue
-        i += 1
-    return sb("x", *[str(a) for a in out])
+    """The sandbox's mouse and keyboard (scripts/sandbox input), in logical
+    window pixels: the window is at the display's top left, so the
+    `--window <id>` of a mousemove needs nothing done."""
+    out, args = [], list(args)
+    while args:
+        a = args.pop(0)
+        if a == "--window":
+            args.pop(0)
+        else:
+            out.append(str(a))
+    return sb("input", *out, check=True)
 
 
 def away():
@@ -140,11 +142,15 @@ def shared():
         return {}
 
 
-def overlays():
+def status():
     try:
-        return json.loads(sb("status")).get("overlays", [])
+        return json.loads(sb("status"))
     except Exception:
-        return None
+        return {}
+
+
+def overlays():
+    return status().get("overlays")
 
 
 def wait(pred, timeout=3.0):
@@ -153,8 +159,33 @@ def wait(pred, timeout=3.0):
         v = pred()
         if v:
             return v
-        time.sleep(0.15)
+        time.sleep(0.04)
     return pred()
+
+
+def quiet(hold=0.2, timeout=4.0):
+    """Until what the mods share (shared.json, written as they react) has held
+    still for `hold` seconds: after an action, they have taken it in."""
+    def stamp():
+        try:
+            st = os.stat(f"{HOME}/shared.json")
+            return st.st_mtime_ns, st.st_size
+        except OSError:
+            return None
+    end = time.time() + timeout
+    last, since = stamp(), time.time()
+    while time.time() < end and time.time() - since < hold:
+        time.sleep(0.03)
+        now = stamp()
+        if now != last:
+            last, since = now, time.time()
+
+
+def select(sid):
+    """Shows a space, and waits until it and its panes are the shown ones."""
+    do("space.select", {"id": sid})
+    wait(lambda: status().get("space") == sid)
+    quiet()
 
 
 def check(scenario, case, ok, detail=""):
@@ -176,10 +207,12 @@ def bar_y():
 
 def sweep():
     y = int(bar_y())
+    moves = []
     for px in range(10, W - 10, 12):
-        x("mousemove", "--window", win(), px, y)
+        moves += ["mousemove", "--window", win(), px, y, "sleep", 0.003]
+    x(*moves)
     away()
-    time.sleep(0.3)
+    quiet(0.2)
     return shared().get("orbit.probe.status", {})
 
 
@@ -196,6 +229,77 @@ def centre(b):
 
 
 
+KEPT = f"{ROOT}/regress.json"
+KIND = [W, H, SCALE, ZOOM]
+
+
+def kept():
+    """What a run left in its sandbox for the next: {kind, ids, port, look}."""
+    try:
+        return json.load(open(KEPT))
+    except Exception:
+        return {}
+
+
+RESET = """import { View, div } from "gpui-kit";
+import { setShared } from "herdr";
+// tools/regress.py --reuse: nothing pinned.
+export default class Reset extends View {
+  init() { setShared("orbit.pinned", []); }
+  render() { return div(); }
+}
+"""
+
+
+def look():
+    """A hash of what install.sh installs from this repo."""
+    h = hashlib.sha256(open(f"{REPO}/keys.json", "rb").read())
+    for sub in ("themes", "mods", "layouts"):
+        for at, dirs, files in sorted(os.walk(f"{REPO}/{sub}")):
+            for f in sorted(files):
+                if "__pycache__" not in at:
+                    h.update(f"{at}/{f}".encode() + open(f"{at}/{f}", "rb").read())
+    return h.hexdigest()
+
+
+def keep_for_reuse(ids):
+    json.dump({"kind": KIND, "ids": ids, "port": FAKE.port, "look": look()}, open(KEPT, "w"))
+
+
+def reuse():
+    """The spaces of the sandbox that is up, as they are but for what is quick
+    to put back: this repo's mods (which reload live), no overlay, nothing
+    pinned, no other spaces. None when there is none up (or of another size,
+    without those spaces or with their agents in other states)."""
+    if kept().get("kind") != KIND or kept().get("port") != FAKE.port:
+        return None
+    ids = {k: tuple(v) for k, v in kept()["ids"].items()}
+    there = {s["id"]: s for s in json.loads(sb("ls") or "{}").get("spaces", [])}
+    states = {t["terminal"]: t["status"] for s in there.values() for b in s["tabs"] for t in b["terminals"]}
+    if not {v[0] for v in ids.values()} <= set(there) or \
+            [states.get(ids[n][1]) for n in ("working", "blocked", "done")] != ["working", "blocked", "done"]:
+        return None
+    if kept().get("look") != look():
+        subprocess.run([f"{REPO}/install.sh"], env={**os.environ, "HERDR_APP_HOME": HOME}, check=True, stdout=subprocess.DEVNULL)
+        quiet(1)
+        keep_for_reuse(ids)
+    x("mouseup", 1)
+    for sid in set(there) - {v[0] for v in ids.values()}:
+        do("space.close", {"id": sid, "confirmed": True})
+    do("space.select", {"id": ids["shown"][0]})
+    for _ in range(4):
+        if not overlays():
+            break
+        x("key", "Escape")
+        wait(lambda: not overlays(), 0.5)
+    if shared().get("orbit.pinned"):
+        tab = do("tab.new", {"mod": "regress-reset"}).get("tab")
+        wait(lambda: not shared().get("orbit.pinned"))
+        do("tab.close", {"id": tab, "confirmed": True})
+    quiet()
+    return ids
+
+
 def setup():
     sb("down")
     os.makedirs(HOME, exist_ok=True)
@@ -203,26 +307,51 @@ def setup():
                "orbit.update.api": FAKE.url},
               open(f"{HOME}/shared.json", "w"))
     json.dump({"zoom": ZOOM, "telemetry": False}, open(f"{HOME}/settings.json", "w"))
+    # Herdr's "What's new" already seen: it would cover the window.
+    version = subprocess.run([os.environ.get("HERDR_APP_BIN", "herdr-app"), "--version"], capture_output=True, text=True).stdout.split()[-1:]
+    if version:
+        json.dump({"last_run": version[0], "presented": version}, open(f"{HOME}/update-notes.json", "w"))
+    os.makedirs(f"{HOME}/mods/regress-reset", exist_ok=True)
+    open(f"{HOME}/mods/regress-reset/main.js", "w").write(RESET)
+    open(f"{HOME}/mods/regress-reset/mod.json", "w").write('{ "place": "none" }')
     sb("up", check=True)
-    time.sleep(2)
-    do("space.new", {"name": "first", "folder": "/tmp"})
-    time.sleep(2)
-    click(W - 37 * ZOOM, H - 34 * ZOOM)
-    away()
-    do("space.close", {})
-    time.sleep(1)
+    quiet(0.5)
+    return spaces()
+
+
+def report(term, state):
+    """The pretend agent (tools/report-state.sh) in that terminal reports it."""
+    sb("hc", "keys", term, *state, "enter")
+    wait(lambda: f'"state":"{state}"' in sb("hc", "get", term))
+
+
+def notifications(which):
+    do("orbit.settings " + json.dumps({"notify": which}))
+    wait(lambda: shared().get("orbit.settings", {}).get("notify") == which)
+
+
+def spaces():
+    """The five spaces, three with an agent: at work, blocked, and one that
+    finished unseen. Only "shown" is looked at."""
     ids = {}
     for n in ["idle", "working", "blocked", "done", "shown"]:
-        r = do("space.new", {"name": n, "folder": "/tmp"})
+        argv = {} if n == "shown" else {"argv": [f"{REPO}/tools/report-state.sh"]}
+        r = do("space.new", {"name": n, "folder": "/tmp", **argv})
         ids[n] = (r.get("space"), r.get("terminal"))
-    time.sleep(1.5)
-    report = {"working": "working", "blocked": "blocked", "done": "working"}
-    for n, st in report.items():
-        sb("hc", "send", ids[n][1], f"printf '\\033]7501;state={st}\\007'")
-    time.sleep(1)
-    sb("hc", "send", ids["done"][1], "printf '\\033]7501;state=idle\\007'")
-    do("space.select", {"id": ids["shown"][0]})
-    time.sleep(1.5)
+    notifications("errors")  # no toast for the one that finishes
+    select(ids["shown"][0])
+    report(ids["blocked"][1], "blocked")
+    if wait(overlays, 2):  # its toast: a click closes it (and goes there)
+        click(W - 60 * ZOOM, H - 50 * ZOOM)
+        wait(lambda: not overlays())
+        away()
+    select(ids["shown"][0])
+    report(ids["working"][1], "working")
+    report(ids["done"][1], "working")
+    report(ids["done"][1], "idle")
+    quiet()
+    notifications("all")
+    keep_for_reuse(ids)
     return ids
 
 
@@ -231,6 +360,20 @@ def grab(name):
     from PIL import Image
     shot(name)
     return Image.open(f"{OUT}/{name}.png").convert("RGB")
+
+
+def still(name, box=None, timeout=3.0):
+    """A shot once two in a row are the same there (logical `box`; the whole
+    window above the bar without one: the bar's figures never hold still)."""
+    box = [int(v * SCALE) for v in box or (0, 8, W, bar_y() - 22 * ZOOM)]
+    end, last = time.time() + timeout, None
+    while True:
+        img = grab(name)
+        part = img.crop(box).tobytes()
+        if part == last or time.time() > end:
+            return img
+        last = part
+        time.sleep(0.1)
 
 
 def opened_rect(before, after, anchor=None):
@@ -279,11 +422,10 @@ def placed_above(scenario, what, rect, anchor, width):
 
 
 def popup(ids):
-    for _ in range(6):
+    for _ in range(10):
         _, p = cards()
         if all(w in p for w in ["cpu", "ram", "disk"]):
             break
-        time.sleep(2)
     for w in ["cpu", "ram", "disk"]:
         if w not in p:
             check("popup", f"{w} widget found", False, "not probed")
@@ -294,25 +436,29 @@ def popup(ids):
         click(*centre(p[w]))
         check("popup", f"{w} opens", wait(lambda: overlays() == ["orbit-dialogs"]), str(overlays()))
         away()
-        time.sleep(1.5)
-        rects[w] = opened_rect(before, grab(f"popup-{w}"), p[w])
+        quiet()
+        rects[w] = opened_rect(before, still(f"popup-{w}"), p[w])
         placed_above("popup", w, rects[w], p[w], 300)
         click(*centre(p[w]))
         check("popup", f"{w}: a second click closes it", wait(lambda: overlays() == []), str(overlays()))
-        time.sleep(0.4)
+        quiet()
     cx, cy = centre(p["cpu"])
+    edge = lambda img: img.getpixel((int((p["cpu"]["x"] + 3) * SCALE), int(cy * SCALE)))
+    away()
+    quiet()
+    plain = edge(grab("popup-plain"))
     click(cx, cy)
     wait(lambda: overlays() == ["orbit-dialogs"])
-    time.sleep(1.5)
+    quiet()
     r = rects["cpu"]
     if r:
         moves = []
         for yy in range(int(r["y"]) + 4, int(r["y"] + r["height"]) - 2, 6):
-            for xx in range(int(r["x"]) + 6, int(r["x"] + r["width"]) - 6, 14):
+            for xx in range(int(r["x"]) + 6, int(r["x"] + r["width"]) - 6, 40):
                 moves += ["mousemove", "--window", win(), xx, yy]
         for i in range(0, len(moves), 400):
             x(*moves[i:i + 400])
-        time.sleep(0.5)
+        quiet()
         st = shared().get("orbit.probe.stat", {})
         rows = [st.get(f"core:{n}") for n in range(CORES)]
         missing = [n for n, b in enumerate(rows) if not b]
@@ -320,15 +466,18 @@ def popup(ids):
         check("popup", f"cpu: all {CORES} cores' rows, none cut", not missing and not cut, f"missing {missing}, cut {cut}")
     click(cx, cy)
     wait(lambda: overlays() == [])
-    time.sleep(0.4)
+    quiet()
     click(cx, cy)
     wait(lambda: overlays() == ["orbit-dialogs"])
     click(W / 2, 200)
+    away()
     check("popup", "a click beside closes", wait(lambda: overlays() == []), str(overlays()))
-    time.sleep(1.8)
+    # (orbit-status sees that at its next sample, 1.5 s after the opening at
+    # the earliest: the widget's own background goes.)
+    wait(lambda: edge(grab("popup-closed")) == plain, 6)
     click(cx, cy)
     check("popup", "then one click opens it again", wait(lambda: overlays() == ["orbit-dialogs"]), str(overlays()))
-    time.sleep(0.6)
+    quiet()
     if r:
         click(r["x"] + r["width"] - 50 * ZOOM, r["y"] + 24 * ZOOM)
     mods = lambda: [m for m in shared().get("orbit.sides", {}).get("mods", []) if (m.get("props") or {}).get("stat") == "cpu"]
@@ -350,19 +499,18 @@ def menu_click(card, item=0, scenario=None):
     """Right-clicks a card and picks the menu's item; with `scenario`, also
     checks the menu opened just above that card."""
     away()
-    time.sleep(0.3)
-    before = grab("menu-0")
+    quiet()
+    before = still("menu-0")
     click(*centre(card), button=3)
     wait(lambda: overlays() == ["orbit-dialogs"])
     away()
-    time.sleep(0.5)
-    r = opened_rect(before, grab("menu"), card)
+    r = opened_rect(before, still("menu"), card)
     if scenario:
         placed_above(scenario, "its menu", r, card, 160)
     if r:
         click(r["x"] + 40, r["y"] + (5 + 15 + 31 * item) * ZOOM)
     wait(lambda: overlays() == [])
-    time.sleep(0.3)
+    quiet()
 
 
 def pin(ids):
@@ -415,15 +563,14 @@ def drag(ids):
 def settings(ids):
     mine = lambda: [m for m in shared().get("orbit.sides", {}).get("mods", [])
                     if (m.get("props") or {}).get("dialog") == "settings" and m.get("space") == ids["shown"][0]]
-    do("space.select", {"id": ids["shown"][0]})
-    time.sleep(0.8)
+    select(ids["shown"][0])
     do("orbit.settings")
     check("settings", "opens in the right pane", wait(mine), json.dumps(shared().get("orbit.sides", {}).get("mods")))
     check("settings", "titled Orbit look settings", [m.get("title") for m in mine()] == ["Orbit look settings"], str(mine()))
     check("settings", "not an overlay", overlays() == [], str(overlays()))
     shot("settings")
     do("orbit.settings")
-    time.sleep(1.5)
+    quiet(0.6)
     check("settings", "again: still one", len(mine()) == 1, str(mine()))
 
 
@@ -462,20 +609,22 @@ def padding(ids):
     cell_w, cell_h = 0.65 * 14 * ZOOM, 1.15 * 1.3 * 14 * ZOOM
     gaps = {}
     try:
-        time.sleep(2)
         for d in ["compact", "default", "comfortable"]:
             do(f'orbit.settings {json.dumps({"density": d})}')
             wait(lambda: shared().get("orbit.look", {}).get("padding") == list(PADDING[d]), 5)
-            time.sleep(1.5)
+            quiet()
             pad_x = PADDING[d][0] * ZOOM
             settled = lambda g: g if g and min(g.values()) >= 0 and g["right"] <= line + pad_x + cell_w + 1 else None
-            g = wait(lambda: settled(cell_gaps(f"padding-{d}")), 8) or cell_gaps(f"padding-{d}")
+            # (Twice the same: the window has drawn the new padding.)
+            twice = lambda: (lambda a: a if a and a == settled(cell_gaps(f"padding-{d}")) else None)(settled(cell_gaps(f"padding-{d}")))
+            fresh = lambda: (lambda g: g if g and g not in gaps.values() else None)(twice())
+            g = wait(fresh, 8) or cell_gaps(f"padding-{d}")
             gaps[d] = g
     finally:
         do(f'orbit.settings {json.dumps({"density": "comfortable"})}')
         if sid:
             do("space.close", {"id": sid, "confirmed": True})
-        time.sleep(1)
+        quiet()
     said = json.dumps({d: g and {k: round(v, 1) for k, v in g.items()} for d, g in gaps.items()}) + f" (zoom {ZOOM})"
     check("padding", "the filled terminal shows at every density", all(gaps.values()), said)
     if not all(gaps.values()):
@@ -513,7 +662,7 @@ export default class Notifier extends View {
   init() {
     const p = props() ?? {};
     if (p.set) run(`orbit.settings ${JSON.stringify({ notify: p.set })}`);
-    if (p.level) notify({ title: `${p.level} toast`, body: `a ${p.level} notification from the regression suite`, level: p.level, timeout: 5000 });
+    if (p.level) notify({ title: `${p.level} toast`, body: `a ${p.level} notification from the regression suite`, level: p.level, timeout: 1500 });
   }
   render() { return div().size_full().child("notifier"); }
 }
@@ -539,29 +688,39 @@ def terminal(ids):
     os.makedirs(f"{HOME}/mods/regress-set", exist_ok=True)
     open(f"{HOME}/mods/regress-set/main.js", "w").write(SETTER)
     open(f"{HOME}/mods/regress-set/mod.json", "w").write('{ "place": "none" }')
-    do("space.select", {"id": ids["shown"][0]})
-    time.sleep(0.8)
+    select(ids["shown"][0])
     root = lambda: json.load(open(f"{HOME}/layouts/orbit.json"))
     check("terminal", "the layout names no font or size", not {"font", "font_size"} & set(root()), str(sorted(root())))
 
     def change(c):
         r = do("tab.new", {"mod": "regress-set", "props": {"change": c}})
-        time.sleep(0.5)
+        quiet()
         if r.get("tab"):
             do("tab.close", {"id": r["tab"], "confirmed": True})
-        time.sleep(0.8)
+        quiet()
 
-    def terms(name):
-        time.sleep(1.2)
-        return grab(name).crop((int(420 * ZOOM * SCALE), 0, int(W * SCALE), int((H - 60 * ZOOM) * SCALE)))
+    def terms(name, other=None):
+        """The panes, still; with `other`, once they are not as in it (or
+        that takes too long)."""
+        box = (420 * ZOOM, 0, W, H - 60 * ZOOM)
+        crop = lambda: still(name, box).crop([int(v * SCALE) for v in box])
+        img = crop()
+        end = time.time() + 2
+        while other and same(img, other) and time.time() < end:
+            img = crop()
+        return img
 
     def same(a, b):
         from PIL import ImageChops
         return ImageChops.difference(a, b).getbbox() is None
 
+    # (Its cursor hidden: it blinks, the window has the keyboard.)
+    sb("hc", "send", ids["shown"][1], "printf '\\033[?25l'")
     for i in range(4):
         sb("hc", "send", ids["shown"][1], f"echo line {i} of the regression suite's terminal text")
+    wait(lambda: "line 3" in sb("hc", "read", ids["shown"][1]))
     default = terms("terminal-default")
+    shown = default
     for op in [1, 0]:
         c = {"opacity": op}
         change(c)
@@ -569,18 +728,21 @@ def terminal(ids):
         check("terminal", f"{json.dumps(c)}: written", wait(lambda: got() == op), str(got()))
         ok, v = installed_ok()
         check("terminal", f"{json.dumps(c)}: still hashes as installed", ok and v == INSTALLED, str(v))
-        img = terms(f"terminal-opacity-{op}")
+        img = terms(f"terminal-opacity-{op}", shown)
+        shown = img
         check("terminal", f"{json.dumps(c)}: {'as before' if op == 0 else 'shows'}", same(img, default) == (op == 0))
 
     base = json.load(open(f"{HOME}/settings.json"))
-    def fonts(extra, name):
+    def fonts(extra, name, other=None):
         json.dump({**base, **extra}, open(f"{HOME}/settings.json", "w"))
-        return terms(name)
+        time.sleep(0.5)  # nothing says the app has read it when it changes nothing
+        return terms(name, other)
     check("terminal", "settings.json JetBrains Mono 14: as the default (0.5.0's)",
           same(fonts({"font": "JetBrains Mono", "font_size": 14}, "terminal-font-14"), default))
     check("terminal", "settings.json Geist Mono 20: applies",
-          not same(fonts({"font": "Geist Mono", "font_size": 20}, "terminal-font-20"), default))
+          not same(fonts({"font": "Geist Mono", "font_size": 20}, "terminal-font-20", default), default))
     json.dump(base, open(f"{HOME}/settings.json", "w"))
+    sb("hc", "send", ids["shown"][1], "printf '\\033[?25h'")
 
 
 def toast(ids):
@@ -588,12 +750,11 @@ def toast(ids):
     open(f"{HOME}/mods/regress-notify/main.js", "w").write(NOTIFIER)
     open(f"{HOME}/mods/regress-notify/mod.json", "w").write('{ "place": "none" }')
     check("toast", "the layout names orbit-toast", json.load(open(f"{HOME}/layouts/orbit.json")).get("toast") == "orbit-toast")
-    do("space.select", {"id": ids["shown"][0]})
-    time.sleep(0.8)
+    select(ids["shown"][0])
 
     def run_mod(props, then=lambda: None):
         r = do("tab.new", {"mod": "regress-notify", "props": props})
-        time.sleep(0.5)
+        quiet(0.2)
         then()
         if r.get("tab"):
             do("tab.close", {"id": r["tab"], "confirmed": True})
@@ -606,11 +767,10 @@ def toast(ids):
         for level in LEVELS:
             wait(lambda: not toasts(), 8)
             def look():
-                shown = bool(wait(toasts, 1.0))
+                shown = bool(wait(toasts, 0.7))
                 want = setting == "all" or level == "error"
                 check("toast", f"{setting}: {level} {'shows' if want else 'closes at once'}", shown == want, str(overlays()))
-                time.sleep(1.5)
-                shot(f"toast-{setting}-{level}")
+                still(f"toast-{setting}-{level}")
             run_mod({"level": level}, look)
     wait(lambda: not toasts(), 8)
     run_mod({"set": "all"})
@@ -621,25 +781,21 @@ def keep(ids):
     os.makedirs(f"{HOME}/mods/regress-counter", exist_ok=True)
     open(f"{HOME}/mods/regress-counter/main.js", "w").write(COUNTER)
     open(f"{HOME}/mods/regress-counter/mod.json", "w").write('{ "place": "none" }\n')
-    time.sleep(1.5)
+    time.sleep(0.5)  # the app finds it
     a, b = ids["shown"][0], ids["working"][0]
-    do("space.select", {"id": a})
-    time.sleep(1)
+    select(a)
     run_name = "orbit.new-mod " + json.dumps({"space": a, "side": "right", "title": "counter", "mod": "regress-counter", "props": {"tag": "A"}})
-    sb("do", run_name)
     inits = lambda: shared().get("regress.inits", {}).get("A", 0)
-    check("keep", "the mod starts in the right pane", wait(lambda: inits() >= 1, 5), str(shared().get("regress.inits")))
-    time.sleep(2)
+    before = inits()
+    sb("do", run_name)
+    check("keep", "the mod starts in the right pane", wait(lambda: inits() > before, 5), str(shared().get("regress.inits")))
+    quiet(1)
     start = inits()
     for target in [b, a, b, a]:
-        do("space.select", {"id": target})
-        time.sleep(1.5)
+        select(target)
     check("keep", "A -> B -> A twice: it never starts again", inits() == start, f"inits {start} -> {inits()}")
-    pinned_ids = [ids["blocked"][0]]
-    do("space.select", {"id": ids["blocked"][0]})
-    time.sleep(1.5)
-    do("space.select", {"id": a})
-    time.sleep(1.5)
+    select(ids["blocked"][0])
+    select(a)
     check("keep", "to another space and back: still the same copy", inits() == start, f"inits {start} -> {inits()}")
     shot("keep")
 
@@ -652,19 +808,13 @@ def split(ids):
     os.makedirs(f"{HOME}/mods/regress-counter", exist_ok=True)
     open(f"{HOME}/mods/regress-counter/main.js", "w").write(COUNTER)
     open(f"{HOME}/mods/regress-counter/mod.json", "w").write('{ "place": "none" }\n')
-    time.sleep(1.5)
+    time.sleep(0.5)  # the app finds it
     a, b, other = ids["shown"][0], ids["working"][0], ids["blocked"][0]
     left = lambda: (shared().get("orbit.places", {}).get("left-tabs") or {}).get("width", 0)
     def still():
         """The left pane's width once it holds still (a drag settles)."""
-        last = None
-        for _ in range(10):
-            now = left()
-            if now == last:
-                return now
-            last = now
-            time.sleep(1)
-        return last
+        quiet(0.5, 10)
+        return left()
     def drag_by(dx):
         pl = shared().get("orbit.places", {})
         l, r = pl.get("left-tabs"), pl.get("right-tabs")
@@ -681,12 +831,10 @@ def split(ids):
         away()
         return True
     for sp, tag in [(a, "A"), (b, "B"), (other, "C")]:
-        do("space.select", {"id": sp})
-        time.sleep(1)
+        select(sp)
         sb("do", "orbit.new-mod " + json.dumps({"space": sp, "side": "right", "title": "split", "mod": "regress-counter", "props": {"tag": "split" + tag}}))
-        time.sleep(1.5)
-    do("space.select", {"id": a})
-    time.sleep(1.5)
+        quiet(0.5)
+    select(a)
     base = left()
     check("split", "both panes shown", wait(lambda: drag_by(60), 3), str(shared().get("orbit.places")))
     wait(lambda: left() > base + 40, 6)
@@ -694,7 +842,7 @@ def split(ids):
     near = lambda want: wait(lambda: abs(left() - want) <= 2, 6)
     do("space.select", {"id": b})
     check("split", "a space never resized has the split it had", near(base), f"{left()} vs {base}")
-    time.sleep(1)
+    quiet()
     drag_by(-60)
     wait(lambda: left() < base - 40, 6)
     narrow = still()
@@ -709,25 +857,22 @@ def split(ids):
     check("split", "A -> B -> A: each keeps its own", all(v[0] for v in seen), f"{seen} B after its drag: {at_b}")
     do("space.select", {"id": other})
     check("split", "another space, never resized: the split it had", near(base), f"{left()} vs {base}")
-    do("space.select", {"id": a})
-    time.sleep(1.5)
+    select(a)
     shot("split")
 
 
 def symbols(ids):
     """Each card's symbol against the sidebar's, per state. The idle case: an
-    agent that reports idle, as a finished one is once seen (the sandbox's
-    window never has the focus herdr counts a look by), in the shown space so
-    it has a card."""
+    agent that reports idle, as a finished one is once seen, in the shown
+    space so it has a card."""
     ansi = json.load(open(f"{HOME}/themes/tokyo-night.json"))["ansi"]
     cases = [("working", "working", ansi[3]), ("blocked", "blocked", ansi[1]), ("done", "done (finished, not seen)", ansi[2]),
              ("shown", "no agent", None), ("idle", "idle (finished and seen)", None)]
-    sb("hc", "send", ids["idle"][1], "printf '\\033]7501;state=idle\\007'")
-    time.sleep(1)
+    report(ids["idle"][1], "idle")
+    quiet()
     for name, what, fill in cases:
         if name == "idle":
-            do("space.select", {"id": ids["idle"][0]})
-            time.sleep(2)
+            select(ids["idle"][0])
         sid = ids[name][0]
         syms = shared().get("orbit.probe.symbols", {})
         bar, side = syms.get(f"taskbar:{sid}"), syms.get(f"sidebar:{sid}")
@@ -736,8 +881,7 @@ def symbols(ids):
         ok = got is None if fill is None else (got or "").lower()[:7] == fill.lower()[:7]
         check("symbols", f"{what}: {'empty' if fill is None else 'filled ' + fill}", bar is not None and ok, f"{bar}")
     shot("symbols")
-    do("space.select", {"id": ids["shown"][0]})
-    time.sleep(1)
+    select(ids["shown"][0])
 
 
 def tabs(ids):
@@ -749,14 +893,12 @@ def tabs(ids):
     seen = {}
     for name in ["shown", "blocked"]:
         sid = ids[name][0]
-        do("space.select", {"id": sid})
-        time.sleep(1)
+        select(sid)
         sb("do", "orbit.new-mod " + json.dumps({"space": sid, "side": "right", "title": "memory", "mod": "orbit-dialogs",
                                                  "props": {"dialog": "stat", "stat": "ram"}}))
-        time.sleep(1.5)
+        quiet(0.5)
     for name in ["shown", "blocked", "shown", "blocked"]:
-        do("space.select", {"id": ids[name][0]})
-        time.sleep(1.5)
+        select(ids[name][0])
         c = {k: (v or "").lower() for k, v in colors().items()}
         band = c.get("space", "")[:7] + "29"
         check("tabs", f"{name}: the sidebar's and the taskbar's accent is the space's colour",
@@ -766,8 +908,7 @@ def tabs(ids):
         seen[name] = c.get("space")
     check("tabs", "the two spaces' colours differ (the test means something)", seen["shown"] != seen["blocked"], str(seen))
     shot("tabs")
-    do("space.select", {"id": ids["shown"][0]})
-    time.sleep(1)
+    select(ids["shown"][0])
 
 
 def identity(ids):
@@ -790,11 +931,14 @@ def identity(ids):
     made = {}
     for name, folder in [("app here", "app"), ("app there", "elsewhere/app-clone"), ("app fix", "app-fix"),
                          ("notes", "notes"), ("notes draft", "notes-draft"), ("other", "other")]:
-        made[name] = do("space.new", {"name": name, "folder": f"{base}/{folder}"}).get("space")
+        # (One at a time: a lookup that ends drops those of spaces made since it
+        # began, mods/orbit/identity.js.)
+        sid = made[name] = do("space.new", {"name": name, "folder": f"{base}/{folder}"}).get("space")
+        wait(lambda: sid in shared().get("orbit.git", {}), 5)
     look = lambda: shared().get("orbit.identity", {})
     have = lambda: all("origin" in (shared().get("orbit.git", {}).get(sid) or {}) for sid in made.values())
     check("identity", "every new space's repo looked up", wait(have, 15), json.dumps({k: shared().get("orbit.git", {}).get(v) for k, v in made.items()}))
-    time.sleep(1)
+    quiet(0.5)
     idt = {k: look().get(v) for k, v in made.items()}
     same = lambda a, b: idt[a] is not None and idt[a] == idt[b]
     check("identity", "same repo, another place (another machine): same colour and symbol", same("app here", "app there"), str(idt))
@@ -802,8 +946,8 @@ def identity(ids):
     check("identity", "without an origin, a worktree and its main checkout: same", same("notes", "notes draft"), str(idt))
     check("identity", "another repo: its own", idt["other"] is not None and idt["other"] != idt["app here"], str(idt))
     for sid in made.values():
-        do("space.close", {"id": sid})
-    time.sleep(1)
+        do("space.close", {"id": sid, "confirmed": True})
+    quiet()
 
 
 
@@ -848,8 +992,13 @@ class FakeGitHub:
                 self.wfile.write(body)
             def log_message(self, *a):
                 pass
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), H)
-        self.url = f"http://127.0.0.1:{self.server.server_address[1]}/repos/Calonca/herdr-orbit-look/releases/latest"
+        # The port the running sandbox asks (--reuse), else any.
+        try:
+            self.server = ThreadingHTTPServer(("127.0.0.1", kept().get("port", 0)), H)
+        except OSError:
+            self.server = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        self.port = self.server.server_address[1]
+        self.url = f"http://127.0.0.1:{self.port}/repos/Calonca/herdr-orbit-look/releases/latest"
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
     def answer(self, tag, bullets=("one", "two", "three", "four")):
@@ -903,17 +1052,19 @@ def update_state():
         return {}
 
 
-def check_now(tag=None):
-    """The fake answers `tag`; the orbit mod looks now (orbit.update-check)."""
+def check_now(tag=None, timeout=5):
+    """The fake answers `tag`; the orbit mod looks now (orbit.update-check):
+    whether it asked."""
     n = len(FAKE.hits)
     if tag:
         FAKE.answer(tag)
     sb("do", "orbit.update-check {}")
-    wait(lambda: len(FAKE.hits) > n, 5)
+    if not wait(lambda: len(FAKE.hits) > n, timeout):
+        return False
     want = FAKE.release and FAKE.release["tag_name"]
-    wait(lambda: len(FAKE.hits) > n and (update_state().get("latest") or {}).get("tag") == want, 5)
-    time.sleep(1)
-    return len(FAKE.hits) > n
+    wait(lambda: (update_state().get("latest") or {}).get("tag") == want, 5)
+    quiet(0.3)
+    return True
 
 
 def card_point(r, what):
@@ -929,9 +1080,7 @@ def card_point(r, what):
 
 
 def clipboard():
-    num = 100 + int(subprocess.run(["cksum"], input=NAME, capture_output=True, text=True).stdout.split()[0]) % 400
-    r = subprocess.run(["xsel", "-o", "-b"], env={**os.environ, "DISPLAY": f":{num}"}, capture_output=True, text=True, timeout=5)
-    return r.stdout
+    return sb("clipboard")
 
 
 def set_updates(on):
@@ -951,8 +1100,7 @@ def update(ids):
     check("update", "after the other scenarios the look hashes as installed (the layout the orbit mod rewrote too)", ok and v == INSTALLED, f"{ok} {v}")
     src = open(f"{REPO}/mods/orbit-status/main.js").read()
     check("update", "the status bar has no update pill", "update ready" not in src and "updates()" not in src)
-    do("space.select", {"id": ids["shown"][0]})
-    time.sleep(0.8)
+    select(ids["shown"][0])
 
     hit = check_now(f"v{INSTALLED}")
     check("update", "it asks the (fake) API", hit, f"{len(FAKE.hits)} requests")
@@ -967,8 +1115,7 @@ def update(ids):
     r = wait(lambda: (card() or {}).get("tag") == newer(1) and card(), 5)
     check("update", f"a newer release ({newer(1)}): the card shows", r and r.get("tag") == newer(1) and "orbit-dialogs" in (overlays() or []),
           f"{r} {overlays()}")
-    time.sleep(1)
-    shot("update-card")
+    still("update-card")
     st = update_state()
     check("update", "its notes: all the bullets, plain", (st.get("latest") or {}).get("notes") == ["one. detail one", "two. detail two", "three. detail three", "four. detail four"], json.dumps(st))
     if r:
@@ -980,27 +1127,27 @@ def update(ids):
     os.makedirs(f"{HOME}/mods/regress-notify", exist_ok=True)
     open(f"{HOME}/mods/regress-notify/main.js", "w").write(NOTIFIER)
     open(f"{HOME}/mods/regress-notify/mod.json", "w").write('{ "place": "none" }')
-    time.sleep(0.5)
+    quiet(0.5)
     t = do("tab.new", {"mod": "regress-notify", "props": {"level": "info"}})
     moved = wait(lambda: card() and r and card()["y"] < r["y"] - 70 * ZOOM, 3)
     top_toast = H - (16 + 34 + 8 + 72) * ZOOM
     check("update", "a toast: the card moves up, clear of it", moved and card()["y"] + card()["h"] * ZOOM <= top_toast - 4,
           f"{card()} toast top {top_toast}")
-    time.sleep(1)
-    shot("update-card-toast")
+    still("update-card-toast")
     if t.get("tab"):
         do("tab.close", {"id": t["tab"], "confirmed": True})
     back = wait(lambda: card() and r and abs(card()["y"] - r["y"]) < 2, 12)
     check("update", "the toast gone: the card back in its place", back, f"{card()} was {r}")
 
     sb("do", "orbit.settings " + json.dumps({"density": "compact"}))
-    time.sleep(1.5)
-    shot("update-card-compact")
+    wait(lambda: card() and r and abs(card()["y"] - r["y"]) > 1, 2)
+    quiet()
+    still("update-card-compact")
     c = card()
     check("update", "compact: still clear of Herdr's pill", c and c["y"] + c["h"] * ZOOM <= herdr_pill() - 4, f"{c} pill top {herdr_pill()}")
     sb("do", "orbit.settings " + json.dumps({"density": "comfortable"}))
     c = wait(lambda: card() and r and abs(card()["y"] - r["y"]) < 2 and card(), 5)
-    time.sleep(0.5)
+    quiet()
 
     if c:
         click(*card_point(c, "close"))
@@ -1018,8 +1165,8 @@ def update(ids):
         click(*card_point(c, "first"))
     done = wait(lambda: (card() or {}).get("mode") == "updated", 20)
     check("update", "\"update\" downloads the release once", len(FAKE.downloads) == n + 1, str(FAKE.downloads))
-    time.sleep(2)
-    shot("update-updated")
+    quiet(0.5)
+    still("update-updated")
     ok, v = installed_ok()
     check("update", "\"update\" replaces the look: the new version, as recorded", ok and v == newer(2).lstrip("v")
           and f"// release {newer(2)}" in open(f"{HOME}/mods/orbit-status/main.js").read(), f"{ok} {v}")
@@ -1035,7 +1182,7 @@ def update(ids):
         click(*card_point(c, "first"))
     back = wait(lambda: installed_ok() == (True, INSTALLED), 20)
     check("update", "\"undo\" puts the old copy back", back and "// release" not in open(f"{HOME}/mods/orbit-status/main.js").read(), str(installed_ok()))
-    time.sleep(3)
+    quiet(1)
     check("update", "after undo: no card for that release", wait(lambda: not card(), 5), str(card()))
     shot("update-undone")
 
@@ -1051,15 +1198,13 @@ def update(ids):
     check("update", "a changed copy: the card says so, nothing replaced, nothing downloaded",
           err and installed_ok()[1] != newer(3).lstrip("v") and "// my own change" in open(path).read() and len(FAKE.downloads) == n,
           f"{card()} {installed_ok()} {FAKE.downloads}")
-    time.sleep(1)
-    shot("update-changed")
+    still("update-changed")
     if err:
         click(*card_point(err, "first"))
     got = wait(lambda: newer(3) in clipboard() and clipboard(), 5) or clipboard()
     check("update", "\"copy update prompt\" copies the prompt", newer(3) in got and got.startswith("Read ~/.config/herdr-app/AGENTS.md")
           and "keep those changes" in got, repr(got))
-    time.sleep(0.5)
-    shot("update-copied")
+    still("update-copied")
     open(path, "w").write(original)
     c = card()
     if c:
@@ -1074,13 +1219,13 @@ def update(ids):
     check("update", "\"stop notifications\": the card goes, the setting is off",
           wait(lambda: not card() and shared().get("orbit.settings", {}).get("updates") is False, 4),
           f"{card()} {shared().get('orbit.settings')}")
-    check("update", "off: no request", not check_now(newer(5)), f"{len(FAKE.hits)} requests")
+    check("update", "off: no request", not check_now(newer(5), 2), f"{len(FAKE.hits)} requests")
     check("update", "off: still no card", not card(), str(card()))
     set_updates(True)
     check("update", "on again (the settings row): it asks, and the card is back", check_now() and wait(card, 3), str(card()))
     sb("do", "orbit.settings")
-    time.sleep(1.5)
-    shot("update-settings")
+    quiet(0.5)
+    still("update-settings")
     c = card()
     if c:
         click(*card_point(c, "close"))
@@ -1093,13 +1238,11 @@ def update(ids):
     check("update", "long notes: all kept", (update_state().get("latest") or {}).get("notes") == [f"{l}. detail {l}" for l in long], json.dumps(update_state()))
     check("update", "long notes: six rows on the card, a taller card", c and c.get("lines") == 6 and c["h"] == 14 + 20 + 4 + 18 * 6 + 12 + 28 + 14, str(c))
     check("update", "long notes: still clear of Herdr's pill", c and c["y"] + c["h"] * ZOOM <= herdr_pill() - 4, f"{c} pill top {herdr_pill()}")
-    time.sleep(1)
-    shot("update-long-notes")
+    still("update-long-notes")
     if c:
         for _ in range(6):
             click(c["x"] + 140 * ZOOM, c["y"] + (14 + 20 + 4 + 50) * ZOOM, 5)
-        time.sleep(0.8)
-        shot("update-long-notes-scrolled")
+        still("update-long-notes-scrolled")
 
     FAKE.refuse = True
     n = len(FAKE.downloads)
@@ -1110,14 +1253,12 @@ def update(ids):
     check("update", "a refused download: an error card, nothing downloaded or replaced",
           err and len(FAKE.downloads) == n and installed_ok() == (True, INSTALLED), f"{card()} {FAKE.downloads} {installed_ok()}")
     check("update", "the error wraps over more than one row", err and err.get("lines", 0) >= 2, str(err))
-    time.sleep(1)
-    shot("update-download-error")
+    still("update-download-error")
     if err:
         click(*card_point(err, "second"))
     got = wait(lambda: newer(6) in clipboard() and clipboard(), 5) or clipboard()
     check("update", "a download error: \"copy update prompt\" copies the prompt", newer(6) in got and "failed" in got and "keep those changes" not in got, repr(got))
-    time.sleep(0.5)
-    shot("update-download-copied")
+    still("update-download-copied")
     c = card()
     if c:
         click(*card_point(c, "close"))
@@ -1133,13 +1274,13 @@ def update_pill(ids):
     nxt = f"v{MAJOR}.{MINOR + 9}.0"
     json.dump({"last_run": "0.0.1", "presented": []}, open(f"{HOME}/update-notes.json", "w"))
     sb("restart", check=True)
-    time.sleep(4)
+    quiet(1)
     for _ in range(4):
         if check_now(nxt):
             break
     c = wait(lambda: (card() or {}).get("tag") == nxt and card(), 8)
-    time.sleep(1.5)
-    shot("update-pill")
+    quiet()
+    still("update-pill")
     check("update", "Herdr's pill showing: the card above it", c and c["y"] + c["h"] * ZOOM <= herdr_pill() - 4, f"{c} pill top {herdr_pill()}")
 
 
@@ -1150,8 +1291,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-k", default="")
     ap.add_argument("--down", action="store_true")
+    ap.add_argument("--reuse", action="store_true")
     a = ap.parse_args()
-    ids = setup()
+    ids = (a.reuse and reuse()) or setup()
     try:
         for name, f in SCENARIOS:
             if a.k in name:
