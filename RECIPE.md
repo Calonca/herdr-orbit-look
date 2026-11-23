@@ -119,9 +119,14 @@ font and size (the layout names none: settings.json's, else JetBrains Mono
     `spaceSymbol` draws both) and its name (at
     most 150px, cut short); a pinned card then an 11px pin (muted). Cards
     past the bar's room are cut.
-  - Right: cpu, ram and disk, each a 14px icon and a bar 34×6 (corners of 3,
-    on the muted colour at 25%; blue `#7aa2f7`, yellow `#e0af68` from 70%, red
-    `#f7768e` from 90%); the clock (HH:MM).
+  - Right: cpu, ram and disk, side by side with no gap, each 4px in: a 14px
+    icon and, 4px after it, a bar for each machine, one over the other (this
+    computer, then the others of `machines()` by name), 22px wide, 2px apart
+    (1px from four on), 6px tall for one machine, 5 each for two, 4 for three,
+    3 for more, rounded, on the muted colour at 25%; blue `#7aa2f7`, yellow
+    `#e0af68` from 70%, red `#f7768e` from 90%. Another machine is asked every
+    5 s, one `exec` for all three; offline, its bar is empty. The tooltip has
+    a line per machine; the popup is this computer's. Then the clock (HH:MM).
 - **The gap**: the sidebar, the panes, the side panel and the status bar
   stand 14px apart and 14px from the window's edges; under the status bar,
   a 14px block (the `orbit` mod, which draws nothing).

@@ -188,8 +188,9 @@ version 1, two mods go: `orbit-panel-tabs` and `orbit-nothing` (now part of
 - **Status bar** (`orbit-status`): on the left the sidebar toggle, then
   after a thin line the taskbar, then "herdr offline" while the core can't be
   reached and folded tabs; on the right cpu, ram and disk
-  use as small bars (blue, yellow from 70%, red from
-  90%) and the clock.
+  use as small bars, one over the other for each machine (this computer
+  first; empty while a machine is offline), blue, yellow from 70%, red from
+  90%, and the clock. Linux machines only.
   - The taskbar: a card per space that is pinned (in pin order), shown, or
     has agents that finished or wait for you, then those at work (each group
     most recent first). A card is the space's symbol, drawn as the sidebar draws it (filled in
