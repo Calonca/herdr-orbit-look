@@ -3,6 +3,11 @@
 The top entry's bullets are the release notes: `tools/release.sh` publishes
 them, and the look's update card shows them.
 
+## Unreleased
+
+- **A bar for every machine.** cpu, ram and disk in the status bar show a bar for each of your Herdr machines, one over the other: this computer, then the others by name. An offline machine's bar is empty; the tooltip names each.
+- **Smaller meters.** Their bars are shorter (22px, was 34) and sit closer together.
+
 ## 0.5.4
 
 - **The pane outline changes colour all at once.** Its top, both sides and its tab row now follow the keys and the space together; the sides used to lag a few frames behind.

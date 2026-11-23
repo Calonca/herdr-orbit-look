@@ -1,5 +1,5 @@
 import { View, div, svg } from "gpui-kit";
-import { h_flex } from "gpui-base";
+import { h_flex, v_flex } from "gpui-base";
 import { run, theme, layout, spaces, machines, shared, setShared, openOverlay, closeOverlay } from "herdr";
 import { look, glass, spaceLook, spaceSymbol, accentBand, probeColor } from "./look.js";
 import { backdrop, orbitPlace, orbitRadius, zoom, viewport } from "./glass.js";
@@ -8,6 +8,8 @@ import { order, drop, landing } from "./taskbar.js";
 
 const ICONS = "mods/orbit-status/icons";
 const PINNED = "orbit.pinned";
+const METER = 22;
+const METERS = [6, 5, 4];
 
 const POPUPS = {
   cpu: { title: "cpu", width: 300, height: 260 },
@@ -33,9 +35,23 @@ export default class OrbitStatus extends View {
   init(_props, cx) {
     this.sys = new System();
     this.sys.start(cx);
+    this.away = new Map();
+    this.watchMachines(cx);
+    cx.timer.every(1000, (cx) => this.watchMachines(cx));
     this.popup = null;
     this.drag = null;
     this.acx = cx;
+  }
+
+  watchMachines(cx) {
+    const others = machines().filter((m) => m.name !== null);
+    for (const name of [...this.away.keys()]) if (!others.some((m) => m.name === name)) this.away.delete(name);
+    for (const m of others) {
+      if (!this.away.has(m.name)) this.away.set(m.name, new System(m.name));
+      const sys = this.away.get(m.name);
+      if (m.layout === "ready") sys.sampleAway(cx);
+      else if (m.layout === "unavailable") sys.clear();
+    }
   }
 
   above(bounds, w, h) {
@@ -103,11 +119,20 @@ export default class OrbitStatus extends View {
         .on_mouse_move((e) => this.probe(id, e?.bounds))
         .children(children);
     };
-    const meter = (v) => div().w(34).h(6).flex_none().rounded(3).bg(t.muted.slice(0, 7) + "40")
-      .child(div().h_full().rounded(3).w(Math.max(1, Math.round(v * 34))).bg(level(t, v)));
+    const every = [this.sys, ...[...this.away.values()].sort((a, b) => (a.on < b.on ? -1 : 1))];
+    const tall = METERS[every.length - 1] ?? 3;
+    const meter = (v) => div().w(METER).h(tall).flex_none().rounded(tall / 2).bg(t.muted.slice(0, 7) + "40")
+      .when(v !== null, (el) => el.child(div().h_full().rounded(tall / 2).w(Math.max(1, Math.round(v * METER))).bg(level(t, v))));
+    const tipOf = (f) => every.length === 1 ? f(sys)
+      : every.map((s) => `${s.on ?? "local"}: ${f(s) ?? (machines().find((m) => m.name === s.on)?.layout === "unavailable" ? "offline" : "unknown")}`).join("\n");
     const popupOf = (name) => (press, cx) => this.toggle(name, press, { ...POPUPS[name],
       ...(name === "cpu" ? { height: cpuHeight(sys.cores.length) } : {}), props: { dialog: "stat", stat: name } }, cx);
-    const usage = (name, v, tip) => ghost(name, [icon(name), meter(v)], popupOf(name), tip);
+    const usage = (name, use, tip) => {
+      const uses = every.map(use);
+      if (uses.every((v) => v === null)) return [];
+      const bars = v_flex().flex_none().gap(every.length > 3 ? 1 : 2).children(uses.map(meter));
+      return [ghost(name, [icon(name), bars], popupOf(name), tipOf(tip)).px(4).gap(4)];
+    };
     const L = layout();
     const sidebarOpen = find(L, "sidebar")?.hidden !== true;
 
@@ -117,19 +142,15 @@ export default class OrbitStatus extends View {
     const settled = spaces().reduce((n, s) => n + s.tabs.filter((tb) => tb.settled).length, 0);
     if (settled) after.push(text(`${settled} folded`, t.muted));
     const right = [];
-    if (sys.cpu !== null) {
-      const tip = [`total ${pct(sys.cpu)}`];
-      if (sys.load) tip.push(`load  ${sys.load.map((x) => x.toFixed(2)).join(" ")}`);
-      right.push(usage("cpu", sys.cpu, tip.join("\n")));
-    }
-    if (sys.mem) {
-      const m = sys.mem;
-      right.push(usage("ram", m.used / m.total, `used ${bytes(m.used)} of ${bytes(m.total)} (${pct(m.used / m.total)})`));
-    }
-    if (sys.full() !== null) {
-      const d = sys.disk;
-      right.push(usage("disk", sys.full(), `${d.path}: ${bytes(d.free)} free (${pct(sys.full())} full)`));
-    }
+    const stats = [
+      ...usage("cpu", (s) => s.cpu, (s) => s.cpu === null ? null
+        : `total ${pct(s.cpu)}${s.load ? `, load ${s.load.map((x) => x.toFixed(2)).join(" ")}` : ""}`),
+      ...usage("ram", (s) => s.mem && s.mem.used / s.mem.total, (s) => s.mem
+        && `used ${bytes(s.mem.used)} of ${bytes(s.mem.total)} (${pct(s.mem.used / s.mem.total)})`),
+      ...usage("disk", (s) => s.full(), (s) => s.full() === null ? null
+        : `${bytes(s.disk.free)} free on ${s.disk.path} (${pct(s.full())} full)`),
+    ];
+    if (stats.length) right.push(h_flex().flex_none().items_center().children(stats));
     const now = new Date();
     right.push(div().pl(6).child(text(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`)));
 
