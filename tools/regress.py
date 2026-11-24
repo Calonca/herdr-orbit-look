@@ -1250,15 +1250,14 @@ def press_key(name):
 
 
 def type_line(text):
-    sb("x", "windowfocus", win())
-    sb("x", "type", text)
+    x("type", text)
     press_key("Return")
 
 
-def resize_window(w, h):
-    """The sandbox's window, in logical pixels."""
-    sb("x", "windowsize", win(), str(int(w * SCALE)), str(int(h * SCALE)))
-    time.sleep(3)
+def resize_window(*size):
+    """The sandbox's window, in logical pixels; with none, the whole display."""
+    sb("size", *([str(int(v)) for v in size] or ["full"]), check=True)
+    quiet()
     away()
     time.sleep(1)
 
@@ -1339,7 +1338,7 @@ def tabdrag(ids):
         check("tabdrag", "outside the window: it goes back", dragging() is None and overlays() == [], f"{dragging()} {overlays()}")
         drop()
         check("tabdrag", "outside the window: nothing changed", same(), str(rows()))
-        resize_window(W, H)
+        resize_window()
         L, R = rows()["left"], rows()["right"]
         t = L["tabs"][2]
         sx, sy = at_tab(L, t)
