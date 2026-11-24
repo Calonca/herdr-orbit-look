@@ -1,7 +1,7 @@
 import { View, div } from "gpui-kit";
 import { spaces, run, shared, setShared, nextCommand, openOverlay, watchFolder, appHome, theme, layout, focused, panes, readTextFile } from "herdr";
 import { state, leftTabs, rightEntries, entries, shownEntry, LEFT_TAB, FRAME } from "./sides.js";
-import { save, show, showRight, close, closeAsked, cancelAsk, newTerminal, newMod, openPending, dropPending, move, toggleSplit, toggleSidePanel, renameEntry, dropTab } from "./actions.js";
+import { save, show, showRight, giveKeys, close, closeAsked, cancelAsk, newTerminal, newMod, openPending, dropPending, move, toggleSplit, toggleSidePanel, renameEntry, dropTab } from "./actions.js";
 import { apply, closePanelView, renamePanelView, movePanelView, addPanelView, share } from "./layout.js";
 import { find } from "./look.js";
 import { follow } from "./split.js";
@@ -110,6 +110,7 @@ export default class Orbit extends View {
         const e = shownEntry(space, "right");
         if (e?.kind === "term") run("pane.focus", { terminal: e.pane.terminal });
       }
+      this.arrived = true;
     }
     if (Date.now() - this.born > 10000 && ps.length) {
       const live = new Set(ps.map((p) => p.terminal).filter(Boolean));
@@ -152,7 +153,10 @@ export default class Orbit extends View {
       const want = list.find((e) => e.id === st.shown[space.id]) ?? list[0];
       if (rightFrame.hidden) this.once("layout.show", { id: rightFrame.id });
       if (right.active !== want.id && find(L, want.id)) this.once("layout.select", { stack: "right", child: want.id });
+      if (this.arrived && st.focus === "right") giveKeys(want);
     }
+    if (this.arrived && st.focus === "left") giveKeys({ tab: active });
+    this.arrived = false;
     const f = focused();
     let side = null;
     if (f?.pane) side = st.right[ps.find((p) => p.pane === f.pane)?.tab] ? "right" : "left";

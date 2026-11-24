@@ -3,6 +3,10 @@
 The top entry's bullets are the release notes: `tools/release.sh` publishes
 them, and the look's update card shows them.
 
+## Unreleased
+
+- **The keys go to the view you show.** Opening a view, or showing it with its tab, the pane keys, the space switch or the closing of the one over it, gives it the keys, in both panes, if it takes them when asked (`focus` from `nextCommand()`).
+
 ## 0.6.0
 
 - **A bar for every machine.** cpu, ram and disk in the status bar show a bar for each of your Herdr machines, one over the other: this computer, then the others by name. An offline machine's bar is empty; the tooltip names each.
