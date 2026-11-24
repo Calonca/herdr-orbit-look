@@ -1311,7 +1311,8 @@ def tabdrag(ids):
         bar = (R["x"] + edge - 4, R["y"] + R["band"], R["x"] + edge + 12, R["y"] + R["h"] - 4)
         check("tabdrag", "the bar, between that row's tabs", ImageChops.difference(clean.crop(rect(*bar)), held.crop(rect(*bar))).getbbox() is not None, str(bar))
         diff = ImageChops.difference(clean, held).convert("L").point(lambda v: 255 if v > 12 else 0)
-        for box in [(gx0 - 8, L["y"], gx1 + 8, L["y"] + L["h"]), (follow[0] - 2, follow[1] - 2, follow[2] + 2, follow[3] + 2), bar]:
+        # (A row's y is right to half a pixel: the ghost's edge can end a screen pixel lower.)
+        for box in [(gx0 - 8, L["y"], gx1 + 8, L["y"] + L["h"] + 1), (follow[0] - 2, follow[1] - 2, follow[2] + 2, follow[3] + 2), bar]:
             diff.paste(0, rect(*box))
         # The terminals' cursors go hollow while the layer has the keys (the
         # panes' first lines); the bar's figures and clock change by themselves.
