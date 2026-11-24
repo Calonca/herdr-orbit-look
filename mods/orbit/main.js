@@ -1,7 +1,7 @@
 import { View, div } from "gpui-kit";
 import { spaces, run, shared, setShared, nextCommand, openOverlay, watchFolder, appHome, theme, layout, focused, panes, readTextFile } from "herdr";
 import { state, leftTabs, rightEntries, entries, shownEntry, LEFT_TAB, FRAME } from "./sides.js";
-import { save, show, showRight, close, closeAsked, cancelAsk, newTerminal, newMod, openPending, dropPending, move, toggleSplit, toggleSidePanel, renameEntry, reorderRight } from "./actions.js";
+import { save, show, showRight, close, closeAsked, cancelAsk, newTerminal, newMod, openPending, dropPending, move, toggleSplit, toggleSidePanel, renameEntry, dropTab } from "./actions.js";
 import { apply, closePanelView, renamePanelView, movePanelView, addPanelView, share } from "./layout.js";
 import { find } from "./look.js";
 import { follow } from "./split.js";
@@ -41,6 +41,7 @@ export function recent() {
 export default class Orbit extends View {
   init(_props, cx) {
     this.updates = new Updates();
+    if (shared("orbit.drag")) setShared("orbit.drag", null);
     cx.spawn(async (cx) => { try { await this.updates.start(cx); } catch (e) { console.log(`orbit updates: ${e}`); } });
     cx.spawn(async (cx) => { try { await renameTheme(cx); } catch (e) { console.log(`orbit: ${e}`); } });
     // Both loops use cx each time round: herdr ends a loop at its next cx use
@@ -115,8 +116,10 @@ export default class Orbit extends View {
       const ids = new Set(spaces().map((s) => s.id));
       const right = Object.fromEntries(Object.entries(st.right).filter(([, term]) => live.has(term)));
       const mods = st.mods.filter((m) => ids.has(m.space));
-      if (Object.keys(right).length !== Object.keys(st.right).length || mods.length !== st.mods.length) {
-        save({ right, mods });
+      const tabs = new Set(spaces().flatMap((s) => s.tabs.map((t) => t.id)));
+      const views = Object.fromEntries(Object.entries(st.views).filter(([id]) => tabs.has(id)));
+      if (Object.keys(right).length !== Object.keys(st.right).length || mods.length !== st.mods.length || Object.keys(views).length !== Object.keys(st.views).length) {
+        save({ right, mods, views });
         st = state();
       }
     }
@@ -242,10 +245,9 @@ export default class Orbit extends View {
       case "drop-pending": return dropPending(cx, space, a.side);
       case "split": return toggleSplit(cx, space);
       case "rename": return renameEntry(a.side, entry(), a.name);
-      case "reorder": return reorderRight(space, a.from, a.to);
       case "view-close": return closePanelView(a.id);
       case "view-rename": return renamePanelView(a.id, a.name);
-      case "view-move": return movePanelView(a.id, a.to);
+      case "tab-drop": return a.side === "panel" ? movePanelView(a.id, a.before) : dropTab(cx, space, a.side, entry(), a.to, a.before ?? null);
       case "view-add": return addPanelView(cx, { title: a.title, mod: a.mod, props: a.props ?? null });
       case "settings": return apply(Object.fromEntries(Object.entries(a).filter(([k]) => ["density", "rounding", "gap", "tabs", "background", "notify", "updates", "opacity"].includes(k))));
     }

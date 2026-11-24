@@ -8,6 +8,9 @@ them, and the look's update card shows them.
 - **A bar for every machine.** cpu, ram and disk in the status bar show a bar for each of your Herdr machines, one over the other: this computer, then the others by name. An offline machine's bar is empty; the tooltip names each.
 - **Smaller meters.** Their bars are shorter (22px, was 34) and sit closer together.
 - **No empty strips in a pane.** What a pane shows touches its outline at the top and the bottom, at every zoom, density and tab row place: no gap as tall as the corners, and no padding above and below a terminal's rows. The sides are as they were.
+- **A steady tab row.** The first tab starts at the pane's own edge, and showing another tab moves only the outline: every icon and name stays where it was.
+- **Smooth corners.** The shown tab's outline and the pane's bottom edge are one line, at every zoom and screen scale.
+- **Drag a tab anywhere.** The tab follows the pointer and leaves a pale ghost; a bar shows where it would land, in its own row or the other pane's. A terminal keeps running when it moves, on another machine too. Escape, or a drop elsewhere, changes nothing.
 
 ## 0.5.4
 

@@ -10,7 +10,7 @@ export const frameOf = (side) => FRAME[side] ?? side;
 
 export function state() {
   const s = shared(KEY) ?? {};
-  return { right: {}, mods: [], shown: {}, last: {}, pending: {}, folded: {}, order: {}, focus: "left", ...s };
+  return { right: {}, mods: [], shown: {}, last: {}, pending: {}, folded: {}, order: {}, views: {}, focus: "left", ...s };
 }
 
 export function termChild(terminal) {
@@ -19,7 +19,16 @@ export function termChild(terminal) {
 
 export function movable(tab, ps = panes()) {
   const mine = ps.filter((p) => p.tab === tab.id);
-  return mine.length === 1 && Boolean(mine[0].terminal) && !mine[0].terminal.includes("/") && !tab.id.includes("/") ? mine[0] : null;
+  return mine.length === 1 && mine[0].terminal ? mine[0] : null;
+}
+
+// Whether a pane's entry can go to the other pane: a terminal alone in its tab
+// (on any machine), or a view orbit opened (it knows its props); the left pane
+// keeps one tab of its own.
+export function crosses(space, side, e, st = state(), ps = panes()) {
+  if (side === "right") return e.kind === "term" || e.kind === "mod";
+  if (e.kind !== "tab" || leftTabs(space, st).length < 2) return false;
+  return Boolean(movable(e.tab, ps) || (e.tab.panes === 1 && st.views?.[e.tab.id]));
 }
 
 export function leftTabs(space, st = state()) {

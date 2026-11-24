@@ -1,7 +1,7 @@
 import { run, spaces, panes, layout, openOverlay, closeOverlay, shared, setShared } from "herdr";
 import { apply } from "./layout.js";
 import { find } from "./look.js";
-import { state, leftTabs, rightEntries, entries, isSplit, entryLabel, movable, termChild, inLayout, LEFT_TAB, PICK, FRAME, frameOf } from "./sides.js";
+import { state, leftTabs, rightEntries, entries, isSplit, entryLabel, movable, crosses, termChild, inLayout, LEFT_TAB, PICK, FRAME, frameOf } from "./sides.js";
 
 export function save(change) {
   const space = "focus" in change ? spaces().find((s) => s.active) : null;
@@ -14,12 +14,51 @@ export function modChild(space, mod, props) {
   return `rm-${h.toString(36)}`;
 }
 
-export function reorderRight(space, from, to, st = state()) {
-  const ids = rightEntries(space, st).filter((e) => e.kind !== "pick").map((e) => e.id);
-  if (from === to || from < 0 || to < 0 || from >= ids.length || to >= ids.length) return;
-  const [id] = ids.splice(from, 1);
-  ids.splice(to, 0, id);
-  save({ order: { ...st.order, [space.id]: ids } });
+// The right pane's order with `id` put before `before` (or last).
+function ordered(space, id, before, st = state()) {
+  const ids = rightEntries(space, st).filter((e) => e.kind !== "pick" && e.id !== id).map((e) => e.id);
+  const at = ids.indexOf(before);
+  ids.splice(at < 0 ? ids.length : at, 0, id);
+  return { ...st.order, [space.id]: ids };
+}
+
+// herdr's place (from 1) for a left tab put before the tab `before`, or after
+// the left pane's last: the tabs shown on the right count too.
+function leftPlace(space, id, before) {
+  const tabs = space.tabs.filter((t) => t.id !== id);
+  const left = new Set(leftTabs(space).filter((t) => t.id !== id).map((t) => t.id));
+  const at = tabs.findIndex((t) => t.id === before && left.has(t.id));
+  return (at >= 0 ? at : tabs.findLastIndex((t) => left.has(t.id)) + 1) + 1;
+}
+
+// A tab dropped in a row, before the entry `before` (null: last).
+export async function dropTab(cx, space, side, e, to, before) {
+  if (!e || e.kind === "pick") return;
+  if (side === to) {
+    if (side === "left") run("tab.move", { id: e.tab.id, index: leftPlace(space, e.tab.id, before) });
+    else save({ order: ordered(space, e.id, before) });
+    return;
+  }
+  if (!crosses(space, side, e)) return;
+  if (to === "right") {
+    const view = e.tab.panes === 1 ? state().views[e.tab.id] : null;
+    if (!view) return move(cx, space, side, e, before);
+    await newMod(cx, space, "right", entryLabel(e), view.mod, view.props ?? null, before);
+    run("tab.close", { id: e.tab.id, confirmed: true });
+    return;
+  }
+  if (e.kind === "term") {
+    const name = state().names?.[e.id];
+    run("tab.move", { id: e.tab.id, index: leftPlace(space, e.tab.id, before) });
+    if (name) run("tab.rename", { id: e.tab.id, name });
+    return move(cx, space, side, e);
+  }
+  const tab = await newMod(cx, space, "left", entryLabel(e), e.mod.mod, e.mod.props ?? null);
+  if (!tab) return;
+  await close(cx, space, "right", e);
+  const now = spaces().find((s) => s.id === space.id) ?? space;
+  run("tab.move", { id: tab, index: leftPlace(now, tab, before) });
+  showLeft(now, { id: tab });
 }
 
 const ASK = "orbit.ask";
@@ -97,17 +136,25 @@ export async function newTerminal(cx, space, side, extra = {}) {
   showRight(activeSpace() ?? space, termChild(pane.terminal));
 }
 
-export async function newMod(cx, space, side, title, mod, props) {
+export async function newMod(cx, space, side, title, mod, props, before = null) {
   const st = state();
   if (st.pending[space.id] === side) await dropPending(cx, space, side, false);
   if (side === "left") {
     save({ focus: "left" });
     run("layout.select", { stack: "left", child: LEFT_TAB });
+    const before = new Set(space.tabs.map((t) => t.id));
     run("tab.new", { space: space.id, name: title, mod, ...(props ? { props } : {}) });
-    return;
+    let tab = null;
+    await until(cx, () => {
+      tab = spaces().find((s) => s.id === space.id)?.tabs.find((t) => !before.has(t.id)) ?? null;
+      return Boolean(tab);
+    });
+    if (tab) save({ views: { ...state().views, [tab.id]: { mod, props: props ?? null } } });
+    return tab?.id ?? null;
   }
   const id = modChild(space.id, mod, props);
   save({ mods: [...state().mods, { id, space: space.id, title, mod, props: props ?? null }], shown: { ...state().shown, [space.id]: id } });
+  if (before) save({ order: ordered(space, id, before) });
   await write(cx, id);
   showRight(space, id);
 }
@@ -247,7 +294,7 @@ export function cancelAsk() {
   setShared(ASK, null);
 }
 
-export async function move(cx, space, side, e) {
+export async function move(cx, space, side, e, before = null) {
   if (!e) return;
   const st = state();
   if (side === "left" && e.kind === "tab") {
@@ -255,6 +302,7 @@ export async function move(cx, space, side, e) {
     if (!pane || leftTabs(space, st).length < 2) return;
     const others = leftTabs(space, st).filter((t) => t.id !== e.tab.id);
     save({ right: { ...st.right, [e.tab.id]: pane.terminal } });
+    save({ order: ordered(space, termChild(pane.terminal), before) });
     run("tab.select", { id: (others.find((t) => t.id === st.last[space.id]) ?? others[0]).id });
     await write(cx, termChild(pane.terminal));
     showRight(space, termChild(pane.terminal));
