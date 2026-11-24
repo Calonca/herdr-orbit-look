@@ -48,6 +48,10 @@ Scenarios:
           in its row and to the other pane's row and back, at the bar's
           place, its terminal the same process; Escape, a drop on the sidebar
           or outside the window: nothing changed, the keys where they were
+  keys    a view that takes keys when asked ("focus"), opened or shown by the
+          person, gets the next real key, in both panes; the outline is on its
+          pane; a press in the left terminal takes the keys back, and nothing
+          that happens by itself does
   identity  a space's colour and symbol come from its repository: the same
           repo at another path (as on another machine), a worktree and its
           main checkout, with or without an origin, look the same; another
@@ -1221,6 +1225,97 @@ def row(ids):
         time.sleep(1)
 
 
+KEY_VIEW = """import { View, div } from "gpui-kit";
+import { props, nextCommand, run, shared, setShared } from "herdr";
+export default class KeyView extends View {
+  init(_p, cx) {
+    this.handle = cx.focus_handle();
+    cx.spawn(async (cx) => { for (;;) { if (await nextCommand() === "focus") { this.handle.focus(); cx.notify(); } await cx.sleep(0); } });
+  }
+  render() {
+    return div().id("key-view").size_full().track_focus(this.handle).on_key_down((e, cx) => {
+      if (e.key === "enter" && props()?.opens) run("orbit.new-mod " + JSON.stringify({ side: "right", title: "opened", mod: "regress-keys-two", props: { who: "opened" } }));
+      setShared("regress.keys", [...(shared("regress.keys") ?? []), [props()?.who, e.key]]);
+      cx.stop_propagation();
+    });
+  }
+}
+"""
+KEY_TERMINAL = "import os, sys, tty\ntty.setraw(0)\nf = open(sys.argv[1], 'ab', 0)\nwhile True:\n    f.write(os.read(0, 100))\n"
+
+
+def keys(ids):
+    """The view just shown has the keys. Each case: one real key, and who got it."""
+    for name in ("regress-keys-one", "regress-keys-two"):
+        os.makedirs(f"{HOME}/mods/{name}", exist_ok=True)
+        open(f"{HOME}/mods/{name}/main.js", "w").write(KEY_VIEW)
+        open(f"{HOME}/mods/{name}/mod.json", "w").write('{ "place": "none" }')
+    log = f"{ROOT}/keys.log"
+    open(log, "w").close()
+    open(f"{ROOT}/keys.py", "w").write(KEY_TERMINAL)
+    letters = iter("bcdefghijklmnopqrstuvwxyz")
+    sides = lambda: shared().get("orbit.sides", {})
+    orbit = lambda what, **args: (do(f"orbit.{what} " + json.dumps(args) if args else f"orbit.{what}"), quiet(0.5))
+    right_id = lambda title: next((m["id"] for m in sides().get("mods", []) if m["title"] == title and m["space"] == a), None)
+
+    def got():
+        return [tuple(k) for k in shared().get("regress.keys") or []] , [("terminal", c) for c in open(log).read()]
+
+    def key_goes(case, side, who, name=None):
+        v, t = got()
+        c = name or next(letters)
+        x("key", c)
+        wait(lambda: got() != (v, t), 0.8)
+        time.sleep(0.1)
+        v2, t2 = got()
+        new = v2[len(v):] + t2[len(t):]
+        check("keys", case, sides().get("focus") == side and new == [(who, (name or c).lower())], f"outline {sides().get('focus')}, got {new}; wanted {side}, {who}")
+
+    a = do("space.new", {"name": "keys", "folder": "/tmp", "argv": ["python3", f"{ROOT}/keys.py", log]}).get("space")
+    select(a)
+    key_goes("the left terminal", "left", "terminal")
+    orbit("new-mod", side="right", title="view", mod="regress-keys-one", props={"who": "view", "opens": True})
+    wait(lambda: right_id("view") and sides().get("focus") == "right", 6)
+    quiet(0.5)
+    key_goes("a view opened on the right", "right", "view")
+    x("key", "Return")
+    wait(lambda: right_id("opened"))
+    quiet(0.5)
+    key_goes("a view opened from it with Enter: Esc", "right", "opened", "Escape")
+    orbit("close")
+    key_goes("closed: the view before", "right", "view")
+    orbit("left-pane")
+    key_goes("the left pane", "left", "terminal")
+    orbit("right-pane")
+    key_goes("the right pane", "right", "view")
+    orbit("new-mod", side="right", title="other", mod="regress-keys-two", props={"who": "other"})
+    key_goes("another view", "right", "other")
+    orbit("prev")
+    key_goes("the tab before", "right", "view")
+    orbit("next")
+    key_goes("the tab after", "right", "other")
+    select(ids["shown"][0])
+    select(a)
+    key_goes("another space and back", "right", "other")
+    place = shared()["orbit.places"]["left-tabs"]
+    click(place["x"] + place["width"] / 2, place["y"] / 2)
+    quiet(0.5)
+    time.sleep(1.5)
+    key_goes("a press in the left terminal, and later", "left", "terminal")
+    orbit("new-mod", space=ids["shown"][0], side="right", title="elsewhere", mod="regress-keys-one", props={"who": "elsewhere"})
+    key_goes("a view opened in another space", "left", "terminal")
+    orbit("new-mod", side="left", title="left view", mod="regress-keys-one", props={"who": "left view"})
+    key_goes("a view opened on the left", "left", "left view")
+    orbit("tab1")
+    key_goes("the left terminal's tab", "left", "terminal")
+    orbit("tab2")
+    key_goes("the left view's tab", "left", "left view")
+    select(ids["shown"][0])
+    select(a)
+    key_goes("another space and back, the left view", "left", "left view")
+    do("space.close", {"id": a, "confirmed": True})
+
+
 def pid_of(term):
     """The shell's own process id, as it prints it."""
     sb("hc", "send", term, "echo pid=$$.")
@@ -1783,7 +1878,7 @@ def update_pill(ids):
     check("update", "Herdr's pill showing: the card above it", c and c["y"] + c["h"] * ZOOM <= herdr_pill() - 4, f"{c} pill top {herdr_pill()}")
 
 
-SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("row", row), ("tabdrag", tabdrag), ("identity", identity), ("settings", settings), ("terminal", terminal), ("padding", padding), ("spacing", spacing), ("toast", toast), ("keep", keep), ("split", split), ("update", update), ("update-pill", update_pill)]
+SCENARIOS = [("popup", popup), ("order", order), ("pin", pin), ("drag", drag), ("symbols", symbols), ("tabs", tabs), ("row", row), ("tabdrag", tabdrag), ("keys", keys), ("identity", identity), ("settings", settings), ("terminal", terminal), ("padding", padding), ("spacing", spacing), ("toast", toast), ("keep", keep), ("split", split), ("update", update), ("update-pill", update_pill)]
 
 
 def main():

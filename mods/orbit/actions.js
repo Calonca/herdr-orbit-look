@@ -79,14 +79,22 @@ async function write(cx, id) {
   if (id) await until(cx, () => inLayout(id));
 }
 
+// Herdr gives a mod view no keys: one the person shows is asked to take them.
+export function giveKeys(e) {
+  const mod = e?.mod?.mod ?? state().views[e?.tab?.id]?.mod;
+  if (mod) run(`${mod}.focus`);
+}
+
 export function showRight(space, id, focusIt = true) {
   const st = state();
-  save({ shown: { ...st.shown, [space.id]: id }, folded: unfold(st, space), focus: "right" });
+  const here = activeSpace()?.id === space.id;
+  save({ shown: { ...st.shown, [space.id]: id }, folded: unfold(st, space), ...(here ? { focus: "right" } : {}) });
   run("layout.show", { id: FRAME.right });
   const L = layout();
   if (find(L, id) && find(L, "right")?.active !== id) run("layout.select", { stack: "right", child: id });
   const e = rightEntries(space).find((x) => x.id === id);
-  if (focusIt && e?.kind === "term") run("pane.focus", { terminal: e.pane.terminal });
+  if (focusIt && here && e?.kind === "term") run("pane.focus", { terminal: e.pane.terminal });
+  if (focusIt && here && e?.kind === "mod") giveKeys(e);
 }
 
 export function showLeft(space, tab) {
@@ -96,6 +104,7 @@ export function showLeft(space, tab) {
   run("tab.select", { id: tab.id });
   const pane = panes().find((p) => p.tab === tab.id);
   if (pane) run("pane.focus", { pane: pane.pane });
+  giveKeys({ tab });
 }
 
 export function show(space, side, e) {
@@ -150,6 +159,7 @@ export async function newMod(cx, space, side, title, mod, props, before = null) 
       return Boolean(tab);
     });
     if (tab) save({ views: { ...state().views, [tab.id]: { mod, props: props ?? null } } });
+    if (tab && activeSpace()?.id === space.id && state().focus === "left") giveKeys({ tab });
     return tab?.id ?? null;
   }
   const id = modChild(space.id, mod, props);
